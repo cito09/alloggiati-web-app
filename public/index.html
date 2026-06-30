@@ -49,7 +49,8 @@
   .guest{border:1px solid var(--line); border-radius:11px; padding:12px; margin-top:10px; background:var(--surface)}
   .ghead{display:flex; justify-content:space-between; align-items:center; gap:8px}
   .gname{font-weight:700; font-size:13.5px}
-  .thumbs{display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; align-items:center}
+  .thumbs{display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; align-items:center; border-radius:10px; transition:outline-color .15s}
+  .thumbs.drag{outline:2px dashed var(--amber); outline-offset:4px}
   .thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:var(--surface2)}
   .thumb img{width:100%; height:100%; object-fit:cover}
   .thumb .rm{position:absolute; top:2px; right:2px; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; line-height:1; cursor:pointer}
@@ -11589,13 +11590,14 @@ function render(){
         <button class="${b.soggiorno==='gruppo'?'on':''}" onclick="setB('${b.id}','soggiorno','gruppo')">Gruppo</button>
       </div>
       <label style="margin-top:12px">Screenshot prenotazione (date)</label>
-      <div class="thumbs" id="bk-${b.id}"></div>
+      <div class="thumbs" id="bk-${b.id}" data-paste-zone="booking:${b.id}"></div>
       <div id="guests-${b.id}"></div>
       <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="addGuest('${b.id}')">+ Aggiungi ospite</button>`;
     root.appendChild(card);
     const bk=card.querySelector('#bk-'+b.id);
     (b.bookingImgs||[]).forEach((im,i)=>bk.appendChild(thumb(im,()=>{b.bookingImgs.splice(i,1);render();})));
-    bk.appendChild(addImgBtn(f=>handleBookingImg(b.id,f)));
+    bk.appendChild(addImgBtn(files=>handleBookingImgs(b.id,files)));
+    wireThumbsDrop(bk,files=>handleBookingImgs(b.id,files));
     if((b.bookingImgs||[]).length){const ex=document.createElement('button');ex.className='btn ghost sm';ex.style.marginLeft='4px';ex.textContent='Estrai date';ex.onclick=()=>extractBooking(b.id);bk.appendChild(ex);}
     const gw=card.querySelector('#guests-'+b.id);
     b.guests.forEach((g,idx)=>gw.appendChild(renderGuest(b,g,idx)));
@@ -11614,7 +11616,13 @@ function render(){
   window.scrollTo(0,scrollY);
 }
 function thumb(src,onRm){const d=document.createElement('div');d.className='thumb';d.innerHTML=`<img src="${src}"><button class="rm">×</button>`;d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
-function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*';i.style.display='none';i.onchange=e=>cb(e.target.files[0]);l.appendChild(i);return l;}
+function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*';i.multiple=true;i.style.display='none';i.onchange=e=>{cb(e.target.files);i.value='';};l.appendChild(i);return l;}
+// drag&drop su un contenitore di miniature (prenotazione o ospite); 'onFiles' riceve la FileList
+function wireThumbsDrop(el,onFiles){
+  ['dragenter','dragover'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.remove('drag');}));
+  el.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)onFiles(e.dataTransfer.files);});
+}
 
 function warnBadge(warn){return warn?` <span class="warn-badge" title="L'AI non è sicura di aver letto bene questo dato: controlla sul documento">⚠ verifica</span>`:'';}
 function taField(label,g,nameKey,codeKey,kind,bad,extra,warn){
@@ -11652,12 +11660,13 @@ function renderGuest(b,g,idx){
   el.innerHTML=`
     <div class="ghead"><span class="gname">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:'Ospite '+(idx+1)} <span class="muted">(${tipo})</span></span>
       <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rmGuest('${b.id}','${g.id}')">×</button></span></div>
-    <div class="thumbs" id="gimg-${g.id}"></div>
+    <div class="thumbs" id="gimg-${g.id}" data-paste-zone="guest:${b.id}:${g.id}"></div>
     <button class="btn ghost sm" style="width:100%" onclick="extractGuest('${b.id}','${g.id}')" ${g._busy?'disabled':''}>${g._busy?'Lettura…':'🔍 Estrai dati dalle foto'}</button>
     <div id="gform-${g.id}"></div>`;
   const gi=el.querySelector('#gimg-'+g.id);
   (g.imgs||[]).forEach((im,i)=>gi.appendChild(thumb(im,()=>{g.imgs.splice(i,1);render();})));
-  gi.appendChild(addImgBtn(f=>handleGuestImg(b.id,g.id,f)));
+  gi.appendChild(addImgBtn(files=>handleGuestImgs(b.id,g.id,files)));
+  wireThumbsDrop(gi,files=>handleGuestImgs(b.id,g.id,files));
 
   if(g.cognome||g.nome||g._touched){
     const bad=built?built.bad:[]; const fb=n=>bad.includes(n)?'field-bad':'';
@@ -11706,8 +11715,9 @@ function rmGuest(bid,gid){const b=getB(bid);b.guests=b.guests.filter(g=>g.id!==g
 function setG(bid,gid,k,v){const g=getG(bid,gid);g[k]=v;g._touched=true;render();}
 
 function fileToDataURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f);});}
-async function handleGuestImg(bid,gid,file){if(!file)return;const u=await fileToDataURL(file);const g=getG(bid,gid);g.imgs=g.imgs||[];g.imgs.push(u);render();}
-async function handleBookingImg(bid,file){if(!file)return;const u=await fileToDataURL(file);const b=getB(bid);b.bookingImgs=b.bookingImgs||[];b.bookingImgs.push(u);render();}
+function onlyImages(files){return [...(files||[])].filter(f=>f&&f.type&&f.type.startsWith('image/'));}
+async function handleGuestImgs(bid,gid,files){const list=onlyImages(files); if(!list.length)return;const g=getG(bid,gid);g.imgs=g.imgs||[];for(const f of list){g.imgs.push(await fileToDataURL(f));}render();}
+async function handleBookingImgs(bid,files){const list=onlyImages(files); if(!list.length)return;const b=getB(bid);b.bookingImgs=b.bookingImgs||[];for(const f of list){b.bookingImgs.push(await fileToDataURL(f));}render();}
 
 /* ===== vision (sempre AI: la lettura MRZ gratuita era inaffidabile su molti documenti) ===== */
 
@@ -11773,10 +11783,12 @@ async function addIntakeFiles(fileList){
   renderIntakeThumbs();
 }
 function setIntakeStatus(html){const s=$('#intakeStatus'); if(s)s.innerHTML=html;}
-function emptyBooking(){
-  let b=bookings.find(x=>!x.guests.length&&!x.arrivo&&!(x.bookingImgs&&x.bookingImgs.length));
-  if(!b){b={id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]};bookings.push(b);}
-  return b;
+// la prenotazione su cui agganciare i nuovi ospiti riconosciuti dall'intake:
+// quella su cui si sta gia' lavorando (l'ultima), non sempre una nuova
+function bookingAttivo(){
+  if(bookings.length) return bookings[bookings.length-1];
+  const b={id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]};
+  bookings.push(b); return b;
 }
 function inferSoggiorno(guests){
   if(guests.length<=1)return 'singolo';
@@ -11788,7 +11800,7 @@ async function runIntake(){
   if(!intakeFiles.length){toast('Aggiungi prima screenshot e foto');return;}
   const btn=$('#intakeBtn'); if(btn)btn.disabled=true;
   const imgs=intakeFiles.slice();
-  const b=emptyBooking();
+  const b=bookingAttivo();
   const newGuests=[];
   try{
     setIntakeStatus(`<span class="spin"></span> Leggo prenotazione e documenti con l'AI…`);
@@ -11813,21 +11825,36 @@ async function runIntake(){
     toast('Riconoscimento non riuscito: '+e.message); console.error(e);
   }finally{ if(btn)btn.disabled=false; }
 }
+// dove va a finire il prossimo "incolla": null = zona principale 'Carica tutto'.
+// si aggiorna cliccando dentro le miniature di un ospite/prenotazione specifici.
+let pasteTarget=null;
+document.addEventListener('click',e=>{
+  const z=e.target.closest('[data-paste-zone]');
+  pasteTarget=z?z.dataset.pasteZone:null;
+});
 function wireDropzone(){
   const dz=$('#dropzone'),inp=$('#dzInput'); if(!dz||!inp)return;
-  dz.onclick=()=>inp.click();
+  dz.onclick=()=>{pasteTarget=null;inp.click();};
   inp.onchange=e=>{addIntakeFiles(e.target.files);inp.value='';};
   ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
   ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
   dz.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)addIntakeFiles(e.dataTransfer.files);});
-  // incolla (Ctrl+V / Cmd+V) uno screenshot copiato negli appunti, da qualsiasi punto della pagina
+  // incolla (Ctrl+V / Cmd+V) uno screenshot copiato negli appunti: va all'ospite/prenotazione
+  // su cui hai cliccato per ultimo, altrimenti alla zona principale 'Carica tutto'
   document.addEventListener('paste',e=>{
     const items=(e.clipboardData&&e.clipboardData.items)||[];
     const files=[...items].filter(it=>it.kind==='file'&&it.type&&it.type.startsWith('image/')).map(it=>it.getAsFile()).filter(Boolean);
     if(!files.length)return;
     e.preventDefault();
-    addIntakeFiles(files);
-    toast(files.length===1?'Immagine incollata':files.length+' immagini incollate');
+    if(pasteTarget&&pasteTarget.startsWith('guest:')){
+      const [,bid,gid]=pasteTarget.split(':');
+      handleGuestImgs(bid,gid,files); toast('Immagine incollata sull\'ospite');
+    }else if(pasteTarget&&pasteTarget.startsWith('booking:')){
+      const [,bid]=pasteTarget.split(':');
+      handleBookingImgs(bid,files); toast('Immagine incollata sulla prenotazione');
+    }else{
+      addIntakeFiles(files); toast(files.length===1?'Immagine incollata':files.length+' immagini incollate');
+    }
   });
 }
 
