@@ -7,6 +7,15 @@ const xmlEsc = (s) =>
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 
+// data 'YYYY-MM-DD' nel fuso orario italiano (non UTC: vicino a mezzanotte sarebbero giorni diversi),
+// con possibilità di andare indietro di N giorni
+function dataItalia(giorniIndietro = 0) {
+  const d = new Date(Date.now() - giorniIndietro * 86400000);
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+  const get = (t) => parts.find((p) => p.type === t).value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 function envelope(inner) {
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -78,9 +87,8 @@ async function sendSchedine({ utente, token, records, mode }) {
   return { action, valide, totali: records.length, righe };
 }
 
-// Ricevuta PDF (base64) per una data (Date | 'YYYY-MM-DD')
-async function ricevuta({ utente, token, data }) {
-  const giorno = typeof data === "string" ? data : new Date(data).toISOString().slice(0, 10);
+// Ricevuta PDF (base64) per una data 'YYYY-MM-DD'
+async function ricevuta({ utente, token, data: giorno }) {
   const inner = `<Ricevuta xmlns="${NS}"><Utente>${xmlEsc(utente)}</Utente><token>${xmlEsc(token)}</token><Data>${giorno}</Data></Ricevuta>`;
   const xml = await soap("Ricevuta", inner);
   const err = oneTag(oneTag(xml, "RicevutaResult") || "", "ErroreDettaglio");
@@ -118,4 +126,4 @@ function getStruttura(id) {
   return s;
 }
 
-module.exports = { generateToken, sendSchedine, ricevuta, getStrutture, getStruttura };
+module.exports = { generateToken, sendSchedine, ricevuta, getStrutture, getStruttura, dataItalia };

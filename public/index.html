@@ -11904,7 +11904,7 @@ async function invia(){
   if(!confirm(`Invio UFFICIALE alla Questura di ${n} schedin${n===1?'a':'e'}. L'operazione è irreversibile. Procedere?`))return;
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
-    showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ricevuta PDF di oggi</button>`);
+    showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ultima ricevuta PDF disponibile</button>`);
     toast(ok?'Schedine inviate':'Inviate con avvisi');}
 }
 async function scaricaRicevuta(){
@@ -11917,7 +11917,7 @@ async function scaricaRicevuta(){
     const bin=atob(data.pdfBase64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
     const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
     const a=document.createElement('a');a.href=url;a.download=`ricevuta_${data.data}.pdf`;a.click();URL.revokeObjectURL(url);
-    toast('Ricevuta scaricata');
+    toast('Ricevuta del '+data.data.split('-').reverse().join('/')+' scaricata');
   }catch(e){toast('Ricevuta: '+e.message);}
 }
 async function loadStrutture(){
