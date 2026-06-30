@@ -103,7 +103,7 @@
     <div class="muted" style="font-size:13px;margin-top:6px">Butta qui <b>lo screenshot della prenotazione</b> e <b>le foto dei documenti</b> di tutti gli ospiti, tutto insieme. Penso io a riconoscere date, tipo soggiorno e i dati di ognuno.</div>
     <div id="dropzone" class="dropzone">
       <div class="dz-big">📷</div>
-      <div class="dz-t">Tocca per scegliere o trascina qui i file</div>
+      <div class="dz-t">Tocca per scegliere, trascina o incolla (Ctrl+V)</div>
       <div class="dz-s">screenshot prenotazione + foto documenti (anche più foto insieme)</div>
       <input id="dzInput" type="file" accept="image/*" multiple style="display:none">
     </div>
@@ -11811,6 +11811,15 @@ function wireDropzone(){
   ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
   ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
   dz.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)addIntakeFiles(e.dataTransfer.files);});
+  // incolla (Ctrl+V / Cmd+V) uno screenshot copiato negli appunti, da qualsiasi punto della pagina
+  document.addEventListener('paste',e=>{
+    const items=(e.clipboardData&&e.clipboardData.items)||[];
+    const files=[...items].filter(it=>it.kind==='file'&&it.type&&it.type.startsWith('image/')).map(it=>it.getAsFile()).filter(Boolean);
+    if(!files.length)return;
+    e.preventDefault();
+    addIntakeFiles(files);
+    toast(files.length===1?'Immagine incollata':files.length+' immagini incollate');
+  });
 }
 
 /* ===== download ===== */
