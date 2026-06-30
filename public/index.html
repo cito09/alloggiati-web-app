@@ -79,6 +79,14 @@
   .spin{display:inline-block; width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:9px 11px; margin-top:10px}
+  .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:14px; padding:26px 16px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface2)}
+  .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
+  .dropzone .dz-big{font-size:30px; line-height:1}
+  .dropzone .dz-t{font-weight:700; margin-top:8px}
+  .dropzone .dz-s{font-size:12px; color:var(--muted); margin-top:4px}
+  .steplbl{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:700; margin:18px 2px 8px}
+  .intake-status{font-size:13px; color:var(--muted); margin-top:10px; min-height:18px}
+  .intake-status .spin{vertical-align:-2px}
 </style>
 </head>
 <body>
@@ -89,8 +97,24 @@
 </header>
 
 <div class="wrap">
+
+  <div class="card" id="intakeCard">
+    <h2><span class="n">1</span> Carica tutto</h2>
+    <div class="muted" style="font-size:13px;margin-top:6px">Butta qui <b>lo screenshot della prenotazione</b> e <b>le foto dei documenti</b> di tutti gli ospiti, tutto insieme. Penso io a riconoscere date, tipo soggiorno e i dati di ognuno.</div>
+    <div id="dropzone" class="dropzone">
+      <div class="dz-big">📷</div>
+      <div class="dz-t">Tocca per scegliere o trascina qui i file</div>
+      <div class="dz-s">screenshot prenotazione + foto documenti (anche più foto insieme)</div>
+      <input id="dzInput" type="file" accept="image/*" multiple style="display:none">
+    </div>
+    <div class="thumbs" id="intakeThumbs" style="margin-top:10px"></div>
+    <button class="btn primary" id="intakeBtn" style="width:100%;margin-top:12px;display:none" onclick="runIntake()">✨ Riconosci tutto</button>
+    <div class="intake-status" id="intakeStatus"></div>
+  </div>
+
+  <div class="steplbl" id="step2lbl" style="display:none">2 · Controlla e correggi</div>
   <div id="bookings"></div>
-  <button class="btn ghost" onclick="addBooking()">+ Aggiungi prenotazione</button>
+  <button class="btn ghost" onclick="addBooking()">+ Aggiungi prenotazione manuale</button>
 
   <div class="card" style="margin-top:14px">
     <h2><span class="n">PS</span> Invio ad Alloggiati Web</h2>
@@ -11548,6 +11572,7 @@ function render(){
     const gw=card.querySelector('#guests-'+b.id);
     b.guests.forEach((g,idx)=>gw.appendChild(renderGuest(b,g,idx)));
   });
+  const lbl=$('#step2lbl'); if(lbl)lbl.style.display=bookings.some(b=>b.guests.length)?'':'none';
   renderPreview();
 }
 function thumb(src,onRm){const d=document.createElement('div');d.className='thumb';d.innerHTML=`<img src="${src}"><button class="rm">×</button>`;d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
@@ -11736,6 +11761,80 @@ async function extractBooking(bid){
   render();
 }
 
+/* ===== Carica tutto (intake unico: screenshot + documenti insieme) ===== */
+let intakeFiles=[];
+function updateIntakeBtn(){const b=$('#intakeBtn'); if(b)b.style.display=intakeFiles.length?'':'none';}
+function renderIntakeThumbs(){
+  const w=$('#intakeThumbs'); if(!w)return; w.innerHTML='';
+  intakeFiles.forEach((u,i)=>w.appendChild(thumb(u,()=>{intakeFiles.splice(i,1);renderIntakeThumbs();})));
+  updateIntakeBtn();
+}
+async function addIntakeFiles(fileList){
+  const files=[...fileList].filter(f=>f&&f.type&&f.type.startsWith('image/'));
+  for(const f of files){const u=await fileToDataURL(f);intakeFiles.push(u);}
+  renderIntakeThumbs();
+}
+function setIntakeStatus(html){const s=$('#intakeStatus'); if(s)s.innerHTML=html;}
+function emptyBooking(){
+  let b=bookings.find(x=>!x.guests.length&&!x.arrivo&&!(x.bookingImgs&&x.bookingImgs.length));
+  if(!b){b={id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]};bookings.push(b);}
+  return b;
+}
+function inferSoggiorno(guests){
+  if(guests.length<=1)return 'singolo';
+  const sur=guests.map(g=>normKey(g.cognome||'')).filter(Boolean);
+  const counts={}; sur.forEach(s=>counts[s]=(counts[s]||0)+1);
+  return Object.values(counts).some(c=>c>=2)?'famiglia':'gruppo';
+}
+async function runIntake(){
+  if(!intakeFiles.length){toast('Aggiungi prima screenshot e foto');return;}
+  const btn=$('#intakeBtn'); if(btn)btn.disabled=true;
+  const imgs=intakeFiles.slice();
+  const b=emptyBooking();
+  const newGuests=[];
+  try{
+    // 1) MRZ gratis su ogni immagine
+    const leftover=[];
+    for(let i=0;i<imgs.length;i++){
+      setIntakeStatus(`<span class="spin"></span> Leggo i documenti… (${i+1}/${imgs.length}, gratis)`);
+      let m=null; try{ m=await tryMRZ([imgs[i]]); }catch(e){ /* OCR non disponibile su questa immagine */ }
+      if(m){const g={id:uid(),_bid:b.id,imgs:[imgs[i]]};applyMRZ(g,m);if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}newGuests.push(g);}
+      else leftover.push(imgs[i]);
+    }
+    // 2) AI in UNA chiamata sui restanti (screenshot prenotazione + documenti senza MRZ)
+    if(leftover.length){
+      setIntakeStatus(`<span class="spin"></span> Leggo prenotazione e documenti restanti con l'AI…`);
+      const j=await apiExtract(leftover,'auto');
+      const pr=j.prenotazione||{};
+      if(pr.data_arrivo)b.arrivo=pr.data_arrivo;
+      if(pr.numero_notti)b.notti=pr.numero_notti;
+      else if(pr.data_arrivo&&pr.data_partenza){const p=s=>{const[d,m,y]=s.split('/').map(Number);return new Date(y,m-1,d);};b.notti=Math.max(1,Math.round((p(pr.data_partenza)-p(pr.data_arrivo))/864e5));}
+      (j.ospiti||[]).forEach(o=>{const g={id:uid(),_bid:b.id,imgs:[]};applyAI(g,o);if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}newGuests.push(g);});
+    }
+    if(!newGuests.length){
+      setIntakeStatus('Nessun documento riconosciuto. Riprova con foto più nitide, oppure compila a mano qui sotto.');
+    }else{
+      b.guests.push(...newGuests);
+      b.soggiorno=inferSoggiorno(b.guests);
+      intakeFiles=[]; renderIntakeThumbs();
+      setIntakeStatus(`✓ Riconosciuti ${newGuests.length} ospit${newGuests.length===1?'e':'i'} · tipo soggiorno: <b>${b.soggiorno}</b>. Controlla qui sotto e conferma.`);
+    }
+    render();
+    if(newGuests.length){const lbl=$('#step2lbl'); if(lbl)lbl.scrollIntoView({behavior:'smooth',block:'start'});}
+  }catch(e){
+    setIntakeStatus('');
+    toast('Riconoscimento non riuscito: '+e.message); console.error(e);
+  }finally{ if(btn)btn.disabled=false; }
+}
+function wireDropzone(){
+  const dz=$('#dropzone'),inp=$('#dzInput'); if(!dz||!inp)return;
+  dz.onclick=()=>inp.click();
+  inp.onchange=e=>{addIntakeFiles(e.target.files);inp.value='';};
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)addIntakeFiles(e.dataTransfer.files);});
+}
+
 /* ===== download ===== */
 function downloadTxt(){
   const recs=allRecords().filter(r=>r.bad.length===0&&r.len===168).map(r=>r.rec);
@@ -11803,6 +11902,7 @@ async function loadStrutture(){
 /* init */
 $('#hsub').textContent=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
 loadStrutture();
+wireDropzone();
 addBooking();
 </script>
 </body>
