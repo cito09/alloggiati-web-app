@@ -43,13 +43,17 @@ const oneTag = (xml, tag) => {
 
 // Genera un token valido a partire dalle credenziali della struttura
 async function generateToken({ utente, password, wskey }) {
+  if (!utente || !password || !wskey) {
+    const mancanti = [!utente && "utente", !password && "password", !wskey && "wskey"].filter(Boolean).join(", ");
+    throw new Error(`GenerateToken: credenziali incomplete per questa struttura (manca: ${mancanti})`);
+  }
   const inner = `<GenerateToken xmlns="${NS}"><Utente>${xmlEsc(utente)}</Utente><Password>${xmlEsc(password)}</Password><WsKey>${xmlEsc(wskey)}</WsKey></GenerateToken>`;
   const xml = await soap("GenerateToken", inner);
-  const err = oneTag(xml, "ErroreDettaglio");
+  const err = oneTag(xml, "ErroreDettaglio") || oneTag(xml, "Errore") || oneTag(xml, "Message");
   if (err && err.trim()) throw new Error(`GenerateToken: ${err}`);
-  const token = oneTag(xml, "token");
-  if (!token) throw new Error("GenerateToken: token non ricevuto");
-  return { token, expires: oneTag(xml, "expires") };
+  const token = oneTag(xml, "token") || oneTag(xml, "Token");
+  if (!token) throw new Error(`GenerateToken: token non ricevuto. Risposta del portale: ${xml.replace(/\s+/g, " ").slice(0, 600)}`);
+  return { token, expires: oneTag(xml, "expires") || oneTag(xml, "Expires") };
 }
 
 // Test (validazione) o Send (invio reale) di un elenco di schedine (righe da 168 char)
