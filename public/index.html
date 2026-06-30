@@ -117,7 +117,6 @@
 
   <div class="steplbl" id="step2lbl" style="display:none">2 · Controlla e correggi</div>
   <div id="bookings"></div>
-  <button class="btn ghost" onclick="addBooking()">+ Aggiungi prenotazione manuale</button>
 
   <div class="card" style="margin-top:14px">
     <h2><span class="n">PS</span> Invio ad Alloggiati Web</h2>
@@ -11578,7 +11577,7 @@ function render(){
     const card=document.createElement('div'); card.className='card';
     card.innerHTML=`
       <div class="bhead"><span class="ttl">📋 Prenotazione</span>
-        <button class="btn ghost sm" onclick="rmBooking('${b.id}')">Elimina</button></div>
+        <button class="btn ghost sm" onclick="rmBooking('${b.id}')">Svuota</button></div>
       <div class="row">
         <div><label>Data arrivo</label><input id="arr-${b.id}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${b.arrivo||''}" oninput="setB('${b.id}','arrivo',this.value)"></div>
         <div><label>Notti (1–30)</label><input id="notti-${b.id}" type="number" min="1" max="30" value="${b.notti||''}" oninput="setB('${b.id}','notti',parseInt(this.value)||0)"></div>
@@ -11708,7 +11707,13 @@ function currentStruttura(){const s=$('#strutturaSel');return s&&s.value?s.value
 const getB=id=>bookings.find(x=>x.id===id);
 const getG=(bid,gid)=>getB(bid).guests.find(x=>x.id===gid);
 function addBooking(){bookings.push({id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]});render();window.scrollTo(0,document.body.scrollHeight);}
-function rmBooking(id){bookings=bookings.filter(b=>b.id!==id);render();}
+function rmBooking(id){
+  const b=getB(id);
+  if(b&&b.guests.length&&!confirm('Svuotare la prenotazione corrente e tutti i suoi ospiti? Non si può annullare.'))return;
+  bookings=bookings.filter(x=>x.id!==id);
+  if(!bookings.length)addBooking();
+  render();
+}
 function setB(id,k,v){getB(id)[k]=v;render();}
 function addGuest(bid){getB(bid).guests.push({id:uid(),_bid:bid,imgs:[]});render();}
 function rmGuest(bid,gid){const b=getB(bid);b.guests=b.guests.filter(g=>g.id!==gid);render();}
