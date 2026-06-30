@@ -51,7 +51,7 @@ module.exports = async (req, res) => {
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 2000, messages: [{ role: "user", content }] }),
+      body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 2000, messages: [{ role: "user", content }] }),
     });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: data?.error?.message || "Errore API" });

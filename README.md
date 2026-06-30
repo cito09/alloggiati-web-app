@@ -7,7 +7,7 @@ Tabelle ufficiali (11.284 comuni, 236 stati, 95 tipi documento) già incorporate
 ## Come funziona
 
 1. **Frontend** (`public/index.html`): interfaccia, costruzione delle schedine e validazione 168 char — tutto lato client.
-2. **`/api/extract`**: lettura con Claude (modello **Haiku 4.5**, economico) di screenshot prenotazione e foto documenti. La chiave API resta lato server.
+2. **`/api/extract`**: lettura con Claude (modello **Sonnet 5**, più preciso) di screenshot prenotazione e foto documenti. La chiave API resta lato server.
 3. **`/api/send`**: `GenerateToken` → `Test` (verifica) o `Send` (invio) verso `Service.asmx`. Credenziali Alloggiati solo lato server.
 4. **`/api/ricevuta`**: scarica la ricevuta PDF firmata.
 
@@ -21,9 +21,9 @@ Le credenziali non passano MAI dal browser: stanno nelle variabili d'ambiente di
 
 ### Lettura documenti
 
-Ogni foto (documento o screenshot prenotazione) passa dall'AI (modello Haiku 4.5). In passato l'app provava prima una lettura gratuita via MRZ (Tesseract.js nel browser), ma si è rivelata spesso imprecisa su nomi e date — quindi ora si usa sempre l'AI, più affidabile.
+Ogni foto (documento o screenshot prenotazione) passa dall'AI (modello Sonnet 5). In passato l'app provava prima una lettura gratuita via MRZ (Tesseract.js nel browser), poi è passata al modello Haiku 4.5 economico, ma su nomi/date composti o documenti meno nitidi serviva più precisione — quindi ora si usa Sonnet 5.
 
-**Costi AI (modello Haiku 4.5):** ~$0,005 per immagine letta. Su ~60 ospiti/mese, sotto $0,40/mese. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio.
+**Costi AI (modello Sonnet 5):** più del precedente Haiku 4.5 (circa 10-15x a parità di immagine), ma resta un costo basso sul volume di questa app: anche con ~60 ospiti/mese il totale è dell'ordine di pochi euro al mese. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio.
 
 ## Deploy su Vercel
 
