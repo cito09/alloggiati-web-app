@@ -11440,6 +11440,15 @@ COMUNI_RAW.split('\n').forEach(l=>{ if(!l)return; const [c,n,p,x]=l.split('\t');
   if(!cur || (cur.x && !e.x)) comuniByName.set(k,e); // preferisci attivo
 });
 const statiByName=new Map(); STATI.forEach(([c,n])=>{const k=normKey(n); if(!statiByName.has(k))statiByName.set(k,{c,n});});
+// alias per varianti comuni (es. quelle restituite dall'AI) che non combaciano alla lettera col nome ufficiale in tabella
+const STATI_ALIASES={'STATI UNITI':"STATI UNITI D'AMERICA",'USA':"STATI UNITI D'AMERICA",'STATI UNITI D AMERICA':"STATI UNITI D'AMERICA",
+  'INGHILTERRA':'REGNO UNITO','GRAN BRETAGNA':'REGNO UNITO','UK':'REGNO UNITO',
+  'OLANDA':'PAESI BASSI','VATICANO':"STATO DELLA CITTA' DEL VATICANO",'CITTA DEL VATICANO':"STATO DELLA CITTA' DEL VATICANO",
+  'COREA':'COREA DEL SUD','RUSSIA':'FEDERAZIONE RUSSA','CECHIA':'REPUBBLICA CECA','EMIRATI ARABI':'EMIRATI ARABI UNITI'};
+Object.entries(STATI_ALIASES).forEach(([alias,nomeUfficiale])=>{
+  const target=statiByName.get(normKey(nomeUfficiale));
+  if(target)statiByName.set(normKey(alias),target);
+});
 const docByName=new Map();  DOCUMENTI.forEach(([c,n])=>docByName.set(normKey(n),{c,n}));
 
 /* ===== util ===== */
@@ -11449,7 +11458,7 @@ function normKey(s){return (s||'').toString().toUpperCase().normalize('NFD').rep
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
 function padR(v,len){v=(v==null?'':String(v));if(v.length>len)v=v.slice(0,len);return v+' '.repeat(len-v.length);}
 function padNum(v,len){v=(v==null?'':String(v)).replace(/\D/g,'');if(v.length>len)v=v.slice(-len);return '0'.repeat(len-v.length)+v;}
-function cleanName(v){return (v||'').replace(/[^A-Za-zÀ-ÿ '’]/g,'').replace(/’/g,"'").slice(0,50);}
+function cleanName(v){return (v||'').replace(/[^A-Za-zÀ-ÿ '’]/g,'').replace(/’/g,"'").slice(0,50).toUpperCase();}
 function cleanDoc(v){return (v||'').replace(/[^A-Za-z0-9.\-/]/g,'').slice(0,20);}
 function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/ /g,'·');}
 
@@ -11485,13 +11494,25 @@ function resolve(g){
   return r;
 }
 
+// data verosimile? evita di accettare anni palesemente sbagliati (es. AI che legge male l'anno)
+function parseGGMMAAAA(s){const m=(s||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); if(!m)return null;
+  const d=new Date(+m[3],+m[2]-1,+m[1]); if(isNaN(d)||d.getDate()!=+m[1]||d.getMonth()!=+m[2]-1)return null; return d;}
+function plausibleArrivo(s){const d=parseGGMMAAAA(s); if(!d)return false;
+  const diffGiorni=(d-new Date())/864e5; return diffGiorni>-400&&diffGiorni<400;}
+function plausibleNascita(s){const d=parseGGMMAAAA(s); if(!d)return false;
+  const now=new Date(); if(d>now)return false;
+  const eta=(now-d)/(365.25*864e5); return eta>=0&&eta<=120;}
+
 function buildRecord(b,g,idx){
   const tipo=tipoAlloggiato(b.soggiorno,idx); const bad=[];
-  const arrivo=(b.arrivo||'').trim(); if(!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo))bad.push('arrivo');
+  const arrivo=(b.arrivo||'').trim();
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo))bad.push('arrivo');
+  else if(!plausibleArrivo(arrivo))bad.push('arrivo');
   const giorni=b.notti||0; if(!giorni||giorni<1||giorni>30)bad.push('notti');
   if(!g.cognome)bad.push('cognome'); if(!g.nome)bad.push('nome');
   if(g.sesso!=='M'&&g.sesso!=='F')bad.push('sesso');
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(g.dataNascita||''))bad.push('nascita');
+  else if(!plausibleNascita(g.dataNascita))bad.push('nascita');
   const rr=resolve(g); bad.push(...rr.bad);
 
   let dTipo='',dNum='',dLuogo='';
@@ -11544,6 +11565,11 @@ function filterComuni(q,lim){ if(!q)return comuni.slice(0,lim).map(c=>({c:c.c,n:
 
 /* ===== render ===== */
 function render(){
+  const active=document.activeElement;
+  const activeId=active&&active.id?active.id:null;
+  const selStart=active&&typeof active.selectionStart==='number'?active.selectionStart:null;
+  const selEnd=active&&typeof active.selectionEnd==='number'?active.selectionEnd:null;
+  const scrollY=window.scrollY;
   const root=$('#bookings'); root.innerHTML='';
   bookings.forEach(b=>{
     const card=document.createElement('div'); card.className='card';
@@ -11551,8 +11577,8 @@ function render(){
       <div class="bhead"><span class="ttl">📋 Prenotazione</span>
         <button class="btn ghost sm" onclick="rmBooking('${b.id}')">Elimina</button></div>
       <div class="row">
-        <div><label>Data arrivo</label><input type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${b.arrivo||''}" oninput="setB('${b.id}','arrivo',this.value)"></div>
-        <div><label>Notti (1–30)</label><input type="number" min="1" max="30" value="${b.notti||''}" oninput="setB('${b.id}','notti',parseInt(this.value)||0)"></div>
+        <div><label>Data arrivo</label><input id="arr-${b.id}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${b.arrivo||''}" oninput="setB('${b.id}','arrivo',this.value)"></div>
+        <div><label>Notti (1–30)</label><input id="notti-${b.id}" type="number" min="1" max="30" value="${b.notti||''}" oninput="setB('${b.id}','notti',parseInt(this.value)||0)"></div>
       </div>
       <label>Tipo soggiorno</label>
       <div class="seg">
@@ -11574,6 +11600,16 @@ function render(){
   });
   const lbl=$('#step2lbl'); if(lbl)lbl.style.display=bookings.some(b=>b.guests.length)?'':'none';
   renderPreview();
+  if(activeId){
+    const el=document.getElementById(activeId);
+    if(el&&typeof el.focus==='function'){
+      el.focus({preventScroll:true});
+      if(selStart!=null&&typeof el.setSelectionRange==='function'){
+        try{el.setSelectionRange(selStart,selEnd);}catch(e){/* input type non supporta selectionRange */}
+      }
+    }
+  }
+  window.scrollTo(0,scrollY);
 }
 function thumb(src,onRm){const d=document.createElement('div');d.className='thumb';d.innerHTML=`<img src="${src}"><button class="rm">×</button>`;d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
 function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*';i.style.display='none';i.onchange=e=>cb(e.target.files[0]);l.appendChild(i);return l;}
@@ -11625,16 +11661,16 @@ function renderGuest(b,g,idx){
     const f=el.querySelector('#gform-'+g.id);
     const doc = hasDoc(tipo)? `
       ${taField('Tipo documento',g,'tipoDoc','tipoDocCode','doc',bad.includes('tipoDoc'))}
-      <label>Numero documento</label><input type="text" class="${fb('numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${b.id}','${g.id}','numeroDoc',this.value)">
+      <label>Numero documento</label><input id="numdoc-${g.id}" type="text" class="${fb('numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${b.id}','${g.id}','numeroDoc',this.value)">
       ${taField('Luogo rilascio (stato o comune)',g,'luogoRilascio','luogoRilascioCode','luogo',bad.includes('luogoRilascio'))}
     ` : '<div class="muted" style="margin-top:8px">Componente gruppo/famiglia: documento non richiesto (34 spazi).</div>';
     f.innerHTML=`
       <div class="row" style="margin-top:10px">
-        <div><label>Cognome</label><input type="text" class="${fb('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
-        <div><label>Nome</label><input type="text" class="${fb('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div></div>
+        <div><label>Cognome</label><input id="cogn-${g.id}" type="text" class="${fb('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
+        <div><label>Nome</label><input id="nome-${g.id}" type="text" class="${fb('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div></div>
       <div class="row3">
-        <div><label>Sesso</label><select class="${fb('sesso')}" onchange="setG('${b.id}','${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
-        <div style="grid-column:span 2"><label>Data nascita</label><input type="text" inputmode="numeric" class="${fb('nascita')}" placeholder="gg/mm/aaaa" value="${g.dataNascita||''}" oninput="setG('${b.id}','${g.id}','dataNascita',this.value)"></div></div>
+        <div><label>Sesso</label><select id="sesso-${g.id}" class="${fb('sesso')}" onchange="setG('${b.id}','${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
+        <div style="grid-column:span 2"><label>Data nascita</label><input id="nasc-${g.id}" type="text" inputmode="numeric" class="${fb('nascita')}" placeholder="gg/mm/aaaa" value="${g.dataNascita||''}" oninput="setG('${b.id}','${g.id}','dataNascita',this.value)"></div></div>
       ${taField('Comune nascita (solo se nato in Italia)',g,'comuneNascita','comuneNascitaCode','comune',false)}
       ${taField('Stato nascita',g,'statoNascita','statoNascitaCode','stato',bad.includes('statoNascita'))}
       ${taField('Cittadinanza',g,'cittadinanza','cittadinanzaCode','stato',bad.includes('cittadinanza'))}

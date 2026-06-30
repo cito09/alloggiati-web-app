@@ -1,23 +1,27 @@
 // api/extract.js — estrazione dati dalle foto (Claude vision, chiave lato server)
 // POST { images: [dataURL|base64...], kind: 'documento'|'prenotazione'|'auto' }
 const CAMPI_OSPITE = `{"cognome":string|null,"nome":string|null,"sesso":"M"|"F"|null,"data_nascita":"gg/mm/aaaa"|null,"comune_nascita":string|null,"stato_nascita":string|null,"cittadinanza":string|null,"tipo_documento":string|null,"numero_documento":string|null,"luogo_rilascio":string|null}`;
-const REGOLE_OSPITE = `date sempre gg/mm/aaaa. Nomi di stati e comuni in ITALIANO MAIUSCOLO (es. ITALIA, GERMANIA, FRANCIA, REGNO UNITO, STATI UNITI, ROMA, MILANO). comune_nascita SOLO se nato in Italia; altrimenti null. stato_nascita sempre. tipo_documento tra: "CARTA DI IDENTITA'","CARTA IDENTITA' ELETTRONICA","PASSAPORTO ORDINARIO","PATENTE DI GUIDA". luogo_rilascio = comune italiano se documento italiano, altrimenti stato emittente. Dato non leggibile = null.`;
+const REGOLE_OSPITE = `date sempre gg/mm/aaaa, ANNO A 4 CIFRE letto con attenzione dal documento (non indovinare, non arrotondare, non confondere con l'anno corrente). Nomi di stati SEMPRE per esteso nella forma ufficiale italiana usata dall'anagrafica della Polizia di Stato (es. "STATI UNITI D'AMERICA" non "Stati Uniti", "REGNO UNITO" non "Inghilterra", "PAESI BASSI" non "Olanda"); nomi di comuni in ITALIANO MAIUSCOLO (es. ROMA, MILANO). comune_nascita SOLO se nato in Italia; altrimenti null. stato_nascita sempre. tipo_documento tra: "CARTA DI IDENTITA'","CARTA IDENTITA' ELETTRONICA","PASSAPORTO ORDINARIO","PATENTE DI GUIDA". luogo_rilascio = comune italiano se documento italiano, altrimenti stato emittente. Dato non leggibile = null.`;
 
 const PROMPT_DOC = `Sei un estrattore dati per la schedina italiana Alloggiati Web. Dalle immagini del documento d'identità estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
 ${CAMPI_OSPITE}
 Regole: ${REGOLE_OSPITE}`;
 
-const PROMPT_BOOKING = `Dallo screenshot di una prenotazione estrai le date. Rispondi SOLO con JSON: {"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null}. Se vedi check-in e check-out calcola le notti come differenza.`;
+function promptBooking(oggi) {
+  return `Oggi è ${oggi}. Dallo screenshot di una prenotazione estrai le date di un soggiorno futuro o recente (vicino a oggi). Rispondi SOLO con JSON: {"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null}. Se vedi check-in e check-out calcola le notti come differenza. Se l'anno non è scritto esplicitamente nello screenshot, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date del soggiorno: NON usare mai un anno passato a caso, e non confondere l'anno con quello di altre cifre presenti nello screenshot.`;
+}
 
 // 'auto': riceve immagini MISTE (screenshot prenotazione + foto documenti) e le separa da solo.
-const PROMPT_AUTO = `Ricevi una o più immagini che possono essere di due tipi: (a) screenshot di una prenotazione (Airbnb, Booking, ecc.) oppure (b) foto di documenti d'identità (passaporto, carta d'identità, patente). Classifica ogni immagine ed estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
+function promptAuto(oggi) {
+  return `Oggi è ${oggi}. Ricevi una o più immagini che possono essere di due tipi: (a) screenshot di una prenotazione (Airbnb, Booking, ecc.) oppure (b) foto di documenti d'identità (passaporto, carta d'identità, patente). Classifica ogni immagine ed estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
 {"prenotazione":{"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null},"ospiti":[${CAMPI_OSPITE}]}
 Regole:
 - "ospiti": UNA voce per ogni DOCUMENTO d'identità. NON creare ospiti dagli screenshot di prenotazione (i nomi nello screenshot NON sono ospiti).
 - Se due foto sono fronte/retro o due pagine dello STESSO documento, sono UN solo ospite.
-- "prenotazione": ricava le date dallo screenshot; se vedi check-in e check-out calcola numero_notti come differenza. Se non c'è nessuno screenshot, metti i campi a null.
+- "prenotazione": ricava le date dallo screenshot, un soggiorno futuro o recente (vicino a oggi). Se vedi check-in e check-out calcola numero_notti come differenza. Se l'anno non è scritto esplicitamente, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date: NON usare mai un anno passato a caso. Se non c'è nessuno screenshot, metti i campi a null.
 - Se non ci sono documenti, "ospiti": [].
-- Per ogni ospite: ${REGOLE_OSPITE}`;
+- Per ogni ospite (data di nascita: leggi l'anno con attenzione dal documento, può essere molto nel passato, va bene così): ${REGOLE_OSPITE}`;
+}
 
 function toBlock(d) {
   const media = (d.match(/^data:(.*?);base64,/) || [])[1] || "image/jpeg";
@@ -33,7 +37,8 @@ module.exports = async (req, res) => {
     const { images = [], kind = "documento" } = req.body || {};
     if (!images.length) return res.status(400).json({ error: "Nessuna immagine" });
     const content = images.map(toBlock);
-    const prompt = kind === "prenotazione" ? PROMPT_BOOKING : kind === "auto" ? PROMPT_AUTO : PROMPT_DOC;
+    const oggi = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi) : PROMPT_DOC;
     content.push({ type: "text", text: prompt });
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
