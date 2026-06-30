@@ -23,7 +23,7 @@ Le credenziali non passano MAI dal browser: stanno nelle variabili d'ambiente di
 
 Ogni foto (documento o screenshot prenotazione) passa dall'AI (modello Sonnet 5). In passato l'app provava prima una lettura gratuita via MRZ (Tesseract.js nel browser), poi è passata al modello Haiku 4.5 economico, ma su nomi/date composti o documenti meno nitidi serviva più precisione — quindi ora si usa Sonnet 5.
 
-**Costi AI (modello Sonnet 5):** più del precedente Haiku 4.5 (circa 10-15x a parità di immagine), ma resta un costo basso sul volume di questa app: anche con ~60 ospiti/mese il totale è dell'ordine di pochi euro al mese. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio.
+**Costi AI (modello Sonnet 5):** circa il doppio del precedente Haiku 4.5 a parità di immagine (~$0,01 per foto invece di ~$0,005). Su ~60 ospiti/mese, sotto 1€/mese totale. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio.
 
 ## Deploy su Vercel
 
