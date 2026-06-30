@@ -11704,51 +11704,7 @@ function fileToDataURL(f){return new Promise((res,rej)=>{const r=new FileReader(
 async function handleGuestImg(bid,gid,file){if(!file)return;const u=await fileToDataURL(file);const g=getG(bid,gid);g.imgs=g.imgs||[];g.imgs.push(u);render();}
 async function handleBookingImg(bid,file){if(!file)return;const u=await fileToDataURL(file);const b=getB(bid);b.bookingImgs=b.bookingImgs||[];b.bookingImgs.push(u);render();}
 
-/* ===== vision ===== */
-/* ===== MRZ — lettura gratuita di passaporti/CIE (OCR nel browser) ===== */
-const ALPHA3 = {"ITA":"100000100","DEU":"100000216","FRA":"100000215","GBR":"100000219","ESP":"100000239","USA":"100000536","CHE":"100000241","AUT":"100000203","NLD":"100000232","BEL":"100000206","PRT":"100000234","POL":"100000233","CZE":"100000257","SVK":"100000255","SVN":"100000251","HRV":"100000250","HUN":"100000244","ROU":"100000235","BGR":"100000209","GRC":"100000220","SWE":"100000240","DNK":"100000212","NOR":"100000231","FIN":"100000214","ISL":"100000223","IRL":"100000221","LUX":"100000226","MLT":"100000227","CYP":"100000315","EST":"100000247","LVA":"100000248","LTU":"100000249","UKR":"100000243","RUS":"100000245","BLR":"100000256","SRB":"100001000","BIH":"100000252","ALB":"100000201","MKD":"100000997","MNE":"100001001","TUR":"100000351","MDA":"100000254","CHN":"100000314","JPN":"100000326","KOR":"100000320","IND":"100000330","IDN":"100000331","THA":"100000349","VNM":"100000353","PHL":"100000323","MYS":"100000767","SGP":"100000346","PAK":"100000344","BGD":"100000305","LKA":"100000311","ISR":"100000334","SAU":"100000302","ARE":"100000322","QAT":"100000345","LBN":"100000337","JOR":"100000327","IRN":"100000332","IRQ":"100000333","EGY":"100000419","MAR":"100000436","TUN":"100000460","DZA":"100000401","LBY":"100000431","NGA":"100000443","GHA":"100000423","SEN":"100000450","CIV":"100000404","KEN":"100000428","ETH":"100000420","ZAF":"100000454","CAN":"100000509","MEX":"100000527","BRA":"100000605","ARG":"100000602","CHL":"100000606","COL":"100000608","PER":"100000615","VEN":"100000619","URY":"100000618","ECU":"100000609","BOL":"100000604","CUB":"100000514","DOM":"100000516","AUS":"100000701","NZL":"100000719","AND":"100000202","MCO":"100000229","SMR":"100000236","LIE":"100000225","GEO":"100000360","ARM":"100000358","AZE":"100000359","KAZ":"100000356","TWN":"100000363","HKG":"110000005"};
-const statoNameByCode={}; STATI.forEach(([c,n])=>{statoNameByCode[c]=n;});
-function a3ToStato(a3){const code=ALPHA3[a3];return code?{code,name:statoNameByCode[code]||a3}:null;}
-let _tess=null;
-async function getTess(){
-  if(_tess)return _tess;
-  if(!window.Tesseract){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=res;s.onerror=()=>rej(new Error('Tesseract non disponibile'));document.head.appendChild(s);});}
-  _tess=await window.Tesseract.createWorker('eng');
-  await _tess.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<',tessedit_pageseg_mode:'6'});
-  return _tess;
-}
-async function ocrText(dataURL){const w=await getTess();const{data}=await w.recognize(dataURL);return data.text||'';}
-const cll=l=>l.toUpperCase().replace(/\s/g,'').replace(/[^A-Z0-9<]/g,'');
-function mrzName(f){const p=f.split('<<');return{surname:(p[0]||'').replace(/</g,' ').trim(),given:(p[1]||'').replace(/</g,' ').trim()};}
-function mrzDate(s){if(!/^\d{6}$/.test(s))return'';const yy=+s.slice(0,2),mm=s.slice(2,4),dd=s.slice(4,6);if(+mm<1||+mm>12||+dd<1||+dd>31)return'';const cy=new Date().getFullYear()%100;const y=yy<=cy?2000+yy:1900+yy;return `${dd}/${mm}/${y}`;}
-function parseMRZ(raw){
-  const lines=raw.split(/\n/).map(cll).filter(l=>l.length>=28&&l.includes('<'));
-  const l44=lines.filter(l=>l.length>=42&&l.length<=46);
-  if(l44.length>=2){const a=l44[0].padEnd(44,'<'),b=l44[1].padEnd(44,'<');return{kind:'TD3',...mrzName(a.substr(5)),issuing:a.substr(2,3).replace(/</g,''),docNo:b.substr(0,9).replace(/</g,''),nat:b.substr(10,3).replace(/</g,''),dob:mrzDate(b.substr(13,6)),sex:b.substr(20,1)};}
-  const l30=lines.filter(l=>l.length>=28&&l.length<=32);
-  if(l30.length>=3){const a=l30[0].padEnd(30,'<'),b=l30[1].padEnd(30,'<'),c=l30[2].padEnd(30,'<');return{kind:'TD1',...mrzName(c),issuing:a.substr(2,3).replace(/</g,''),docNo:a.substr(5,9).replace(/</g,''),nat:b.substr(15,3).replace(/</g,''),dob:mrzDate(b.substr(0,6)),sex:b.substr(7,1)};}
-  return null;
-}
-function applyMRZ(g,m){
-  if(m.surname)g.cognome=m.surname;
-  if(m.given)g.nome=m.given;
-  if(m.sex==='M'||m.sex==='F')g.sesso=m.sex;
-  if(m.dob)g.dataNascita=m.dob;
-  if(m.docNo)g.numeroDoc=m.docNo;
-  if(m.kind==='TD3'){g.tipoDoc='PASSAPORTO ORDINARIO';g.tipoDocCode='PASOR';}else{g.tipoDoc="CARTA DI IDENTITA'";g.tipoDocCode='IDENT';}
-  const nat=a3ToStato(m.nat);
-  if(nat){g.cittadinanza=nat.name;g.cittadinanzaCode=nat.code;
-    if(m.nat!=='ITA'){g.statoNascita=nat.name;g.statoNascitaCode=nat.code;g.comuneNascita='';g.comuneNascitaCode=null;}}
-  const iss=a3ToStato(m.issuing);
-  if(iss&&m.issuing!=='ITA'){g.luogoRilascio=iss.name;g.luogoRilascioCode=iss.code;}
-  g._touched=true;
-}
-async function tryMRZ(images){
-  let anyOcr=false,lastErr=null;
-  for(const im of images){try{const t=await ocrText(im);anyOcr=true;const m=parseMRZ(t);if(m&&m.surname&&(m.dob||m.docNo))return m;}catch(e){lastErr=e;}}
-  if(!anyOcr&&lastErr)throw lastErr;
-  return null;
-}
+/* ===== vision (sempre AI: la lettura MRZ gratuita era inaffidabile su molti documenti) ===== */
 
 // riduce l'immagine prima dell'upload (lato server + payload più leggero)
 function downscale(dataURL,max=1600,q=0.82){return new Promise(res=>{const img=new Image();
@@ -11777,10 +11733,7 @@ async function extractGuest(bid,gid){
   const g=getG(bid,gid); if(!g.imgs||!g.imgs.length){toast('Aggiungi prima una foto');return;}
   g._busy=true;render();
   try{
-    let mrz=null, mrzErr=false;
-    try{ mrz=await tryMRZ(g.imgs); }catch(e){ mrzErr=true; console.warn('MRZ off:',e.message); }
-    if(mrz){ applyMRZ(g,mrz); toast('Letto da MRZ — gratis ✓'); }
-    else{ const j=await apiExtract(g.imgs,'documento'); applyAI(g,j); toast(mrzErr?'MRZ non disponibile — letto con AI':'Nessun MRZ — letto con AI'); }
+    const j=await apiExtract(g.imgs,'documento'); applyAI(g,j); toast('Letto con AI');
     if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}
   }catch(e){toast('Estrazione non riuscita: '+e.message);console.error(e);}
   g._busy=false;render();
@@ -11829,24 +11782,13 @@ async function runIntake(){
   const b=emptyBooking();
   const newGuests=[];
   try{
-    // 1) MRZ gratis su ogni immagine
-    const leftover=[];
-    for(let i=0;i<imgs.length;i++){
-      setIntakeStatus(`<span class="spin"></span> Leggo i documenti… (${i+1}/${imgs.length}, gratis)`);
-      let m=null; try{ m=await tryMRZ([imgs[i]]); }catch(e){ /* OCR non disponibile su questa immagine */ }
-      if(m){const g={id:uid(),_bid:b.id,imgs:[imgs[i]]};applyMRZ(g,m);if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}newGuests.push(g);}
-      else leftover.push(imgs[i]);
-    }
-    // 2) AI in UNA chiamata sui restanti (screenshot prenotazione + documenti senza MRZ)
-    if(leftover.length){
-      setIntakeStatus(`<span class="spin"></span> Leggo prenotazione e documenti restanti con l'AI…`);
-      const j=await apiExtract(leftover,'auto');
-      const pr=j.prenotazione||{};
-      if(pr.data_arrivo)b.arrivo=pr.data_arrivo;
-      if(pr.numero_notti)b.notti=pr.numero_notti;
-      else if(pr.data_arrivo&&pr.data_partenza){const p=s=>{const[d,m,y]=s.split('/').map(Number);return new Date(y,m-1,d);};b.notti=Math.max(1,Math.round((p(pr.data_partenza)-p(pr.data_arrivo))/864e5));}
-      (j.ospiti||[]).forEach(o=>{const g={id:uid(),_bid:b.id,imgs:[]};applyAI(g,o);if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}newGuests.push(g);});
-    }
+    setIntakeStatus(`<span class="spin"></span> Leggo prenotazione e documenti con l'AI…`);
+    const j=await apiExtract(imgs,'auto');
+    const pr=j.prenotazione||{};
+    if(pr.data_arrivo)b.arrivo=pr.data_arrivo;
+    if(pr.numero_notti)b.notti=pr.numero_notti;
+    else if(pr.data_arrivo&&pr.data_partenza){const p=s=>{const[d,m,y]=s.split('/').map(Number);return new Date(y,m-1,d);};b.notti=Math.max(1,Math.round((p(pr.data_partenza)-p(pr.data_arrivo))/864e5));}
+    (j.ospiti||[]).forEach(o=>{const g={id:uid(),_bid:b.id,imgs:[]};applyAI(g,o);if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}newGuests.push(g);});
     if(!newGuests.length){
       setIntakeStatus('Nessun documento riconosciuto. Riprova con foto più nitide, oppure compila a mano qui sotto.');
     }else{

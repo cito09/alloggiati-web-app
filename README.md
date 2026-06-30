@@ -7,7 +7,7 @@ Tabelle ufficiali (11.284 comuni, 236 stati, 95 tipi documento) già incorporate
 ## Come funziona
 
 1. **Frontend** (`public/index.html`): interfaccia, costruzione delle schedine e validazione 168 char — tutto lato client.
-2. **`/api/extract`**: fallback di lettura con Claude (modello **Haiku 4.5**, economico) quando il documento non ha MRZ. La chiave API resta lato server.
+2. **`/api/extract`**: lettura con Claude (modello **Haiku 4.5**, economico) di screenshot prenotazione e foto documenti. La chiave API resta lato server.
 3. **`/api/send`**: `GenerateToken` → `Test` (verifica) o `Send` (invio) verso `Service.asmx`. Credenziali Alloggiati solo lato server.
 4. **`/api/ricevuta`**: scarica la ricevuta PDF firmata.
 
@@ -17,13 +17,13 @@ Le credenziali non passano MAI dal browser: stanno nelle variabili d'ambiente di
 
 - Account **Alloggiati Web** attivo (utente + password + codici).
 - **WSKey** generata nel portale: profilo in alto a destra → *Chiave Web Service* → *Genera Nuovo Codice*. Nota: a ogni cambio password va rigenerata; se ne può generare una al giorno.
-- Una **API key Anthropic**, usata solo come fallback quando un documento non ha l'MRZ.
+- Una **API key Anthropic**, usata per leggere foto documenti e screenshot prenotazione.
 
-### Lettura gratuita (MRZ) vs AI
+### Lettura documenti
 
-Passaporti e carte d'identità elettroniche hanno in fondo la zona a lettura ottica (le righe con i `<<<`). L'app la legge **nel browser con Tesseract.js, a costo zero** (nessuna chiamata API). Copre la gran parte degli ospiti stranieri. Solo per i documenti senza MRZ (alcune carte cartacee, patenti) si usa l'AI come fallback.
+Ogni foto (documento o screenshot prenotazione) passa dall'AI (modello Haiku 4.5). In passato l'app provava prima una lettura gratuita via MRZ (Tesseract.js nel browser), ma si è rivelata spesso imprecisa su nomi e date — quindi ora si usa sempre l'AI, più affidabile.
 
-**Costi AI (solo fallback, modello Haiku 4.5):** ~$0,005 per ospite. Su ~60 ospiti/mese, sotto $0,40/mese. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio. Per nazionalità non mappate dall'MRZ il campo resta da scegliere dal menù (è incluso un set di 100 paesi).
+**Costi AI (modello Haiku 4.5):** ~$0,005 per immagine letta. Su ~60 ospiti/mese, sotto $0,40/mese. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio.
 
 ## Deploy su Vercel
 
