@@ -1,0 +1,7 @@
+{
+  "name": "schedine-alloggiati",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Foto documenti -> schedine Alloggiati Web, con invio diretto al web service della Polizia di Stato",
+  "engines": { "node": ">=18" }
+}
