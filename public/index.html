@@ -68,6 +68,13 @@
   .code-badge.miss{color:var(--err)}
   .recline{font-family:var(--mono); font-size:11px; background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; overflow-x:auto; white-space:pre; margin-top:8px; color:#cfe0f0}
   .reclen{font-family:var(--mono); font-size:11px; font-weight:700; float:right; margin-left:8px}
+  .rec-card{background:var(--surface2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-top:10px}
+  .rec-summary{display:flex; flex-direction:column; gap:4px}
+  .rec-row{display:flex; justify-content:space-between; gap:10px; font-size:13px}
+  .rec-k{color:var(--muted); flex-shrink:0}
+  .rec-v{text-align:right; font-weight:600}
+  .rec-raw{margin-top:8px}
+  .rec-raw summary{font-size:11px; color:var(--muted); cursor:pointer}
   .reclen.ok{color:var(--ok)} .reclen.err{color:var(--err)}
   .field-bad{outline:2px solid var(--err)!important; border-color:var(--err)!important}
   .field-warn{outline:2px solid var(--amber)!important; border-color:var(--amber)!important}
@@ -11469,6 +11476,14 @@ Object.entries(STATI_ALIASES).forEach(([alias,nomeUfficiale])=>{
 });
 const docByName=new Map();  DOCUMENTI.forEach(([c,n])=>docByName.set(normKey(n),{c,n}));
 
+/* mappe inverse codice -> nome, usate per mostrare in chiaro il contenuto di una schedina gia' costruita */
+const comuneByCode=new Map(); comuni.forEach(e=>{ if(!comuneByCode.has(e.c))comuneByCode.set(e.c,e); });
+const statoNameByCode=new Map(); STATI.forEach(([c,n])=>{ if(!statoNameByCode.has(c))statoNameByCode.set(c,n); });
+const docNameByCode=new Map(); DOCUMENTI.forEach(([c,n])=>{ if(!docNameByCode.has(c))docNameByCode.set(c,n); });
+function nomeStato(code){ return code?(statoNameByCode.get(code)||code):''; }
+function nomeComuneOStato(code){ if(!code)return ''; const com=comuneByCode.get(code); if(com)return com.n; return nomeStato(code); }
+function nomeDoc(code){ return code?(docNameByCode.get(code)||code):''; }
+
 /* ===== util ===== */
 const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -11558,7 +11573,12 @@ function renderStorico(){
     const aperto=storicoAperto.has(e.ts);
     const dettaglio=(e.records&&e.records.length)?`
       <button class="btn ghost sm" style="width:100%;margin-top:6px" onclick="toggleStoricoDettaglio(${e.ts})">${aperto?'▲ Nascondi dettaglio':'🔍 Dettaglio schedine'}</button>
-      ${aperto?`<div style="margin-top:6px">${e.records.map(r=>`<div class="recline"><span class="reclen ${r.length===168?'ok':'err'}">${r.length}/168</span>${escapeHtml(r)}</div>`).join('')}</div>`:''}
+      ${aperto?e.records.map(r=>`<div class="rec-card">
+        ${recSummary(r)}
+        <details class="rec-raw"><summary>Codice tecnico (168 caratteri)</summary>
+          <div class="recline"><span class="reclen ${r.length===168?'ok':'err'}">${r.length}/168</span>${escapeHtml(r)}</div>
+        </details>
+      </div>`).join(''):''}
     `:'';
     return `<div class="storico-item">
       <div class="storico-head"><span>${escText(quando)}</span>
@@ -11799,7 +11819,47 @@ function renderGuest(b,g,idx){
   }
   return el;
 }
-function recLine(b){const cls=b.len===168?'ok':'err';return `<div class="recline"><span class="reclen ${cls}">${b.len}/168</span>${escapeHtml(b.rec)}</div>`;}
+/* decodifica una riga da 168 caratteri gia' costruita in dati leggibili (usato sia nell'anteprima live che nello storico) */
+function parseRecord(rec){
+  const s=(a,z)=>rec.slice(a,z).trim();
+  const tipo=s(0,2);
+  const tipoLabel={'16':'Singolo','17':'Capofamiglia','18':'Capogruppo','19':'Familiare','20':'Membro gruppo'}[tipo]||tipo;
+  const sessoRaw=s(94,95); const sesso=sessoRaw==='1'?'M':(sessoRaw==='2'?'F':'');
+  const comuneCode=s(105,114); const statoCode=s(116,125);
+  const luogoRilascioCode=s(159,168);
+  return {
+    tipo, tipoLabel,
+    arrivo:s(2,12), notti:parseInt(s(12,14),10)||0,
+    cognome:s(14,64), nome:s(64,94),
+    sesso, nascita:s(95,105),
+    nascitaLuogo: comuneCode?nomeComuneOStato(comuneCode):nomeStato(statoCode),
+    cittadinanza: nomeStato(s(125,134)),
+    tipoDoc: nomeDoc(s(134,139)),
+    numeroDoc: s(139,159),
+    luogoRilascio: luogoRilascioCode?nomeComuneOStato(luogoRilascioCode):'',
+  };
+}
+function recSummary(rec){
+  const p=parseRecord(rec);
+  const righe=[
+    ['Tipo', p.tipoLabel],
+    ['Arrivo', [p.arrivo, p.notti?`${p.notti} nott${p.notti===1?'e':'i'}`:''].filter(Boolean).join(' · ')],
+    ['Ospite', [p.cognome,p.nome].filter(Boolean).join(' ')],
+    ['Sesso / nascita', [p.sesso,p.nascita].filter(Boolean).join(' · ')],
+    ['Nato a', p.nascitaLuogo],
+    ['Cittadinanza', p.cittadinanza],
+    ['Documento', [p.tipoDoc,p.numeroDoc].filter(Boolean).join(' · ')],
+    ['Rilasciato a', p.luogoRilascio],
+  ].filter(([,v])=>v);
+  return `<div class="rec-summary">${righe.map(([k,v])=>`<div class="rec-row"><span class="rec-k">${escText(k)}</span><span class="rec-v">${escText(v)}</span></div>`).join('')}</div>`;
+}
+function recLine(b){const cls=b.len===168?'ok':'err';
+  return `<div class="rec-card">
+    ${recSummary(b.rec)}
+    <details class="rec-raw"><summary>Codice tecnico (168 caratteri)</summary>
+      <div class="recline"><span class="reclen ${cls}">${b.len}/168</span>${escapeHtml(b.rec)}</div>
+    </details>
+  </div>`;}
 
 function allRecords(){const out=[];bookings.forEach(b=>b.guests.forEach((g,idx)=>{if(g.cognome||g.nome)out.push(buildRecord(b,g,idx));}));return out;}
 function renderPreview(){const recs=allRecords();const w=$('#previewWrap');const valid=recs.filter(r=>r.bad.length===0&&r.len===168);
