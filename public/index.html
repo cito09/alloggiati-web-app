@@ -19,9 +19,12 @@
     padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
   header{position:sticky; top:0; z-index:20; background:rgba(13,27,42,.92); backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line); padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top));}
-  header .eyebrow{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--amber); font-weight:700}
-  header h1{margin:2px 0 0; font-size:20px; font-weight:700; letter-spacing:-.01em}
-  header .sub{font-size:12.5px; color:var(--muted); margin-top:2px}
+  header .eyebrow{display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--amber); font-weight:700; background:rgba(255,183,3,.12); border:1px solid rgba(255,183,3,.35);
+    border-radius:999px; padding:4px 11px}
+  header h1{margin:10px 0 0; font-size:22px; font-weight:800; letter-spacing:-.02em}
+  header .sub{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ok); margin-top:5px; font-weight:600}
+  header .sub .dot{width:6px; height:6px; border-radius:50%; background:var(--ok); flex-shrink:0}
   .wrap{max-width:680px; margin:0 auto; padding:16px}
   .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px}
   .card h2{margin:0 0 12px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
@@ -111,9 +114,9 @@
 </head>
 <body>
 <header>
-  <div class="eyebrow">Polizia di Stato · Alloggiati Web · 168 caratteri</div>
+  <div class="eyebrow">🛡️ Polizia di Stato</div>
   <h1>Schedine → Alloggiati Web</h1>
-  <div class="sub" id="hsub">Foto documenti → invio diretto ad Alloggiati Web</div>
+  <div class="sub" id="hsub"><span class="dot"></span><span id="hsubText">Tabelle ufficiali caricate</span></div>
 </header>
 
 <div class="wrap">
@@ -12108,7 +12111,7 @@ async function loadStrutture(){
 }
 
 /* init */
-$('#hsub').textContent=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
+$('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
 loadStrutture();
 wireDropzone();
 renderStorico();
