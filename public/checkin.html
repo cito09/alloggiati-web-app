@@ -59,6 +59,8 @@
   .ok-screen .big{font-size:44px}
   .warn-badge{font-size:10px; color:var(--amber); margin-left:6px; font-weight:700}
   .field-warn{outline:2px solid var(--amber)!important; border-color:var(--amber)!important}
+  .steplbl{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--amber); font-weight:700; margin:14px 0 8px}
+  .steplbl:first-child{margin-top:0}
 </style>
 </head>
 <body>
@@ -147,37 +149,50 @@ function warnBadge(g,k){ return (g._warn||[]).includes(k) ? ' <span class="warn-
 function fw(g,k){ return (g._warn||[]).includes(k) ? 'field-warn' : ''; }
 
 function render(){
+  const active=document.activeElement;
+  const activeId=active&&active.id?active.id:null;
+  const selStart=active&&typeof active.selectionStart==='number'?active.selectionStart:null;
+  const selEnd=active&&typeof active.selectionEnd==='number'?active.selectionEnd:null;
+  const scrollY=window.scrollY;
+
   const root=$('#guests'); root.innerHTML='';
   guests.forEach((g,idx)=>{
     const el=document.createElement('div'); el.className='guest';
-    el.innerHTML=`
-      <div class="ghead"><span class="gname">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:'Ospite '+(idx+1)}</span>
-        ${guests.length>1?`<button class="btn ghost sm" onclick="rmGuest('${g.id}')">×</button>`:''}</div>
-      <div class="thumbs" id="gimg-${g.id}"></div>
-      <button class="btn ghost sm" style="width:100%" onclick="estraiDati('${g.id}')" ${g._busy?'disabled':''}>${g._busy?'<span class="spin"></span> Lettura…':'🔍 Estrai dati dal documento'}</button>
+    const haFoto=(g.imgs||[]).length>0;
+    const campi=!haFoto?`<div class="muted" style="margin-top:10px">📷 Carica prima la foto del documento per continuare.</div>`:`
+      <div class="steplbl">2 · Verifica i tuoi dati</div>
+      <div class="hint">Controlla che i dati siano stati letti correttamente dal documento e correggi quelli sbagliati o mancanti.</div>
       <div class="row" style="margin-top:10px">
-        <div><label>Cognome${warnBadge(g,'cognome')}</label><input type="text" class="${fw(g,'cognome')}" value="${g.cognome||''}" oninput="setG('${g.id}','cognome',this.value)"></div>
-        <div><label>Nome${warnBadge(g,'nome')}</label><input type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
+        <div><label>Cognome${warnBadge(g,'cognome')}</label><input id="cogn-${g.id}" type="text" class="${fw(g,'cognome')}" value="${g.cognome||''}" oninput="setG('${g.id}','cognome',this.value)"></div>
+        <div><label>Nome${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
       </div>
       <div class="row">
-        <div><label>Sesso${warnBadge(g,'sesso')}</label><select class="${fw(g,'sesso')}" onchange="setG('${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
-        <div><label>Data di nascita${warnBadge(g,'dataNascita')}</label><div class="datepick"><input type="date" class="${fw(g,'dataNascita')}" value="${italianToIso(g.dataNascita)}" onchange="setG('${g.id}','dataNascita',dateToItalian(this.value))"></div></div>
+        <div><label>Sesso${warnBadge(g,'sesso')}</label><select id="sesso-${g.id}" class="${fw(g,'sesso')}" onchange="setG('${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
+        <div><label>Data di nascita${warnBadge(g,'dataNascita')}</label><div class="datepick"><input id="nasc-${g.id}" type="date" class="${fw(g,'dataNascita')}" value="${italianToIso(g.dataNascita)}" onchange="setG('${g.id}','dataNascita',dateToItalian(this.value))"></div></div>
       </div>
       <label>Comune di nascita${warnBadge(g,'comuneNascita')} <span class="muted">(solo se nato in Italia)</span></label>
-      <input type="text" class="${fw(g,'comuneNascita')}" value="${g.comuneNascita||''}" oninput="setG('${g.id}','comuneNascita',this.value)">
+      <input id="comune-${g.id}" type="text" class="${fw(g,'comuneNascita')}" value="${g.comuneNascita||''}" oninput="setG('${g.id}','comuneNascita',this.value)">
       <label>Stato di nascita${warnBadge(g,'statoNascita')}</label>
-      <input type="text" placeholder="es. ITALIA" class="${fw(g,'statoNascita')}" value="${g.statoNascita||''}" oninput="setG('${g.id}','statoNascita',this.value)">
+      <input id="stato-${g.id}" type="text" placeholder="es. ITALIA" class="${fw(g,'statoNascita')}" value="${g.statoNascita||''}" oninput="setG('${g.id}','statoNascita',this.value)">
       <label>Cittadinanza${warnBadge(g,'cittadinanza')}</label>
-      <input type="text" placeholder="es. ITALIA" class="${fw(g,'cittadinanza')}" value="${g.cittadinanza||''}" oninput="setG('${g.id}','cittadinanza',this.value)">
+      <input id="citt-${g.id}" type="text" placeholder="es. ITALIA" class="${fw(g,'cittadinanza')}" value="${g.cittadinanza||''}" oninput="setG('${g.id}','cittadinanza',this.value)">
       <label>Tipo documento${warnBadge(g,'tipoDoc')}</label>
-      <select class="${fw(g,'tipoDoc')}" onchange="setG('${g.id}','tipoDoc',this.value)">
+      <select id="tipodoc-${g.id}" class="${fw(g,'tipoDoc')}" onchange="setG('${g.id}','tipoDoc',this.value)">
         <option value="">—</option>
         ${["CARTA DI IDENTITA'","CARTA IDENTITA' ELETTRONICA","PASSAPORTO ORDINARIO","PATENTE DI GUIDA"].map(t=>`<option ${g.tipoDoc===t?'selected':''}>${t}</option>`).join('')}
       </select>
       <label>Numero documento${warnBadge(g,'numeroDoc')}</label>
-      <input type="text" class="${fw(g,'numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${g.id}','numeroDoc',this.value)">
+      <input id="numdoc-${g.id}" type="text" class="${fw(g,'numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${g.id}','numeroDoc',this.value)">
       <label>Luogo di rilascio${warnBadge(g,'luogoRilascio')} <span class="muted">(comune o stato)</span></label>
-      <input type="text" class="${fw(g,'luogoRilascio')}" value="${g.luogoRilascio||''}" oninput="setG('${g.id}','luogoRilascio',this.value)">
+      <input id="luogo-${g.id}" type="text" class="${fw(g,'luogoRilascio')}" value="${g.luogoRilascio||''}" oninput="setG('${g.id}','luogoRilascio',this.value)">
+    `;
+    el.innerHTML=`
+      <div class="ghead"><span class="gname">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:'Ospite '+(idx+1)}</span>
+        ${guests.length>1?`<button class="btn ghost sm" onclick="rmGuest('${g.id}')">×</button>`:''}</div>
+      <div class="steplbl">1 · Foto del documento (obbligatoria)</div>
+      <div class="thumbs" id="gimg-${g.id}"></div>
+      <button class="btn ghost sm" style="width:100%" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> Lettura…':'🔍 Estrai dati dal documento'}</button>
+      ${campi}
     `;
     root.appendChild(el);
     const gi=el.querySelector('#gimg-'+g.id);
@@ -185,6 +200,17 @@ function render(){
     gi.appendChild(addImgBtn(files=>handleImgs(g.id,files)));
     wireThumbsDrop(gi,files=>handleImgs(g.id,files));
   });
+
+  if(activeId){
+    const el=document.getElementById(activeId);
+    if(el&&typeof el.focus==='function'){
+      el.focus({preventScroll:true});
+      if(selStart!=null&&typeof el.setSelectionRange==='function'){
+        try{el.setSelectionRange(selStart,selEnd);}catch(e){/* input type non supporta selectionRange */}
+      }
+    }
+  }
+  window.scrollTo(0,scrollY);
 }
 
 // incolla (Ctrl+V) va sempre sull'ultimo ospite della lista
