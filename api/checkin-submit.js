@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
 
   try {
-    const { arrivo, ospiti = [] } = req.body || {};
+    const { arrivo, partenza, notti, ospiti = [] } = req.body || {};
     const validi = ospiti.filter((o) => o && (o.cognome || o.nome));
     if (!validi.length) return res.status(400).json({ error: "Nessun ospite compilato" });
 
@@ -65,6 +65,8 @@ module.exports = async (req, res) => {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ts: Date.now(),
       arrivo: arrivo || "",
+      partenza: partenza || "",
+      notti: Number(notti) || 0,
       ospiti: ospitiSalvati,
     };
 

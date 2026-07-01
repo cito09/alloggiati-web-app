@@ -11980,7 +11980,7 @@ function renderCheckinPending(){
     const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
     return `<div class="storico-item">
       <div class="storico-head"><span>${escText(quando)}</span><span class="pill wait">in attesa</span></div>
-      <div class="storico-meta">${[v.arrivo?('arrivo '+v.arrivo):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
+      <div class="storico-meta">${[v.arrivo?('arrivo '+v.arrivo):null, v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
       ${foto.length?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb"><img src="${u}"></div>`).join('')}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px">
@@ -12002,6 +12002,7 @@ function accettaCheckin(id){
   const v=checkinPending.find(x=>x.id===id); if(!v)return;
   const b=bookingAttivo();
   if(v.arrivo && !b.arrivo) b.arrivo=v.arrivo;
+  if(v.notti && !b.notti) b.notti=v.notti;
   const nuovi=v.ospiti.map(o=>{
     const g={id:uid(), _bid:b.id, imgs:o.fotoUrls||[],
       cognome:o.cognome||'', nome:o.nome||'', sesso:o.sesso||'', dataNascita:o.dataNascita||'',
