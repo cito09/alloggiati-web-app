@@ -121,6 +121,12 @@
 
 <div class="wrap">
 
+  <div class="card" id="checkinPendingCard">
+    <h2><span class="n">📥</span> Ospiti in attesa <span id="checkinBadge" class="pill wait" style="display:none"></span></h2>
+    <div class="muted" style="font-size:12px;margin-top:2px">Check-in compilati dagli ospiti (link pubblico): verificali prima di aggiungerli alla prenotazione.</div>
+    <div id="checkinList" style="margin-top:10px"><div class="muted">Nessun check-in in attesa.</div></div>
+  </div>
+
   <div class="card" id="intakeCard">
     <h2><span class="n">1</span> Carica tutto</h2>
     <div class="muted" style="font-size:13px;margin-top:6px">Butta qui <b>lo screenshot della prenotazione</b> e <b>le foto dei documenti</b> di tutti gli ospiti, tutto insieme. Penso io a riconoscere date, tipo soggiorno e i dati di ognuno.</div>
@@ -169,6 +175,7 @@
 </div></div>
 <div class="toast" id="toast"></div>
 
+<script src="shared.js"></script>
 <script>
 /* ===== TABELLE UFFICIALI (incorporate) ===== */
 const ITALIA_CODE = "100000100";
@@ -11495,9 +11502,7 @@ function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');cl
 function padR(v,len){v=(v==null?'':String(v));if(v.length>len)v=v.slice(0,len);return v+' '.repeat(len-v.length);}
 function padNum(v,len){v=(v==null?'':String(v)).replace(/\D/g,'');if(v.length>len)v=v.slice(-len);return '0'.repeat(len-v.length)+v;}
 
-/* selettore calendario: converte tra gg/mm/aaaa (usato ovunque nell'app) e aaaa-mm-gg (input type=date) */
-function dateToItalian(iso){ if(!iso)return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
-function italianToIso(gg){ const m=(gg||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?`${m[3]}-${m[2]}-${m[1]}`:''; }
+/* selettore calendario (dateToItalian/italianToIso sono in shared.js) */
 // input date invisibile sovrapposto al pulsante 📅: un tap ci apre sopra il calendario nativo del telefono
 function datePickerBtn(valoreItaliano,onChangeExpr){
   return `<div class="datepick"><button type="button" class="btn ghost sm datepick-btn" tabindex="-1">📅</button>
@@ -11891,28 +11896,11 @@ function setG(bid,gid,k,v){const g=getG(bid,gid);g[k]=v;g._touched=true;render()
 function compilaManuale(bid,gid){const g=getG(bid,gid);g._touched=true;render();
   const el=document.getElementById('cogn-'+gid); if(el)el.focus({preventScroll:false});}
 
-function fileToDataURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f);});}
-function onlyImages(files){return [...(files||[])].filter(f=>f&&f.type&&f.type.startsWith('image/'));}
+/* fileToDataURL, downscale, apiExtract, onlyImages sono in shared.js */
 async function handleGuestImgs(bid,gid,files){const list=onlyImages(files); if(!list.length)return;const g=getG(bid,gid);g.imgs=g.imgs||[];for(const f of list){g.imgs.push(await fileToDataURL(f));}render();}
 async function handleBookingImgs(bid,files){const list=onlyImages(files); if(!list.length)return;const b=getB(bid);b.bookingImgs=b.bookingImgs||[];for(const f of list){b.bookingImgs.push(await fileToDataURL(f));}render();}
 
 /* ===== vision (sempre AI: la lettura MRZ gratuita era inaffidabile su molti documenti) ===== */
-
-// riduce l'immagine prima dell'upload (lato server + payload più leggero)
-function downscale(dataURL,max=1600,q=0.82){return new Promise(res=>{const img=new Image();
-  img.onload=()=>{let{width:w,height:h}=img; if(Math.max(w,h)>max){const r=max/Math.max(w,h);w=Math.round(w*r);h=Math.round(h*r);}
-    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
-    res(c.toDataURL('image/jpeg',q));};
-  img.onerror=()=>res(dataURL); img.src=dataURL;});}
-
-async function apiExtract(images,kind){
-  const small=await Promise.all(images.map(d=>downscale(d)));
-  const resp=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({images:small,kind})});
-  const data=await resp.json();
-  if(!resp.ok) throw new Error(data.error||'Errore estrazione');
-  return data;
-}
 
 // mappa nome campo dell'AI -> chiave usata internamente sull'ospite
 const CAMPO_AI_TO_G={cognome:'cognome',nome:'nome',sesso:'sesso',data_nascita:'dataNascita',comune_nascita:'comuneNascita',
@@ -11972,6 +11960,67 @@ function inferSoggiorno(guests){
   const sur=guests.map(g=>normKey(g.cognome||'')).filter(Boolean);
   const counts={}; sur.forEach(s=>counts[s]=(counts[s]||0)+1);
   return Object.values(counts).some(c=>c>=2)?'famiglia':'gruppo';
+}
+
+/* ===== ospiti in attesa (self check-in dalla pagina pubblica /checkin.html) ===== */
+let checkinPending=[];
+async function loadCheckinPending(){
+  try{
+    const r=await fetch('/api/checkin-pending'); const data=await r.json();
+    if(data.configurato){ checkinPending=data.coda||[]; renderCheckinPending(); }
+  }catch(e){/* offline o archivio non configurato: la coda resta vuota, nessun errore mostrato */}
+}
+function renderCheckinPending(){
+  const w=$('#checkinList'); const badge=$('#checkinBadge'); if(!w)return;
+  if(badge){ if(checkinPending.length){badge.textContent=checkinPending.length;badge.style.display='';} else badge.style.display='none'; }
+  if(!checkinPending.length){ w.innerHTML='<div class="muted">Nessun check-in in attesa.</div>'; return; }
+  w.innerHTML=checkinPending.map(v=>{
+    const quando=new Date(v.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const nomi=v.ospiti.map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ');
+    const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
+    return `<div class="storico-item">
+      <div class="storico-head"><span>${escText(quando)}</span><span class="pill wait">in attesa</span></div>
+      <div class="storico-meta">${[v.arrivo?('arrivo '+v.arrivo):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
+      ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
+      ${foto.length?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb"><img src="${u}"></div>`).join('')}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn primary sm" style="flex:1" onclick="accettaCheckin('${v.id}')">✓ Aggiungi alla prenotazione</button>
+        <button class="btn ghost sm" onclick="scartaCheckin('${v.id}')">Scarta</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function rimuoviCheckinPendingLocal(id){
+  checkinPending=checkinPending.filter(v=>v.id!==id);
+  renderCheckinPending();
+  fetch('/api/checkin-pending',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})})
+    .then(r=>r.json())
+    .then(data=>{ if(data.configurato&&Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); } })
+    .catch(()=>{/* offline: resta comunque rimossa in locale */});
+}
+function accettaCheckin(id){
+  const v=checkinPending.find(x=>x.id===id); if(!v)return;
+  const b=bookingAttivo();
+  if(v.arrivo && !b.arrivo) b.arrivo=v.arrivo;
+  const nuovi=v.ospiti.map(o=>{
+    const g={id:uid(), _bid:b.id, imgs:o.fotoUrls||[],
+      cognome:o.cognome||'', nome:o.nome||'', sesso:o.sesso||'', dataNascita:o.dataNascita||'',
+      comuneNascita:o.comuneNascita||'', statoNascita:o.statoNascita||'', cittadinanza:o.cittadinanza||'',
+      tipoDoc:o.tipoDoc||'', numeroDoc:o.numeroDoc||'', luogoRilascio:o.luogoRilascio||'',
+      _touched:true, _warn:o.incertezze||[]};
+    if(g.comuneNascita){const e=lookupComune(g.comuneNascita); if(e)g.provinciaNascita=e.p;}
+    return g;
+  });
+  b.guests.push(...nuovi);
+  b.soggiorno=inferSoggiorno(b.guests);
+  rimuoviCheckinPendingLocal(id);
+  render();
+  toast(`${nuovi.length} ospit${nuovi.length===1?'e':'i'} aggiunt${nuovi.length===1?'o':'i'} dal check-in`);
+  const lbl=$('#step2lbl'); if(lbl)lbl.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function scartaCheckin(id){
+  if(!confirm('Scartare questo check-in? Non verrà aggiunto alla prenotazione.'))return;
+  rimuoviCheckinPendingLocal(id);
 }
 async function runIntake(){
   if(!intakeFiles.length){toast('Aggiungi prima screenshot e foto');return;}
@@ -12116,6 +12165,7 @@ loadStrutture();
 wireDropzone();
 renderStorico();
 syncStoricoFromServer();
+loadCheckinPending();
 addBooking();
 </script>
 </body>

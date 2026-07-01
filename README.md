@@ -10,6 +10,8 @@ Tabelle ufficiali (11.284 comuni, 236 stati, 95 tipi documento) già incorporate
 2. **`/api/extract`**: lettura con Claude (modello **Sonnet 5**, più preciso) di screenshot prenotazione e foto documenti. La chiave API resta lato server.
 3. **`/api/send`**: `GenerateToken` → `Test` (verifica) o `Send` (invio) verso `Service.asmx`. Credenziali Alloggiati solo lato server.
 4. **`/api/ricevuta`**: scarica la ricevuta PDF firmata.
+5. **`public/checkin.html`**: pagina pubblica di self check-in (link fisso da mandare agli ospiti, es. via messaggio automatico Airbnb). L'ospite carica il documento o compila a mano; i dati finiscono in una coda di verifica, **mai** inviati automaticamente alla Questura.
+6. **`/api/checkin-submit`** e **`/api/checkin-pending`**: ricevono i check-in, caricano le foto su Vercel Blob e gestiscono la coda "Ospiti in attesa" che compare nell'app admin per la conferma.
 
 Le credenziali non passano MAI dal browser: stanno nelle variabili d'ambiente di Vercel.
 
@@ -54,6 +56,34 @@ ALLOGGIATI_STRUTTURE = [
 
 (JSON su una riga). Comparirà un selettore di struttura prima dell'invio. L'endpoint `/api/strutture` espone solo `id` e `nome`, mai le credenziali.
 
+## Storico e self check-in (facoltativi, ma consigliati)
+
+Due funzioni in più, entrambe **opzionali**: se non configuri niente l'app funziona lo stesso (storico solo nel browser, self check-in disattivato senza errori).
+
+### Storico persistente (Upstash Redis)
+
+Senza configurazione, lo Storico (invii/download registrati) resta solo nel browser che hai usato. Per vederlo anche da un altro telefono:
+
+1. Sul progetto Vercel → **Storage** → cerca **Upstash** (non "Redis Cloud", quello è a pagamento) → **Upstash for Redis - Free**.
+2. Collega il database al progetto: crea da solo le variabili `KV_REST_API_URL` e `KV_REST_API_TOKEN` (o `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, entrambe le forme sono supportate). Non serve scrivere nulla a mano.
+
+### Self check-in ospiti (link fisso + notifica)
+
+Un link sempre uguale (`/checkin.html`) che puoi incollare in un messaggio automatico Airbnb/Booking: l'ospite carica il documento o compila a mano, e la sua richiesta finisce in una coda "Ospiti in attesa" nell'app admin. **Nessun invio automatico alla Questura**: tu la rivedi e la aggiungi alla prenotazione con un tap, poi Verifica/Invia come sempre.
+
+Richiede due cose in più:
+
+1. **Vercel Blob** (per le foto): Storage → **Blob** → crea/collega al progetto. Aggiunge da sola la variabile `BLOB_READ_WRITE_TOKEN`.
+2. **Notifica push (facoltativa)**: installa l'app gratuita **ntfy** (Play Store/App Store), scegli un nome di canale privato e a caso (es. `alloggiati-canazei-7f2a`), iscriviti a quel canale nell'app. Poi su Vercel → Environment Variables aggiungi:
+
+   | Variabile | Valore |
+   |---|---|
+   | `NTFY_TOPIC` | il nome del canale scelto (es. `alloggiati-canazei-7f2a`) |
+
+   Senza questa variabile il check-in funziona lo stesso, semplicemente non arriva la notifica push: dovrai controllare la sezione "Ospiti in attesa" a mano.
+
+> Il canale ntfy scelto è come una password leggera: usa un nome non ovvio, chiunque lo indovini può mandarti notifiche (non può però vedere i tuoi dati).
+
 ## Uso
 
 1. **Aggiungi prenotazione** → screenshot → *Estrai date* (compila arrivo + notti). Scegli singolo / famiglia / gruppo.
@@ -63,6 +93,12 @@ ALLOGGIATI_STRUTTURE = [
 5. **Scarica ricevuta PDF** e conservala (obbligo di legge: 5 anni).
 
 Resta disponibile anche **Scarica .txt** per il caricamento manuale dal portale, come fallback.
+
+### Self check-in ospiti
+
+1. Copia il link `https://tuo-dominio.vercel.app/checkin.html` e incollalo nel messaggio automatico che mandi agli ospiti (es. programmato su Airbnb per qualche ora/giorno prima del check-in). È sempre lo stesso link, non va rigenerato per ogni prenotazione.
+2. L'ospite carica il documento (o compila a mano) e conferma: arriva una notifica (se hai configurato ntfy) e la richiesta compare in **"📥 Ospiti in attesa"** in cima all'app.
+3. Controlli foto e dati, poi **"✓ Aggiungi alla prenotazione"** (li porta nella prenotazione corrente, pronti per Verifica/Invio) oppure **"Scarta"** se non validi.
 
 ## Note tecniche
 
@@ -75,12 +111,18 @@ Resta disponibile anche **Scarica .txt** per il caricamento manuale dal portale,
 
 ```
 .
-├── public/index.html      frontend (tabelle ufficiali incluse)
-├── api/_alloggiati.js      helper SOAP (token, Test/Send, Ricevuta, strutture)
-├── api/extract.js          estrazione foto (Claude vision)
-├── api/send.js             Test / Send
-├── api/ricevuta.js         ricevuta PDF
-├── api/strutture.js        elenco strutture (no segreti)
+├── public/index.html        app admin (tabelle ufficiali incluse)
+├── public/checkin.html      pagina pubblica di self check-in (link fisso per gli ospiti)
+├── public/shared.js         funzioni condivise tra le due pagine (estrazione AI, date)
+├── api/_alloggiati.js       helper SOAP (token, Test/Send, Ricevuta, strutture)
+├── api/_kv.js               helper condiviso per l'archivio Upstash Redis
+├── api/extract.js           estrazione foto (Claude vision)
+├── api/send.js               Test / Send
+├── api/ricevuta.js           ricevuta PDF
+├── api/strutture.js          elenco strutture (no segreti)
+├── api/storico.js            log persistente invii/download (Upstash, facoltativo)
+├── api/checkin-submit.js     riceve un check-in ospite, foto su Blob, notifica ntfy
+├── api/checkin-pending.js    coda ospiti in attesa (lettura/rimozione lato admin)
 ├── vercel.json
 └── package.json
 ```

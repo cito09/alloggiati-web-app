@@ -1,32 +1,14 @@
 // api/storico.js — log persistente di invii ufficiali e download .txt
-// Usa Upstash Redis via REST (nessuna libreria: stesso stile "solo fetch" di _alloggiati.js).
+// Usa Upstash Redis via REST (helper condiviso in _kv.js, nessuna libreria).
 // Se non è configurato nessun archivio, risponde { configurato:false } e il frontend
 // resta sullo storico salvato solo nel browser (localStorage), senza errori.
 // GET  -> { configurato, storico }
 // POST { ...voce } -> aggiunge una voce in testa, risponde { configurato, storico }
 // DELETE { ts } -> rimuove la voce con quel timestamp, risponde { configurato, storico }
+const { upstash, redisCmd } = require("./_kv");
+
 const KEY = "storico_schedine";
 const MAX_VOCI = 500;
-
-function upstash() {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
-  return { url, token };
-}
-
-// invia il comando come corpo JSON (non nel path): i valori possono essere lunghi
-// (centinaia di voci con nomi ospiti) e un path troppo lungo si romperebbe.
-async function redisCmd(conn, command) {
-  const res = await fetch(conn.url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${conn.token}`, "content-type": "application/json" },
-    body: JSON.stringify(command),
-  });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
-  return data.result;
-}
 
 module.exports = async (req, res) => {
   const conn = upstash();

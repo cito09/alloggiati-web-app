@@ -26,7 +26,15 @@ Regole:
 - Per ogni ospite (data di nascita: leggi l'anno con attenzione dal documento, può essere molto nel passato, va bene così): ${REGOLE_OSPITE}`;
 }
 
-function toBlock(d) {
+// accetta sia data-URL (foto caricate dal browser) sia URL http(s) (foto gia' su Vercel Blob,
+// es. quelle arrivate dal self check-in): in quel caso le scarica e le converte lato server.
+async function toBlock(d) {
+  if (/^https?:\/\//i.test(d)) {
+    const r = await fetch(d);
+    const buf = Buffer.from(await r.arrayBuffer());
+    const media = r.headers.get("content-type") || "image/jpeg";
+    return { type: "image", source: { type: "base64", media_type: media, data: buf.toString("base64") } };
+  }
   const media = (d.match(/^data:(.*?);base64,/) || [])[1] || "image/jpeg";
   const data = d.includes(",") ? d.split(",")[1] : d;
   return { type: "image", source: { type: "base64", media_type: media, data } };
@@ -39,7 +47,7 @@ module.exports = async (req, res) => {
   try {
     const { images = [], kind = "documento" } = req.body || {};
     if (!images.length) return res.status(400).json({ error: "Nessuna immagine" });
-    const content = images.map(toBlock);
+    const content = await Promise.all(images.map(toBlock));
     const oggi = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
     const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi) : PROMPT_DOC;
     content.push({ type: "text", text: prompt });

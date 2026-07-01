@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Check-in ospiti</title>
+<style>
+  :root{
+    --bg:#0d1b2a; --surface:#14283c; --surface2:#1b3550; --line:#274867;
+    --ink:#e8eef5; --muted:#8aa0b8; --amber:#ffb703; --amber-d:#e0a200;
+    --ok:#2dc653; --err:#ef476f; --blue:#5aa0f2;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    font-size:16px; line-height:1.45; padding:0 0 40px;
+    padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
+  header{background:rgba(13,27,42,.92); border-bottom:1px solid var(--line); padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top));}
+  header .eyebrow{display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--amber); font-weight:700; background:rgba(255,183,3,.12); border:1px solid rgba(255,183,3,.35);
+    border-radius:999px; padding:4px 11px}
+  header h1{margin:10px 0 0; font-size:21px; font-weight:800; letter-spacing:-.02em}
+  header .sub{font-size:13px; color:var(--muted); margin-top:5px}
+  .wrap{max-width:640px; margin:0 auto; padding:16px}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px}
+  label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
+  input[type=text], input[type=date], select{
+    width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
+    border-radius:10px; padding:11px 12px; font-size:16px; font-family:inherit;}
+  input:focus, select:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber)}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .btn{appearance:none; border:none; border-radius:11px; font-size:15px; font-weight:700; padding:13px 16px; cursor:pointer; font-family:inherit; width:100%}
+  .btn.primary{background:var(--amber); color:#23170a}
+  .btn.primary:active{background:var(--amber-d)}
+  .btn.ghost{background:var(--surface2); color:var(--ink); border:1px solid var(--line)}
+  .btn.sm{padding:9px 12px; font-size:13px; width:auto}
+  .btn:disabled{opacity:.5}
+  .muted{color:var(--muted); font-size:12.5px}
+  .guest{border:1px solid var(--line); border-radius:11px; padding:14px; margin-top:12px; background:var(--surface2)}
+  .ghead{display:flex; justify-content:space-between; align-items:center; gap:8px}
+  .gname{font-weight:700; font-size:14px}
+  .thumbs{display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; align-items:center; border-radius:10px; transition:outline-color .15s}
+  .thumbs.drag{outline:2px dashed var(--amber); outline-offset:4px}
+  .thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:var(--surface)}
+  .thumb img{width:100%; height:100%; object-fit:cover}
+  .thumb .rm{position:absolute; top:2px; right:2px; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; line-height:1; cursor:pointer}
+  .addimg{width:64px; height:64px; border:1.5px dashed var(--line); border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:22px; cursor:pointer; background:transparent}
+  .datepick{position:relative; display:inline-flex; width:100%}
+  .datepick input[type=date]{width:100%}
+  .spin{display:inline-block; width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#000; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; z-index:50; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%}
+  .toast.show{opacity:.95}
+  .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:9px 11px; margin-top:10px}
+  .consent{display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:14px}
+  .consent input{width:auto; margin-top:3px}
+  .ok-screen{text-align:center; padding:40px 16px}
+  .ok-screen .big{font-size:44px}
+  .warn-badge{font-size:10px; color:var(--amber); margin-left:6px; font-weight:700}
+  .field-warn{outline:2px solid var(--amber)!important; border-color:var(--amber)!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">🛡️ Alloggiati Web</div>
+  <h1>Check-in ospiti</h1>
+  <div class="sub">Registra i tuoi dati per il soggiorno: li useremo solo per l'obbligo di legge verso la Questura.</div>
+</header>
+
+<div class="wrap" id="formWrap">
+  <div class="card">
+    <label>Data di arrivo</label>
+    <div class="datepick"><input id="arrivoInput" type="date" onchange="setArrivo(this.value)"></div>
+  </div>
+
+  <div id="guests"></div>
+  <button class="btn ghost" onclick="addGuest()">+ Aggiungi un altro ospite (es. familiare)</button>
+
+  <div class="card" style="margin-top:14px">
+    <label class="consent" style="margin-top:0">
+      <input type="checkbox" id="consenso">
+      <span>Dichiaro che i dati e il documento caricato saranno usati esclusivamente per l'adempimento dell'obbligo di legge di comunicazione Alloggiati Web alla Questura.</span>
+    </label>
+    <button class="btn primary" id="submitBtn" style="margin-top:14px" onclick="inviaCheckin()">Invia check-in</button>
+    <div class="muted" id="submitStatus" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<div class="wrap ok-screen" id="okWrap" style="display:none">
+  <div class="big">✅</div>
+  <h2>Check-in completato</h2>
+  <div class="muted">Grazie! I tuoi dati sono stati inviati alla struttura, che li verificherà prima dell'invio ufficiale alla Questura.</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="shared.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,9);
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
+
+let arrivo='';
+let guests=[];
+
+function setArrivo(iso){ arrivo=dateToItalian(iso); }
+
+function nuovoOspite(){ return {id:uid(), imgs:[], cognome:'',nome:'',sesso:'',dataNascita:'',comuneNascita:'',statoNascita:'',cittadinanza:'',tipoDoc:'',numeroDoc:'',luogoRilascio:'', _busy:false, _warn:[]}; }
+function addGuest(){ guests.push(nuovoOspite()); render(); }
+function rmGuest(id){ guests=guests.filter(g=>g.id!==id); render(); }
+function getG(id){ return guests.find(g=>g.id===id); }
+function setG(id,k,v){ getG(id)[k]=v; render(); }
+
+function thumb(src,onRm){const d=document.createElement('div');d.className='thumb';d.innerHTML=`<img src="${src}"><button class="rm">×</button>`;d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
+function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*';i.multiple=true;i.style.display='none';i.onchange=e=>{cb(e.target.files);i.value='';};l.appendChild(i);return l;}
+function wireThumbsDrop(el,onFiles){
+  ['dragenter','dragover'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.remove('drag');}));
+  el.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)onFiles(e.dataTransfer.files);});
+}
+async function handleImgs(id,files){
+  const list=onlyImages(files); if(!list.length)return;
+  const g=getG(id); g.imgs=g.imgs||[];
+  for(const f of list){ g.imgs.push(await fileToDataURL(f)); }
+  render();
+}
+
+const CAMPO_AI_TO_G={cognome:'cognome',nome:'nome',sesso:'sesso',data_nascita:'dataNascita',comune_nascita:'comuneNascita',
+  stato_nascita:'statoNascita',cittadinanza:'cittadinanza',tipo_documento:'tipoDoc',numero_documento:'numeroDoc',luogo_rilascio:'luogoRilascio'};
+async function estraiDati(id){
+  const g=getG(id); if(!g.imgs.length){toast('Aggiungi prima una foto del documento');return;}
+  g._busy=true; render();
+  try{
+    const j=await apiExtract(g.imgs,'documento');
+    Object.assign(g,{cognome:j.cognome||g.cognome,nome:j.nome||g.nome,sesso:j.sesso||g.sesso,
+      dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:j.stato_nascita||g.statoNascita,
+      cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
+      luogoRilascio:j.luogo_rilascio||g.luogoRilascio});
+    g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
+    toast('Dati letti dal documento, controllali qui sotto');
+  }catch(e){ toast('Estrazione non riuscita: '+e.message); }
+  g._busy=false; render();
+}
+
+function warnBadge(g,k){ return (g._warn||[]).includes(k) ? ' <span class="warn-badge">⚠ verifica</span>' : ''; }
+function fw(g,k){ return (g._warn||[]).includes(k) ? 'field-warn' : ''; }
+
+function render(){
+  const root=$('#guests'); root.innerHTML='';
+  guests.forEach((g,idx)=>{
+    const el=document.createElement('div'); el.className='guest';
+    el.innerHTML=`
+      <div class="ghead"><span class="gname">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:'Ospite '+(idx+1)}</span>
+        ${guests.length>1?`<button class="btn ghost sm" onclick="rmGuest('${g.id}')">×</button>`:''}</div>
+      <div class="thumbs" id="gimg-${g.id}"></div>
+      <button class="btn ghost sm" style="width:100%" onclick="estraiDati('${g.id}')" ${g._busy?'disabled':''}>${g._busy?'<span class="spin"></span> Lettura…':'🔍 Estrai dati dal documento'}</button>
+      <div class="row" style="margin-top:10px">
+        <div><label>Cognome${warnBadge(g,'cognome')}</label><input type="text" class="${fw(g,'cognome')}" value="${g.cognome||''}" oninput="setG('${g.id}','cognome',this.value)"></div>
+        <div><label>Nome${warnBadge(g,'nome')}</label><input type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
+      </div>
+      <div class="row">
+        <div><label>Sesso${warnBadge(g,'sesso')}</label><select class="${fw(g,'sesso')}" onchange="setG('${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
+        <div><label>Data di nascita${warnBadge(g,'dataNascita')}</label><div class="datepick"><input type="date" class="${fw(g,'dataNascita')}" value="${italianToIso(g.dataNascita)}" onchange="setG('${g.id}','dataNascita',dateToItalian(this.value))"></div></div>
+      </div>
+      <label>Comune di nascita${warnBadge(g,'comuneNascita')} <span class="muted">(solo se nato in Italia)</span></label>
+      <input type="text" class="${fw(g,'comuneNascita')}" value="${g.comuneNascita||''}" oninput="setG('${g.id}','comuneNascita',this.value)">
+      <label>Stato di nascita${warnBadge(g,'statoNascita')}</label>
+      <input type="text" placeholder="es. ITALIA" class="${fw(g,'statoNascita')}" value="${g.statoNascita||''}" oninput="setG('${g.id}','statoNascita',this.value)">
+      <label>Cittadinanza${warnBadge(g,'cittadinanza')}</label>
+      <input type="text" placeholder="es. ITALIA" class="${fw(g,'cittadinanza')}" value="${g.cittadinanza||''}" oninput="setG('${g.id}','cittadinanza',this.value)">
+      <label>Tipo documento${warnBadge(g,'tipoDoc')}</label>
+      <select class="${fw(g,'tipoDoc')}" onchange="setG('${g.id}','tipoDoc',this.value)">
+        <option value="">—</option>
+        ${["CARTA DI IDENTITA'","CARTA IDENTITA' ELETTRONICA","PASSAPORTO ORDINARIO","PATENTE DI GUIDA"].map(t=>`<option ${g.tipoDoc===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <label>Numero documento${warnBadge(g,'numeroDoc')}</label>
+      <input type="text" class="${fw(g,'numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${g.id}','numeroDoc',this.value)">
+      <label>Luogo di rilascio${warnBadge(g,'luogoRilascio')} <span class="muted">(comune o stato)</span></label>
+      <input type="text" class="${fw(g,'luogoRilascio')}" value="${g.luogoRilascio||''}" oninput="setG('${g.id}','luogoRilascio',this.value)">
+    `;
+    root.appendChild(el);
+    const gi=el.querySelector('#gimg-'+g.id);
+    (g.imgs||[]).forEach((im,i)=>gi.appendChild(thumb(im,()=>{g.imgs.splice(i,1);render();})));
+    gi.appendChild(addImgBtn(files=>handleImgs(g.id,files)));
+    wireThumbsDrop(gi,files=>handleImgs(g.id,files));
+  });
+}
+
+// incolla (Ctrl+V) va sempre sull'ultimo ospite della lista
+document.addEventListener('paste',e=>{
+  if(!guests.length)return;
+  const items=(e.clipboardData&&e.clipboardData.items)||[];
+  const files=[...items].filter(it=>it.kind==='file'&&it.type&&it.type.startsWith('image/')).map(it=>it.getAsFile()).filter(Boolean);
+  if(!files.length)return;
+  e.preventDefault();
+  handleImgs(guests[guests.length-1].id,files);
+});
+
+async function inviaCheckin(){
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo)){toast('Indica la data di arrivo');return;}
+  const validi=guests.filter(g=>g.cognome||g.nome);
+  if(!validi.length){toast('Aggiungi almeno un ospite');return;}
+  if(!$('#consenso').checked){toast('Devi accettare la dichiarazione per procedere');return;}
+
+  const btn=$('#submitBtn'); btn.disabled=true;
+  $('#submitStatus').innerHTML='<span class="spin"></span> Invio in corso…';
+  try{
+    const payload={arrivo, ospiti: validi.map(g=>({
+      cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
+      statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
+      incertezze:(g._warn||[]), immagini:g.imgs||[]
+    }))};
+    const r=await fetch('/api/checkin-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'Errore');
+    $('#formWrap').style.display='none';
+    $('#okWrap').style.display='block';
+  }catch(e){
+    toast('Invio non riuscito: '+e.message);
+    $('#submitStatus').textContent='';
+    btn.disabled=false;
+  }
+}
+
+addGuest();
+</script>
+</body>
+</html>
