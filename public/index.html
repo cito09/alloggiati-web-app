@@ -33,6 +33,11 @@
   input:focus, select:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber)}
   .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
+  .datefield{display:flex; gap:6px; align-items:stretch}
+  .datefield input[type=text]{flex:1; min-width:0}
+  .datepick{position:relative; display:inline-flex}
+  .datepick-btn{pointer-events:none}
+  .datepick-input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:0; padding:0}
   .btn{appearance:none; border:none; border-radius:11px; font-size:15px; font-weight:700; padding:13px 16px; cursor:pointer; font-family:inherit; width:100%}
   .btn.primary{background:var(--amber); color:#23170a}
   .btn.primary:active{background:var(--amber-d)}
@@ -11471,6 +11476,15 @@ function normKey(s){return (s||'').toString().toUpperCase().normalize('NFD').rep
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
 function padR(v,len){v=(v==null?'':String(v));if(v.length>len)v=v.slice(0,len);return v+' '.repeat(len-v.length);}
 function padNum(v,len){v=(v==null?'':String(v)).replace(/\D/g,'');if(v.length>len)v=v.slice(-len);return '0'.repeat(len-v.length)+v;}
+
+/* selettore calendario: converte tra gg/mm/aaaa (usato ovunque nell'app) e aaaa-mm-gg (input type=date) */
+function dateToItalian(iso){ if(!iso)return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
+function italianToIso(gg){ const m=(gg||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?`${m[3]}-${m[2]}-${m[1]}`:''; }
+// input date invisibile sovrapposto al pulsante 📅: un tap ci apre sopra il calendario nativo del telefono
+function datePickerBtn(valoreItaliano,onChangeExpr){
+  return `<div class="datepick"><button type="button" class="btn ghost sm datepick-btn" tabindex="-1">📅</button>
+    <input type="date" class="datepick-input" value="${italianToIso(valoreItaliano)}" onchange="${onChangeExpr}"></div>`;
+}
 function cleanName(v){return (v||'').replace(/[^A-Za-zÀ-ÿ '’]/g,'').replace(/’/g,"'").slice(0,50).toUpperCase();}
 function cleanDoc(v){return (v||'').replace(/[^A-Za-z0-9.\-/]/g,'').slice(0,20);}
 function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/ /g,'·');}
@@ -11641,7 +11655,10 @@ function render(){
       <div class="bhead"><span class="ttl">📋 Prenotazione</span>
         <button class="btn ghost sm" onclick="rmBooking('${b.id}')">Svuota</button></div>
       <div class="row">
-        <div><label>Data arrivo</label><input id="arr-${b.id}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${b.arrivo||''}" oninput="setB('${b.id}','arrivo',this.value)"></div>
+        <div><label>Data arrivo</label><div class="datefield">
+          <input id="arr-${b.id}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${b.arrivo||''}" oninput="setB('${b.id}','arrivo',this.value)">
+          ${datePickerBtn(b.arrivo, `setB('${b.id}','arrivo',dateToItalian(this.value))`)}
+        </div></div>
         <div><label>Notti (1–30)</label><input id="notti-${b.id}" type="number" min="1" max="30" value="${b.notti||''}" oninput="setB('${b.id}','notti',parseInt(this.value)||0)"></div>
       </div>
       <label>Tipo soggiorno</label>
@@ -11748,7 +11765,10 @@ function renderGuest(b,g,idx){
         <div><label>Nome${warnBadge(warn.includes('nome'))}</label><input id="nome-${g.id}" type="text" class="${fb('nome')||fw('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div></div>
       <div class="row3">
         <div><label>Sesso${warnBadge(warn.includes('sesso'))}</label><select id="sesso-${g.id}" class="${fb('sesso')||fw('sesso')}" onchange="setG('${b.id}','${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
-        <div style="grid-column:span 2"><label>Data nascita${warnBadge(warn.includes('dataNascita'))}</label><input id="nasc-${g.id}" type="text" inputmode="numeric" class="${fb('nascita')||fw('dataNascita')}" placeholder="gg/mm/aaaa" value="${g.dataNascita||''}" oninput="setG('${b.id}','${g.id}','dataNascita',this.value)"></div></div>
+        <div style="grid-column:span 2"><label>Data nascita${warnBadge(warn.includes('dataNascita'))}</label><div class="datefield">
+          <input id="nasc-${g.id}" type="text" inputmode="numeric" class="${fb('nascita')||fw('dataNascita')}" placeholder="gg/mm/aaaa" value="${g.dataNascita||''}" oninput="setG('${b.id}','${g.id}','dataNascita',this.value)">
+          ${datePickerBtn(g.dataNascita, `setG('${b.id}','${g.id}','dataNascita',dateToItalian(this.value))`)}
+        </div></div></div>
       ${taField('Comune nascita (solo se nato in Italia)',g,'comuneNascita','comuneNascitaCode','comune',false,null,warn.includes('comuneNascita'))}
       ${taField('Stato nascita',g,'statoNascita','statoNascitaCode','stato',bad.includes('statoNascita'),null,warn.includes('statoNascita'))}
       ${taField('Cittadinanza',g,'cittadinanza','cittadinanzaCode','stato',bad.includes('cittadinanza'),null,warn.includes('cittadinanza'))}
