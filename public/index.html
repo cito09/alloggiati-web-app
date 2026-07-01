@@ -143,7 +143,7 @@
 
   <div class="card" id="storicoCard">
     <h2><span class="n">🕘</span> Storico</h2>
-    <div class="muted" style="font-size:12px;margin-top:2px">Solo le schedine effettivamente inviate alla Questura o scaricate come .txt. Salvato solo su questo telefono/browser.</div>
+    <div class="muted" style="font-size:12px;margin-top:2px">Solo le schedine effettivamente inviate alla Questura o scaricate come .txt.</div>
     <div id="storicoList" style="margin-top:10px"></div>
   </div>
 </div>
@@ -11501,9 +11501,21 @@ function currentStrutturaNome(){
   return opt?opt.textContent:'';
 }
 function aggiungiStorico(entry){
+  // mostra subito la voce (istantaneo, funziona anche offline), poi la manda
+  // all'archivio online se e' configurato: se ok, riallinea lo storico condiviso
   storico.unshift({ts:Date.now(), ...entry});
   salvaStorico();
   renderStorico();
+  fetch('/api/storico',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(entry)})
+    .then(r=>r.json())
+    .then(data=>{ if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); } })
+    .catch(()=>{/* offline o archivio online non configurato: resta comunque salvata in locale */});
+}
+async function syncStoricoFromServer(){
+  try{
+    const r=await fetch('/api/storico'); const data=await r.json();
+    if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); }
+  }catch(e){/* offline o archivio online non configurato: resta lo storico locale */}
 }
 const escText=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function renderStorico(){
@@ -11992,6 +12004,7 @@ $('#hsub').textContent=`${comuni.length.toLocaleString('it')} comuni · ${STATI.
 loadStrutture();
 wireDropzone();
 renderStorico();
+syncStoricoFromServer();
 addBooking();
 </script>
 </body>
