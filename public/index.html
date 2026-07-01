@@ -82,6 +82,11 @@
   .spin{display:inline-block; width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:9px 11px; margin-top:10px}
+  .storico-item{padding:9px 0; border-bottom:1px solid var(--line)}
+  .storico-item:last-child{border-bottom:none}
+  .storico-head{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px}
+  .storico-meta{font-size:12px; color:var(--muted); margin-top:2px}
+  .storico-ospiti{font-size:12px; margin-top:2px}
   .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:14px; padding:26px 16px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface2)}
   .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
   .dropzone .dz-big{font-size:30px; line-height:1}
@@ -135,6 +140,12 @@
   </div>
 
   <div class="hint">La <b>Verifica</b> usa il metodo Test del portale (controlla senza inviare). L'<b>Invio ufficiale</b> trasmette davvero le schedine alla Questura: è irreversibile, quindi chiede conferma. Dopo l'invio puoi scaricare la ricevuta PDF.</div>
+
+  <div class="card" id="storicoCard">
+    <h2><span class="n">🕘</span> Storico</h2>
+    <div class="muted" style="font-size:12px;margin-top:2px">Solo le schedine effettivamente inviate alla Questura o scaricate come .txt. Salvato solo su questo telefono/browser.</div>
+    <div id="storicoList" style="margin-top:10px"></div>
+  </div>
 </div>
 
 <div class="actionbar"><div class="inner">
@@ -11472,6 +11483,45 @@ function lookupComune(name){if(!name)return null;return comuniByName.get(normKey
 /* ===== modello ===== */
 let bookings=[];
 
+/* ===== storico (solo invii ufficiali riusciti e download .txt, salvato in questo browser) ===== */
+let storico=[];
+try{ storico=JSON.parse(localStorage.getItem('storico_schedine')||'[]'); }catch(e){ storico=[]; }
+function salvaStorico(){
+  try{ localStorage.setItem('storico_schedine', JSON.stringify(storico.slice(0,200))); }catch(e){/* storage pieno o non disponibile: lo storico resta solo in memoria */}
+}
+function snapshotOspiti(){
+  const b=bookings[0];
+  if(!b) return {arrivo:'',ospiti:[]};
+  const ospiti=b.guests.filter(g=>g.cognome||g.nome).map(g=>`${g.cognome||''} ${g.nome||''}`.trim());
+  return {arrivo:b.arrivo||'', ospiti};
+}
+function currentStrutturaNome(){
+  const sel=$('#strutturaSel');
+  const opt=sel&&sel.selectedOptions&&sel.selectedOptions[0];
+  return opt?opt.textContent:'';
+}
+function aggiungiStorico(entry){
+  storico.unshift({ts:Date.now(), ...entry});
+  salvaStorico();
+  renderStorico();
+}
+const escText=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function renderStorico(){
+  const w=$('#storicoList'); if(!w)return;
+  if(!storico.length){ w.innerHTML='<div class="muted">Nessun invio o esportazione ancora registrato.</div>'; return; }
+  w.innerHTML=storico.map(e=>{
+    const quando=new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const pill=e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>';
+    const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
+    const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null].filter(Boolean).map(escText).join(' · ');
+    return `<div class="storico-item">
+      <div class="storico-head"><span>${escText(quando)}</span>${pill}</div>
+      <div class="storico-meta">${meta}</div>
+      ${e.ospiti&&e.ospiti.length?`<div class="storico-ospiti">${escText(e.ospiti.join(', '))}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
 function tipoAlloggiato(sog,idx){
   if(sog==='singolo')return '16';
   if(sog==='famiglia')return idx===0?'17':'19';
@@ -11872,6 +11922,8 @@ function downloadTxt(){
   const d=new Date();const st=`${String(d.getDate()).padStart(2,'0')}${String(d.getMonth()+1).padStart(2,'0')}${d.getFullYear()}`;
   a.href=url;a.download=`schedine_${st}.txt`;a.click();URL.revokeObjectURL(url);
   toast(recs.length+' schedine esportate');
+  const snap=snapshotOspiti();
+  aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti});
 }
 
 /* ===== invio Alloggiati ===== */
@@ -11905,7 +11957,9 @@ async function invia(){
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
     showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ultima ricevuta PDF disponibile</button>`);
-    toast(ok?'Schedine inviate':'Inviate con avvisi');}
+    toast(ok?'Schedine inviate':'Inviate con avvisi');
+    const snap=snapshotOspiti();
+    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti});}
 }
 async function scaricaRicevuta(){
   toast('Recupero ricevuta…');
@@ -11923,7 +11977,13 @@ async function scaricaRicevuta(){
 async function loadStrutture(){
   try{const r=await fetch('/api/strutture');const data=await r.json();
     const list=(data.strutture||[]);
-    if(list.length>1){const sel=$('#strutturaSel');sel.innerHTML=list.map(s=>`<option value="${s.id}">${s.nome}</option>`).join('');$('#strutturaWrap').style.display='';}
+    if(list.length>1){
+      const sel=$('#strutturaSel');
+      const preferita=localStorage.getItem('strutturaPreferita')||'canazei';
+      sel.innerHTML=list.map(s=>`<option value="${s.id}" ${s.id===preferita?'selected':''}>${s.nome}</option>`).join('');
+      sel.onchange=()=>localStorage.setItem('strutturaPreferita',sel.value);
+      $('#strutturaWrap').style.display='';
+    }
   }catch(e){/* offline: i pulsanti mostreranno l'errore al click */}
 }
 
@@ -11931,6 +11991,7 @@ async function loadStrutture(){
 $('#hsub').textContent=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
 loadStrutture();
 wireDropzone();
+renderStorico();
 addBooking();
 </script>
 </body>
