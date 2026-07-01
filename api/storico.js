@@ -4,6 +4,7 @@
 // resta sullo storico salvato solo nel browser (localStorage), senza errori.
 // GET  -> { configurato, storico }
 // POST { ...voce } -> aggiunge una voce in testa, risponde { configurato, storico }
+// DELETE { ts } -> rimuove la voce con quel timestamp, risponde { configurato, storico }
 const KEY = "storico_schedine";
 const MAX_VOCI = 500;
 
@@ -42,6 +43,13 @@ module.exports = async (req, res) => {
       const storico = raw ? JSON.parse(raw) : [];
       storico.unshift({ ts: Date.now(), ...voce });
       if (storico.length > MAX_VOCI) storico.length = MAX_VOCI;
+      await redisCmd(conn, ["SET", KEY, JSON.stringify(storico)]);
+      return res.status(200).json({ configurato: true, storico });
+    }
+    if (req.method === "DELETE") {
+      const { ts } = req.body || {};
+      const raw = await redisCmd(conn, ["GET", KEY]);
+      const storico = (raw ? JSON.parse(raw) : []).filter((v) => v.ts !== ts);
       await redisCmd(conn, ["SET", KEY, JSON.stringify(storico)]);
       return res.status(200).json({ configurato: true, storico });
     }

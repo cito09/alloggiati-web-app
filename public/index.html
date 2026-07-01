@@ -11531,6 +11531,21 @@ async function syncStoricoFromServer(){
     if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); }
   }catch(e){/* offline o archivio online non configurato: resta lo storico locale */}
 }
+function rimuoviStorico(ts){
+  if(!confirm('Eliminare questa voce dallo storico? Non tocca l\'invio o il file gia\' avvenuto: cancella solo il registro.'))return;
+  storico=storico.filter(e=>e.ts!==ts);
+  salvaStorico();
+  renderStorico();
+  fetch('/api/storico',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ts})})
+    .then(r=>r.json())
+    .then(data=>{ if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); } })
+    .catch(()=>{/* offline o archivio online non configurato: resta comunque eliminata in locale */});
+}
+let storicoAperto=new Set();
+function toggleStoricoDettaglio(ts){
+  if(storicoAperto.has(ts))storicoAperto.delete(ts); else storicoAperto.add(ts);
+  renderStorico();
+}
 const escText=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function renderStorico(){
   const w=$('#storicoList'); if(!w)return;
@@ -11540,10 +11555,17 @@ function renderStorico(){
     const pill=e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>';
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
     const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null].filter(Boolean).map(escText).join(' · ');
+    const aperto=storicoAperto.has(e.ts);
+    const dettaglio=(e.records&&e.records.length)?`
+      <button class="btn ghost sm" style="width:100%;margin-top:6px" onclick="toggleStoricoDettaglio(${e.ts})">${aperto?'▲ Nascondi dettaglio':'🔍 Dettaglio schedine'}</button>
+      ${aperto?`<div style="margin-top:6px">${e.records.map(r=>`<div class="recline"><span class="reclen ${r.length===168?'ok':'err'}">${r.length}/168</span>${escapeHtml(r)}</div>`).join('')}</div>`:''}
+    `:'';
     return `<div class="storico-item">
-      <div class="storico-head"><span>${escText(quando)}</span>${pill}</div>
+      <div class="storico-head"><span>${escText(quando)}</span>
+        <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rimuoviStorico(${e.ts})">🗑</button></span></div>
       <div class="storico-meta">${meta}</div>
       ${e.ospiti&&e.ospiti.length?`<div class="storico-ospiti">${escText(e.ospiti.join(', '))}</div>`:''}
+      ${dettaglio}
     </div>`;
   }).join('');
 }
@@ -11960,7 +11982,7 @@ function downloadTxt(){
   a.href=url;a.download=`schedine_${st}.txt`;a.click();URL.revokeObjectURL(url);
   toast(recs.length+' schedine esportate');
   const snap=snapshotOspiti();
-  aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti});
+  aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, records:recs});
 }
 
 /* ===== invio Alloggiati ===== */
@@ -11989,14 +12011,15 @@ function renderEsito(data){
 }
 async function verifica(){const data=await callSend('test');if(data){showSendResult(renderEsito(data));toast(data.righe.every(x=>x.ok)?'Tutte valide':'Ci sono errori');}}
 async function invia(){
-  const n=validRecords().length;
+  const recordsInviati=validRecords();
+  const n=recordsInviati.length;
   if(!confirm(`Invio UFFICIALE alla Questura di ${n} schedin${n===1?'a':'e'}. L'operazione è irreversibile. Procedere?`))return;
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
     showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ultima ricevuta PDF disponibile</button>`);
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     const snap=snapshotOspiti();
-    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti});}
+    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, records:recordsInviati});}
 }
 async function scaricaRicevuta(){
   toast('Recupero ricevuta…');
