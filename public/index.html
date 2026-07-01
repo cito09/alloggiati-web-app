@@ -11722,7 +11722,10 @@ function renderGuest(b,g,idx){
     <div class="ghead"><span class="gname">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:'Ospite '+(idx+1)} <span class="muted">(${tipo})</span></span>
       <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rmGuest('${b.id}','${g.id}')">×</button></span></div>
     <div class="thumbs" id="gimg-${g.id}" data-paste-zone="guest:${b.id}:${g.id}"></div>
-    <button class="btn ghost sm" style="width:100%" onclick="extractGuest('${b.id}','${g.id}')" ${g._busy?'disabled':''}>${g._busy?'Lettura…':'🔍 Estrai dati dalle foto'}</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost sm" style="flex:1" onclick="extractGuest('${b.id}','${g.id}')" ${g._busy?'disabled':''}>${g._busy?'Lettura…':'🔍 Estrai dati dalle foto'}</button>
+      ${(g.cognome||g.nome||g._touched)?'':`<button class="btn ghost sm" style="flex:1" onclick="compilaManuale('${b.id}','${g.id}')">✏️ Compila a mano</button>`}
+    </div>
     <div id="gform-${g.id}"></div>`;
   const gi=el.querySelector('#gimg-'+g.id);
   (g.imgs||[]).forEach((im,i)=>gi.appendChild(thumb(im,()=>{g.imgs.splice(i,1);render();})));
@@ -11780,6 +11783,8 @@ function setB(id,k,v){getB(id)[k]=v;render();}
 function addGuest(bid){getB(bid).guests.push({id:uid(),_bid:bid,imgs:[]});render();}
 function rmGuest(bid,gid){const b=getB(bid);b.guests=b.guests.filter(g=>g.id!==gid);render();}
 function setG(bid,gid,k,v){const g=getG(bid,gid);g[k]=v;g._touched=true;render();}
+function compilaManuale(bid,gid){const g=getG(bid,gid);g._touched=true;render();
+  const el=document.getElementById('cogn-'+gid); if(el)el.focus({preventScroll:false});}
 
 function fileToDataURL(f){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f);});}
 function onlyImages(files){return [...(files||[])].filter(f=>f&&f.type&&f.type.startsWith('image/'));}
