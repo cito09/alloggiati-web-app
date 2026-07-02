@@ -72,7 +72,7 @@
   <div class="sub">Registra i tuoi dati per il soggiorno: li useremo solo per l'obbligo di legge verso la Questura.</div>
 </header>
 
-<div class="wrap" id="formWrap">
+<div class="wrap" id="formWrap" style="display:none">
   <div class="card">
     <div class="row">
       <div><label>Data di arrivo (check-in)</label><div class="datepick"><input id="arrivoInput" type="date" onchange="setDate('arrivo',this.value)"></div></div>
@@ -108,6 +108,12 @@
   <div class="muted">Grazie! I tuoi dati sono stati inviati alla struttura, che li verificherà prima dell'invio ufficiale alla Questura.</div>
 </div>
 
+<div class="wrap ok-screen" id="blockWrap" style="display:none">
+  <div class="big">🔒</div>
+  <h2>Link non valido</h2>
+  <div class="muted">Questo link di check-in non è corretto o è scaduto. Contatta la struttura per ricevere il link giusto.</div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="shared.js"></script>
@@ -115,6 +121,8 @@
 const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
+
+const codice=new URLSearchParams(location.search).get('c')||'';
 
 let arrivo='';
 let partenza='';
@@ -261,7 +269,7 @@ async function inviaCheckin(){
   const btn=$('#submitBtn'); btn.disabled=true;
   $('#submitStatus').innerHTML='<span class="spin"></span> Invio in corso…';
   try{
-    const payload={arrivo, partenza, notti, ospiti: validi.map(g=>({
+    const payload={codice, arrivo, partenza, notti, ospiti: validi.map(g=>({
       cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
       incertezze:(g._warn||[]), immagini:g.imgs||[]
@@ -278,7 +286,19 @@ async function inviaCheckin(){
   }
 }
 
-addGuest();
+async function verificaAccesso(){
+  if(!codice){ $('#blockWrap').style.display='block'; return; }
+  try{
+    const r=await fetch('/api/checkin-verify?c='+encodeURIComponent(codice));
+    const data=await r.json();
+    if(data.ok){ $('#formWrap').style.display='block'; addGuest(); }
+    else{ $('#blockWrap').style.display='block'; }
+  }catch(e){
+    // offline: non possiamo verificare, ma non blocchiamo del tutto l'ospite che ha gia' il link giusto
+    $('#formWrap').style.display='block'; addGuest();
+  }
+}
+verificaAccesso();
 </script>
 </body>
 </html>

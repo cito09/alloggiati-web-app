@@ -124,6 +124,7 @@
   <div class="card" id="checkinPendingCard">
     <h2><span class="n">📥</span> Ospiti in attesa <span id="checkinBadge" class="pill wait" style="display:none"></span></h2>
     <div class="muted" style="font-size:12px;margin-top:2px">Check-in compilati dagli ospiti (link pubblico): verificali prima di aggiungerli alla prenotazione.</div>
+    <div id="checkinLinkBox" style="margin-top:10px"></div>
     <div id="checkinList" style="margin-top:10px"><div class="muted">Nessun check-in in attesa.</div></div>
   </div>
 
@@ -11963,6 +11964,25 @@ function inferSoggiorno(guests){
 }
 
 /* ===== ospiti in attesa (self check-in dalla pagina pubblica /checkin.html) ===== */
+async function loadCheckinLink(){
+  const w=$('#checkinLinkBox'); if(!w)return;
+  try{
+    const r=await fetch('/api/checkin-code'); const data=await r.json();
+    if(!data.configurato){
+      w.innerHTML='<div class="hint">Self check-in non ancora attivo: manca la variabile <code>CHECKIN_CODE</code> su Vercel.</div>';
+      return;
+    }
+    const link=`${location.origin}/checkin.html?c=${encodeURIComponent(data.codice)}`;
+    w.innerHTML=`<label>Link check-in da mandare agli ospiti (sempre lo stesso)</label>
+      <div style="display:flex;gap:8px">
+        <input type="text" readonly value="${link}" style="flex:1" onclick="this.select()">
+        <button class="btn ghost sm" onclick="copiaLinkCheckin('${link}')">Copia</button>
+      </div>`;
+  }catch(e){/* offline: nessun link mostrato, non blocca il resto dell'app */}
+}
+function copiaLinkCheckin(link){
+  navigator.clipboard.writeText(link).then(()=>toast('Link copiato')).catch(()=>toast('Copia manualmente il link dal campo'));
+}
 let checkinPending=[];
 async function loadCheckinPending(){
   try{
@@ -12166,6 +12186,7 @@ loadStrutture();
 wireDropzone();
 renderStorico();
 syncStoricoFromServer();
+loadCheckinLink();
 loadCheckinPending();
 addBooking();
 </script>

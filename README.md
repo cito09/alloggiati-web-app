@@ -71,10 +71,17 @@ Senza configurazione, lo Storico (invii/download registrati) resta solo nel brow
 
 Un link sempre uguale (`/checkin.html`) che puoi incollare in un messaggio automatico Airbnb/Booking: l'ospite carica il documento o compila a mano, e la sua richiesta finisce in una coda "Ospiti in attesa" nell'app admin. **Nessun invio automatico alla Questura**: tu la rivedi e la aggiungi alla prenotazione con un tap, poi Verifica/Invia come sempre.
 
-Richiede due cose in più:
+Richiede queste cose in più:
 
 1. **Vercel Blob** (per le foto): Storage → **Blob** → crea/collega al progetto. Aggiunge da sola la variabile `BLOB_READ_WRITE_TOKEN`.
-2. **Notifica push (facoltativa)**: installa l'app gratuita **ntfy** (Play Store/App Store), scegli un nome di canale privato e a caso (es. `alloggiati-canazei-7f2a`), iscriviti a quel canale nell'app. Poi su Vercel → Environment Variables aggiungi:
+2. **Codice di accesso (obbligatorio per usare il check-in)**: senza questo, `/checkin.html` rifiuta ogni invio. Scegli una stringa lunga e casuale (es. generata da un password manager) e su Vercel → Environment Variables aggiungi:
+
+   | Variabile | Valore |
+   |---|---|
+   | `CHECKIN_CODE` | una stringa lunga e casuale a tua scelta, es. `k7f2m9qzx4wp` |
+
+   Il link da dare agli ospiti diventa `https://tuo-dominio.vercel.app/checkin.html?c=IL_TUO_CODICE` — resta sempre lo stesso, ma senza il codice esatto nella URL la pagina mostra "Link non valido" e il server rifiuta comunque l'invio (doppio controllo: pagina *e* server). **Il modo più comodo per trovarlo**: apri l'app admin, nella card "Ospiti in attesa" c'è il link già pronto con il pulsante *Copia*.
+3. **Notifica push (facoltativa)**: installa l'app gratuita **ntfy** (Play Store/App Store), scegli un nome di canale privato e a caso (es. `alloggiati-canazei-7f2a`), iscriviti a quel canale nell'app. Poi su Vercel → Environment Variables aggiungi:
 
    | Variabile | Valore |
    |---|---|
@@ -82,7 +89,11 @@ Richiede due cose in più:
 
    Senza questa variabile il check-in funziona lo stesso, semplicemente non arriva la notifica push: dovrai controllare la sezione "Ospiti in attesa" a mano.
 
-> Il canale ntfy scelto è come una password leggera: usa un nome non ovvio, chiunque lo indovini può mandarti notifiche (non può però vedere i tuoi dati).
+> `CHECKIN_CODE` e il canale ntfy sono "segreti leggeri" incorporati nel link/canale: proteggono da chi trova la pagina per caso o la scansiona automaticamente, ma se il link finisce in mani sbagliate va rigenerato (cambi `CHECKIN_CODE` e ridai il nuovo link ai prossimi ospiti).
+
+### ⚠️ Identificazione "de visu": leggi prima di affidarti solo a questo modulo
+
+Una sentenza del Consiglio di Stato (n. 5732/2025, 21 novembre 2025) ha stabilito che l'identificazione degli ospiti deve avvenire **de visu**, anche a distanza ma **solo se in tempo reale** (videochiamata, videocitofono): **non basta** l'invio di una foto del documento rivista in un secondo momento, che è esattamente il funzionamento base di questo modulo. Questo self check-in resta utile come **aiuto alla raccolta dati** (l'ospite scrive/carica, tu non ritrascrivi), ma se il check-in è interamente da remoto senza nessun contatto dal vivo (nemmeno una breve videochiamata), da solo probabilmente **non basta** a soddisfare l'obbligo di legge. Non è una consulenza legale: verifica con un professionista specializzato in affitti brevi prima di affidarti solo a questo flusso per l'identificazione.
 
 ## Uso
 
@@ -96,7 +107,7 @@ Resta disponibile anche **Scarica .txt** per il caricamento manuale dal portale,
 
 ### Self check-in ospiti
 
-1. Copia il link `https://tuo-dominio.vercel.app/checkin.html` e incollalo nel messaggio automatico che mandi agli ospiti (es. programmato su Airbnb per qualche ora/giorno prima del check-in). È sempre lo stesso link, non va rigenerato per ogni prenotazione.
+1. Copia il link (card "📥 Ospiti in attesa" nell'app admin → pulsante *Copia*, oppure componilo a mano come `https://tuo-dominio.vercel.app/checkin.html?c=IL_TUO_CODICE`) e incollalo nel messaggio automatico che mandi agli ospiti (es. programmato su Airbnb per qualche ora/giorno prima del check-in). È sempre lo stesso link, non va rigenerato per ogni prenotazione (a meno che tu non cambi `CHECKIN_CODE`).
 2. L'ospite carica il documento (o compila a mano) e conferma: arriva una notifica (se hai configurato ntfy) e la richiesta compare in **"📥 Ospiti in attesa"** in cima all'app.
 3. Controlli foto e dati, poi **"✓ Aggiungi alla prenotazione"** (li porta nella prenotazione corrente, pronti per Verifica/Invio) oppure **"Scarta"** se non validi.
 

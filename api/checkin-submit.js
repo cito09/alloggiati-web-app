@@ -34,6 +34,10 @@ async function notificaHost(testo) {
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+  const codiceAtteso = process.env.CHECKIN_CODE;
+  if (!codiceAtteso) return res.status(403).json({ error: "Check-in non configurato: manca CHECKIN_CODE" });
+  if ((req.body || {}).codice !== codiceAtteso) return res.status(403).json({ error: "Link non valido" });
+
   const conn = upstash();
   if (!conn) return res.status(500).json({ error: "Archivio non configurato (Upstash KV)" });
   if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
