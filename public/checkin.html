@@ -104,6 +104,13 @@
   <button class="lang-btn" onclick="sceglilingua('es')"><span class="flag">🇪🇸</span> Español</button>
 </div>
 
+<div class="wrap ok-screen" id="welcomeWrap" style="display:none">
+  <div class="big">🛂</div>
+  <h2 id="welcomeTitle"></h2>
+  <div class="muted" id="welcomeText" style="margin-bottom:20px"></div>
+  <button class="btn primary" id="welcomeBtn" style="max-width:320px; margin:0 auto" onclick="iniziaCheckin()"></button>
+</div>
+
 <div class="wrap" id="formWrap" style="display:none">
   <div class="card">
     <div class="row">
@@ -161,7 +168,10 @@ const T={
     sub_header:"Registra i tuoi dati per il soggiorno: li useremo solo per l'obbligo di legge verso la Questura.",
     label_arrivo:'Data di arrivo (check-in)', label_partenza:'Data di partenza (check-out)',
     notte_s:'notte', notte_p:'notti', notti_error:"La data di partenza deve essere dopo l'arrivo",
-    btn_add_guest:'+ Aggiungi un altro ospite (es. familiare)',
+    btn_add_guest:'+ Aggiungi un altro ospite',
+    welcome_title:'Completa il check-in per proseguire',
+    welcome_text:"Per legge dobbiamo registrare i dati di ogni ospite prima dell'arrivo. Ci vogliono 2 minuti: carica una foto del documento di ciascun ospite e conferma i dati.",
+    welcome_btn:'Continua',
     privacy_title:'Informativa privacy (GDPR)',
     privacy_html:"<b>Titolare del trattamento:</b> il gestore della struttura ricettiva.<br><b>Finalità:</b> i dati anagrafici e la copia del documento d'identità sono raccolti esclusivamente per adempiere all'obbligo di legge di comunicazione alla Questura tramite il portale Alloggiati Web (art. 109 TULPS) — non per finalità commerciali o di marketing.<br><b>Conservazione:</b> per il tempo previsto dalla normativa (5 anni), poi cancellati.<br><b>Destinatari:</b> Polizia di Stato (Alloggiati Web); nessuna comunicazione a terzi per altre finalità.<br><b>Diritti:</b> puoi chiedere in qualsiasi momento accesso, rettifica o informazioni sui tuoi dati contattando la struttura.",
     consent_label:"Ho letto l'informativa e acconsento al trattamento dei miei dati personali e del documento caricato per le finalità sopra indicate.",
@@ -192,7 +202,10 @@ const T={
     sub_header:"Register your details for your stay: we'll only use them to fulfil the legal reporting duty to the local Police.",
     label_arrivo:'Arrival date (check-in)', label_partenza:'Departure date (check-out)',
     notte_s:'night', notte_p:'nights', notti_error:'The departure date must be after the arrival date',
-    btn_add_guest:'+ Add another guest (e.g. family member)',
+    btn_add_guest:'+ Add another guest',
+    welcome_title:'Complete check-in to continue',
+    welcome_text:'By law we must register every guest\'s details before arrival. It only takes 2 minutes: upload a photo of each guest\'s ID document and confirm the details.',
+    welcome_btn:'Continue',
     privacy_title:'Privacy notice (GDPR)',
     privacy_html:"<b>Data controller:</b> the accommodation manager.<br><b>Purpose:</b> your personal data and the copy of your ID document are collected solely to comply with the legal obligation to report guests to the local Police Headquarters via the Alloggiati Web portal (art. 109 TULPS) — not for commercial or marketing purposes.<br><b>Retention:</b> for the period required by law (5 years), then deleted.<br><b>Recipients:</b> Italian State Police (Alloggiati Web); no data shared with third parties for other purposes.<br><b>Your rights:</b> you may request access, correction or information about your data at any time by contacting the accommodation.",
     consent_label:'I have read the notice and consent to the processing of my personal data and the uploaded document for the purposes stated above.',
@@ -223,7 +236,10 @@ const T={
     sub_header:"Enregistrez vos informations pour votre séjour : elles seront utilisées uniquement pour l'obligation légale de déclaration à la Questure.",
     label_arrivo:"Date d'arrivée (check-in)", label_partenza:'Date de départ (check-out)',
     notte_s:'nuit', notte_p:'nuits', notti_error:"La date de départ doit être postérieure à la date d'arrivée",
-    btn_add_guest:'+ Ajouter un autre voyageur (ex. membre de la famille)',
+    btn_add_guest:'+ Ajouter un autre voyageur',
+    welcome_title:'Complétez le check-in pour continuer',
+    welcome_text:"La loi nous oblige à enregistrer les données de chaque voyageur avant l'arrivée. Cela ne prend que 2 minutes : téléchargez une photo du document de chaque voyageur et confirmez les données.",
+    welcome_btn:'Continuer',
     privacy_title:"Note d'information (RGPD)",
     privacy_html:"<b>Responsable du traitement :</b> le gestionnaire de la structure d'hébergement.<br><b>Finalité :</b> les données personnelles et la copie du document d'identité sont recueillies uniquement pour respecter l'obligation légale de déclaration à la Questure via le portail Alloggiati Web (art. 109 TULPS) — non à des fins commerciales ou de marketing.<br><b>Conservation :</b> pendant la durée prévue par la loi (5 ans), puis supprimées.<br><b>Destinataires :</b> Police d'État italienne (Alloggiati Web) ; aucune communication à des tiers à d'autres fins.<br><b>Vos droits :</b> vous pouvez demander à tout moment l'accès, la rectification ou des informations sur vos données en contactant la structure.",
     consent_label:"J'ai lu la note d'information et je consens au traitement de mes données personnelles et du document téléchargé aux fins indiquées ci-dessus.",
@@ -254,7 +270,10 @@ const T={
     sub_header:'Registra tus datos para la estancia: los usaremos solo para cumplir con la obligación legal de comunicación a la Questura.',
     label_arrivo:'Fecha de llegada (check-in)', label_partenza:'Fecha de salida (check-out)',
     notte_s:'noche', notte_p:'noches', notti_error:'La fecha de salida debe ser posterior a la de llegada',
-    btn_add_guest:'+ Añadir otro huésped (p. ej. familiar)',
+    btn_add_guest:'+ Añadir otro huésped',
+    welcome_title:'Completa el check-in para continuar',
+    welcome_text:'Por ley debemos registrar los datos de cada huésped antes de la llegada. Solo toma 2 minutos: sube una foto del documento de cada huésped y confirma los datos.',
+    welcome_btn:'Continuar',
     privacy_title:'Información de privacidad (RGPD)',
     privacy_html:'<b>Responsable del tratamiento:</b> el gestor del alojamiento.<br><b>Finalidad:</b> los datos personales y la copia del documento de identidad se recogen exclusivamente para cumplir con la obligación legal de comunicación a la Questura a través del portal Alloggiati Web (art. 109 TULPS) — no con fines comerciales ni de marketing.<br><b>Conservación:</b> durante el tiempo previsto por la normativa (5 años), después se eliminan.<br><b>Destinatarios:</b> Policía del Estado italiana (Alloggiati Web); no se comunican a terceros para otros fines.<br><b>Tus derechos:</b> puedes solicitar en cualquier momento el acceso, rectificación o información sobre tus datos contactando con el alojamiento.',
     consent_label:'He leído la información y consiento el tratamiento de mis datos personales y del documento cargado para las finalidades indicadas.',
@@ -287,12 +306,13 @@ const FLAGS={it:'🇮🇹',en:'🇬🇧',fr:'🇫🇷',es:'🇪🇸'};
 
 /* ===== schermate: solo una visibile alla volta (lang / form / ok / block) ===== */
 let onboardingFatto=false;
-let vistaAttuale=null;      // 'formWrap' | 'okWrap' | 'blockWrap'
+let vistaAttuale=null;      // 'welcomeWrap' | 'formWrap' | 'okWrap' | 'blockWrap'
 let vistaPrimaDiLingua=null;
 function mostraSolo(id){
-  ['formWrap','okWrap','blockWrap'].forEach(x=>{ const el=$('#'+x); if(el)el.style.display=(x===id)?'block':'none'; });
+  ['welcomeWrap','formWrap','okWrap','blockWrap'].forEach(x=>{ const el=$('#'+x); if(el)el.style.display=(x===id)?'block':'none'; });
   vistaAttuale=id;
 }
+function iniziaCheckin(){ verificaAccesso(); }
 function aggiornaPulsanteLingua(){
   const b=$('#langSwitchBtn'); if(!b)return;
   b.textContent=FLAGS[lang]||'🌐';
@@ -300,7 +320,7 @@ function aggiornaPulsanteLingua(){
 }
 function apriSelettoreLingua(){
   vistaPrimaDiLingua=vistaAttuale;
-  ['formWrap','okWrap','blockWrap'].forEach(x=>{ const el=$('#'+x); if(el)el.style.display='none'; });
+  ['welcomeWrap','formWrap','okWrap','blockWrap'].forEach(x=>{ const el=$('#'+x); if(el)el.style.display='none'; });
   $('#langWrap').style.display='block';
 }
 function sceglilingua(l){
@@ -312,7 +332,7 @@ function sceglilingua(l){
   if(!onboardingFatto){
     onboardingFatto=true;
     aggiornaPulsanteLingua();
-    verificaAccesso();
+    mostraSolo('welcomeWrap');
   }else if(vistaPrimaDiLingua){
     mostraSolo(vistaPrimaDiLingua);
   }
@@ -320,6 +340,9 @@ function sceglilingua(l){
 function applicaTraduzioniStatiche(){
   $('#pageTitle').textContent=t('default_title');
   $('#subHeader').textContent=t('sub_header');
+  $('#welcomeTitle').textContent=t('welcome_title');
+  $('#welcomeText').textContent=t('welcome_text');
+  $('#welcomeBtn').textContent=t('welcome_btn');
   $('#labArrivo').textContent=t('label_arrivo');
   $('#labPartenza').textContent=t('label_partenza');
   $('#btnAddGuest').textContent=t('btn_add_guest');
@@ -537,7 +560,7 @@ if(lang){
   onboardingFatto=true;
   applicaTraduzioniStatiche();
   aggiornaPulsanteLingua();
-  verificaAccesso();
+  mostraSolo('welcomeWrap');
   caricaNomeStruttura();
 }
 </script>
