@@ -11974,14 +11974,22 @@ async function loadCheckinLink(){
     }
     const link=`${location.origin}/checkin.html?c=${encodeURIComponent(data.codice)}`;
     w.innerHTML=`<label>Link check-in da mandare agli ospiti (sempre lo stesso)</label>
-      <div style="display:flex;gap:8px">
-        <input type="text" readonly value="${link}" style="flex:1" onclick="this.select()">
-        <button class="btn ghost sm" onclick="copiaLinkCheckin('${link}')">Copia</button>
-      </div>`;
+      <button class="btn primary" id="copyCheckinBtn" onclick="copiaLinkCheckin('${link}')">📋 Copia link check-in</button>
+      <div class="muted" style="margin-top:6px; font-size:11px; word-break:break-all">${link}</div>`;
   }catch(e){/* offline: nessun link mostrato, non blocca il resto dell'app */}
 }
 function copiaLinkCheckin(link){
-  navigator.clipboard.writeText(link).then(()=>toast('Link copiato')).catch(()=>toast('Copia manualmente il link dal campo'));
+  const btn=$('#copyCheckinBtn'); const testoOriginale=btn?btn.textContent:'';
+  const fatto=()=>{ toast('Link copiato'); if(btn){btn.textContent='✓ Copiato!'; setTimeout(()=>{btn.textContent=testoOriginale;},1800);} };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(fatto).catch(()=>toast('Copia non riuscita: tieni premuto sul link qui sotto'));
+  }else{
+    // fallback per browser/contesti senza Clipboard API
+    const ta=document.createElement('textarea'); ta.value=link; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); fatto(); }catch(e){ toast('Copia non riuscita: tieni premuto sul link qui sotto'); }
+    document.body.removeChild(ta);
+  }
 }
 let checkinPending=[];
 async function loadCheckinPending(){
