@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Check-in ospiti</title>
+<title>KeyFlow Check-in</title>
 <style>
   :root{
     --bg:#0d1b2a; --surface:#14283c; --surface2:#1b3550; --line:#274867;
@@ -67,7 +67,7 @@
 </head>
 <body>
 <header>
-  <div class="eyebrow">🔑 Check-in online</div>
+  <div class="eyebrow">🔑 KeyFlow</div>
   <h1 id="pageTitle">Check-in ospiti</h1>
   <div class="sub">Registra i tuoi dati per il soggiorno: li useremo solo per l'obbligo di legge verso la Questura.</div>
 </header>
@@ -129,7 +129,7 @@ async function caricaNomeStruttura(){
   try{
     const r=await fetch('/api/strutture'); const data=await r.json();
     const s=(data.strutture||[]).find(x=>x.id===strutturaId);
-    if(s){ document.title=s.nome+' · Check-in'; const h=$('#pageTitle'); if(h)h.textContent=s.nome+' — Check-in'; }
+    if(s){ document.title=s.nome+' · KeyFlow'; const h=$('#pageTitle'); if(h)h.textContent=s.nome+' — Check-in'; }
   }catch(e){/* offline: resta il titolo generico, non blocca il check-in */}
 }
 
