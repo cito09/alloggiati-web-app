@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>KeyFlow Check-in</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%23ffb703"/><circle cx="22" cy="32" r="8" fill="none" stroke="%2323170a" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="%2323170a" stroke-width="6" stroke-linecap="round" fill="none"/></svg>'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -21,9 +22,12 @@
     padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
   header{background:linear-gradient(180deg, rgba(23,44,66,.96), rgba(13,27,42,.94)); border-bottom:1px solid var(--line);
     padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top)); box-shadow:0 6px 24px -8px rgba(0,0,0,.4); position:relative; z-index:2}
-  header .eyebrow{display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.04em; text-transform:uppercase;
-    color:var(--amber); font-weight:700; background:rgba(255,183,3,.12); border:1px solid rgba(255,183,3,.35);
-    border-radius:999px; padding:4px 11px}
+  .brand{display:inline-flex; align-items:center; gap:10px}
+  .brand-badge{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#ffd166,var(--amber)); box-shadow:0 5px 16px -5px rgba(255,183,3,.6)}
+  .brand-badge svg{width:20px; height:20px}
+  .brand-name{font-weight:800; font-size:17px; letter-spacing:-.01em}
+  .brand-name .flow{color:var(--amber)}
   header h1{margin:10px 0 0; font-size:22px; font-weight:800; letter-spacing:-.02em}
   header .sub{font-size:13.5px; color:var(--muted); margin-top:5px}
   .wrap{max-width:640px; margin:0 auto; padding:16px; animation:fadeSlideIn .45s ease both}
@@ -88,22 +92,28 @@
   .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:16px; padding:24px 14px; text-align:center;
     cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface)}
   .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
-  .dropzone .dz-big{font-size:28px; line-height:1}
   .dropzone .dz-t{font-weight:700; margin-top:8px}
   .dropzone .dz-s{font-size:12px; color:var(--muted); margin-top:4px}
   .icon-badge{width:92px; height:92px; margin:0 auto 18px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    font-size:42px; background:radial-gradient(circle at 32% 28%, rgba(255,183,3,.32), rgba(255,183,3,.05) 62%, transparent 75%), var(--surface2);
+    background:radial-gradient(circle at 32% 28%, rgba(255,183,3,.32), rgba(255,183,3,.05) 62%, transparent 75%), var(--surface2);
     border:1px solid rgba(255,183,3,.3); box-shadow:0 12px 30px -8px rgba(255,183,3,.28)}
-  .lang-screen .icon-badge{font-size:38px}
+  .icon-badge svg{width:46px; height:46px}
   .trust-row{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:2px 0 24px}
-  .trust-chip{display:flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--line);
+  .trust-chip{display:flex; align-items:center; gap:7px; background:var(--surface2); border:1px solid var(--line);
     border-radius:999px; padding:8px 14px; font-size:12.5px; color:var(--muted); font-weight:600}
+  .trust-chip svg{width:15px; height:15px; flex-shrink:0}
+  .dropzone .dz-cam{width:36px; height:36px}
 </style>
 </head>
 <body>
 <header>
-  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px">
-    <div class="eyebrow">🔑 KeyFlow</div>
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px">
+    <div class="brand">
+      <span class="brand-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#23170a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.8" cy="12" r="3.1"/><path d="M11 12h9.5M17.8 12v3M14.6 12v2.2"/></svg>
+      </span>
+      <span class="brand-name">Key<span class="flow">Flow</span></span>
+    </div>
     <button class="lang-switch-btn" id="langSwitchBtn" style="display:none" onclick="apriSelettoreLingua()">🌐</button>
   </div>
   <h1 id="pageTitle">Check-in</h1>
@@ -111,7 +121,9 @@
 </header>
 
 <div class="wrap lang-screen" id="langWrap">
-  <div class="icon-badge">🌐</div>
+  <div class="icon-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.5 3.7 5.5 3.7 8.6s-1.3 6.1-3.7 8.6c-2.4-2.5-3.7-5.5-3.7-8.6S9.6 5.9 12 3.4z"/></svg>
+  </div>
   <div class="muted" style="margin-bottom:6px">Select your language · Scegli la lingua<br>Choisissez la langue · Elige el idioma</div>
   <button class="lang-btn" onclick="sceglilingua('it')"><span class="flag">🇮🇹</span> Italiano</button>
   <button class="lang-btn" onclick="sceglilingua('en')"><span class="flag">🇬🇧</span> English</button>
@@ -120,13 +132,15 @@
 </div>
 
 <div class="wrap ok-screen" id="welcomeWrap" style="display:none">
-  <div class="icon-badge">🛂</div>
+  <div class="icon-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 18.5h17"/><path d="M5.2 18.5v-.6a6.8 6.8 0 0 1 13.6 0v.6"/><path d="M12 8.6V7"/><path d="M10.3 7h3.4"/></svg>
+  </div>
   <h2 id="welcomeTitle"></h2>
   <div class="muted" id="welcomeText" style="margin-bottom:20px; max-width:440px; margin-left:auto; margin-right:auto"></div>
   <div class="trust-row">
-    <div class="trust-chip">🔒 <span id="trustSecure"></span></div>
-    <div class="trust-chip">⏱️ <span id="trustFast"></span></div>
-    <div class="trust-chip">👤 <span id="trustReviewed"></span></div>
+    <div class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.4-7 9-4-1.6-7-4.6-7-9V6z"/><path d="m9.2 11.8 2 2 3.6-4"/></svg> <span id="trustSecure"></span></div>
+    <div class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg> <span id="trustFast"></span></div>
+    <div class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="m15 10.5 2 2 3.5-4"/></svg> <span id="trustReviewed"></span></div>
   </div>
   <button class="btn primary" id="welcomeBtn" style="max-width:320px; margin:0 auto" onclick="iniziaCheckin()"></button>
 </div>
@@ -156,13 +170,17 @@
 </div>
 
 <div class="wrap ok-screen" id="okWrap" style="display:none">
-  <div class="icon-badge">✅</div>
+  <div class="icon-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="m8.3 12.4 2.6 2.6 5-5.6"/></svg>
+  </div>
   <h2 id="okTitle"></h2>
   <div class="muted" id="okText"></div>
 </div>
 
 <div class="wrap ok-screen" id="blockWrap" style="display:none">
-  <div class="icon-badge">🔒</div>
+  <div class="icon-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2.2"/><path d="M8.2 11V8a3.8 3.8 0 0 1 7.6 0v3"/><path d="M12 14.8v1.7"/></svg>
+  </div>
   <h2 id="blockTitle"></h2>
   <div class="muted" id="blockText"></div>
 </div>
@@ -425,7 +443,7 @@ function setG(id,k,v){ getG(id)[k]=v; render(); }
 function thumb(src,onRm){const d=document.createElement('div');d.className='thumb';d.innerHTML=`<img src="${src}"><button class="rm">×</button>`;d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
 function bigDropzone(onFiles){
   const dz=document.createElement('div'); dz.className='dropzone';
-  dz.innerHTML=`<div class="dz-big">📷</div><div class="dz-t">${t('dz_title')}</div><div class="dz-s">${t('dz_sub')}</div>`;
+  dz.innerHTML=`<svg class="dz-cam" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5h2.8l1.6-2.2h7.2L17.2 8.5H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.4" r="3.1"/></svg><div class="dz-t">${t('dz_title')}</div><div class="dz-s">${t('dz_sub')}</div>`;
   const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.style.display='none';
   i.onchange=e=>{onFiles(e.target.files); i.value='';};
   dz.appendChild(i);
