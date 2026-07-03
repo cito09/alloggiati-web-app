@@ -67,8 +67,8 @@
 </head>
 <body>
 <header>
-  <div class="eyebrow">🛡️ Alloggiati Web</div>
-  <h1>Check-in ospiti</h1>
+  <div class="eyebrow">🔑 Check-in online</div>
+  <h1 id="pageTitle">Check-in ospiti</h1>
   <div class="sub">Registra i tuoi dati per il soggiorno: li useremo solo per l'obbligo di legge verso la Questura.</div>
 </header>
 
@@ -123,6 +123,15 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
 
 const codice=new URLSearchParams(location.search).get('c')||'';
+const strutturaId=new URLSearchParams(location.search).get('s')||'';
+async function caricaNomeStruttura(){
+  if(!strutturaId)return;
+  try{
+    const r=await fetch('/api/strutture'); const data=await r.json();
+    const s=(data.strutture||[]).find(x=>x.id===strutturaId);
+    if(s){ document.title=s.nome+' · Check-in'; const h=$('#pageTitle'); if(h)h.textContent=s.nome+' — Check-in'; }
+  }catch(e){/* offline: resta il titolo generico, non blocca il check-in */}
+}
 
 let arrivo='';
 let partenza='';
@@ -269,7 +278,7 @@ async function inviaCheckin(){
   const btn=$('#submitBtn'); btn.disabled=true;
   $('#submitStatus').innerHTML='<span class="spin"></span> Invio in corso…';
   try{
-    const payload={codice, arrivo, partenza, notti, ospiti: validi.map(g=>({
+    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, ospiti: validi.map(g=>({
       cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
       incertezze:(g._warn||[]), immagini:g.imgs||[]
@@ -299,6 +308,7 @@ async function verificaAccesso(){
   }
 }
 verificaAccesso();
+caricaNomeStruttura();
 </script>
 </body>
 </html>

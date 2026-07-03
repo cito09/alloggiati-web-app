@@ -8,6 +8,7 @@
 // - avvisa l'host con una notifica push (ntfy.sh, se NTFY_TOPIC è configurato)
 const { put } = require("@vercel/blob");
 const { upstash, redisCmd } = require("./_kv");
+const { getStrutture } = require("./_alloggiati");
 
 const KEY = "checkin_pending";
 const MAX_VOCI = 200;
@@ -43,9 +44,11 @@ module.exports = async (req, res) => {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
 
   try {
-    const { arrivo, partenza, notti, ospiti = [] } = req.body || {};
+    const { arrivo, partenza, notti, struttura, ospiti = [] } = req.body || {};
     const validi = ospiti.filter((o) => o && (o.cognome || o.nome));
     if (!validi.length) return res.status(400).json({ error: "Nessun ospite compilato" });
+
+    const strutturaInfo = getStrutture().find((s) => s.id === struttura);
 
     const ospitiSalvati = [];
     for (const o of validi) {
@@ -68,6 +71,8 @@ module.exports = async (req, res) => {
     const voce = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ts: Date.now(),
+      strutturaId: struttura || "",
+      strutturaNome: strutturaInfo ? strutturaInfo.nome : "",
       arrivo: arrivo || "",
       partenza: partenza || "",
       notti: Number(notti) || 0,
@@ -81,7 +86,7 @@ module.exports = async (req, res) => {
     await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
 
     const nomi = ospitiSalvati.map((o) => [o.cognome, o.nome].filter(Boolean).join(" ")).filter(Boolean).join(", ");
-    await notificaHost(`${nomi || "Nuovo ospite"}${arrivo ? " · arrivo " + arrivo : ""} ha completato il check-in`);
+    await notificaHost(`${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ha completato il check-in`);
 
     return res.status(200).json({ ok: true });
   } catch (e) {

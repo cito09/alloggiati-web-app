@@ -107,9 +107,11 @@ Resta disponibile anche **Scarica .txt** per il caricamento manuale dal portale,
 
 ### Self check-in ospiti
 
-1. Copia il link (card "📥 Ospiti in attesa" nell'app admin → pulsante *Copia*, oppure componilo a mano come `https://tuo-dominio.vercel.app/checkin.html?c=IL_TUO_CODICE`) e incollalo nel messaggio automatico che mandi agli ospiti (es. programmato su Airbnb per qualche ora/giorno prima del check-in). È sempre lo stesso link, non va rigenerato per ogni prenotazione (a meno che tu non cambi `CHECKIN_CODE`).
-2. L'ospite carica il documento (o compila a mano) e conferma: arriva una notifica (se hai configurato ntfy) e la richiesta compare in **"📥 Ospiti in attesa"** in cima all'app.
-3. Controlli foto e dati, poi **"✓ Aggiungi alla prenotazione"** (li porta nella prenotazione corrente, pronti per Verifica/Invio) oppure **"Scarta"** se non validi.
+Con più strutture configurate (`ALLOGGIATI_STRUTTURE`), la card **"📥 Ospiti in attesa"** mostra **un link diverso per struttura**, con il pulsante *Copia* pronto per ognuno — usa il campo `nome` di ogni struttura anche come nome mostrato all'ospite in cima alla pagina di check-in. Vuoi che l'ospite veda "Falegnami House" invece di "Bologna centro"? Basta rinominare quel campo `nome` nella variabile `ALLOGGIATI_STRUTTURE`, non serve altro.
+
+1. Copia il link della struttura giusta e incollalo nel messaggio automatico che mandi agli ospiti (es. programmato su Airbnb per qualche ora/giorno prima del check-in). È sempre lo stesso link per quella struttura, non va rigenerato per ogni prenotazione (a meno che tu non cambi `CHECKIN_CODE`).
+2. L'ospite vede il nome della struttura in cima alla pagina, carica il documento (o compila a mano) e conferma: arriva una notifica (se hai configurato ntfy) e la richiesta compare in **"📥 Ospiti in attesa"**, già etichettata con la struttura giusta.
+3. Controlli foto e dati, poi **"✓ Aggiungi alla prenotazione"** (porta i dati nella prenotazione corrente e pre-seleziona la struttura giusta per l'invio) oppure **"Scarta"** se non validi.
 
 ## Note tecniche
 

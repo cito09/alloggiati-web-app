@@ -11967,19 +11967,31 @@ function inferSoggiorno(guests){
 async function loadCheckinLink(){
   const w=$('#checkinLinkBox'); if(!w)return;
   try{
-    const r=await fetch('/api/checkin-code'); const data=await r.json();
-    if(!data.configurato){
+    const codeData=await (await fetch('/api/checkin-code')).json();
+    if(!codeData.configurato){
       w.innerHTML='<div class="hint">Self check-in non ancora attivo: manca la variabile <code>CHECKIN_CODE</code> su Vercel.</div>';
       return;
     }
-    const link=`${location.origin}/checkin.html?c=${encodeURIComponent(data.codice)}`;
-    w.innerHTML=`<label>Link check-in da mandare agli ospiti (sempre lo stesso)</label>
-      <button class="btn primary" id="copyCheckinBtn" onclick="copiaLinkCheckin('${link}')">📋 Copia link check-in</button>
-      <div class="muted" style="margin-top:6px; font-size:11px; word-break:break-all">${link}</div>`;
+    let strutture=[];
+    try{ const sd=await (await fetch('/api/strutture')).json(); strutture=sd.strutture||[]; }catch(e){/* usa link generico */}
+    const base=`${location.origin}/checkin.html?c=${encodeURIComponent(codeData.codice)}`;
+    if(strutture.length>1){
+      w.innerHTML='<label>Link check-in da mandare agli ospiti (uno per struttura, sempre gli stessi)</label>'+
+        strutture.map((s,i)=>{
+          const link=`${base}&s=${encodeURIComponent(s.id)}`;
+          return `<button class="btn primary" id="copyCheckinBtn-${i}" style="margin-top:${i?10:0}px" onclick="copiaLinkCheckin('${link}','copyCheckinBtn-${i}')">📋 Copia link — ${escText(s.nome)}</button>
+            <div class="muted" style="margin-top:4px; font-size:11px; word-break:break-all">${link}</div>`;
+        }).join('');
+    }else{
+      const link=strutture.length===1?`${base}&s=${encodeURIComponent(strutture[0].id)}`:base;
+      w.innerHTML=`<label>Link check-in da mandare agli ospiti (sempre lo stesso)</label>
+        <button class="btn primary" id="copyCheckinBtn" onclick="copiaLinkCheckin('${link}','copyCheckinBtn')">📋 Copia link check-in</button>
+        <div class="muted" style="margin-top:6px; font-size:11px; word-break:break-all">${link}</div>`;
+    }
   }catch(e){/* offline: nessun link mostrato, non blocca il resto dell'app */}
 }
-function copiaLinkCheckin(link){
-  const btn=$('#copyCheckinBtn'); const testoOriginale=btn?btn.textContent:'';
+function copiaLinkCheckin(link,btnId){
+  const btn=btnId?document.getElementById(btnId):null; const testoOriginale=btn?btn.textContent:'';
   const fatto=()=>{ toast('Link copiato'); if(btn){btn.textContent='✓ Copiato!'; setTimeout(()=>{btn.textContent=testoOriginale;},1800);} };
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(link).then(fatto).catch(()=>toast('Copia non riuscita: tieni premuto sul link qui sotto'));
@@ -12007,7 +12019,7 @@ function renderCheckinPending(){
     const nomi=v.ospiti.map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ');
     const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
     return `<div class="storico-item">
-      <div class="storico-head"><span>${escText(quando)}</span><span class="pill wait">in attesa</span></div>
+      <div class="storico-head"><span>${escText(quando)}</span>${v.strutturaNome?`<span class="pill ok">${escText(v.strutturaNome)}</span>`:'<span class="pill wait">in attesa</span>'}</div>
       <div class="storico-meta">${[v.arrivo?('arrivo '+v.arrivo):null, v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
       ${foto.length?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb"><img src="${u}"></div>`).join('')}</div>`:''}
@@ -12031,6 +12043,13 @@ function accettaCheckin(id){
   const b=bookingAttivo();
   if(v.arrivo && !b.arrivo) b.arrivo=v.arrivo;
   if(v.notti && !b.notti) b.notti=v.notti;
+  if(v.strutturaId){
+    const sel=$('#strutturaSel');
+    if(sel&&[...sel.options].some(o=>o.value===v.strutturaId)){
+      sel.value=v.strutturaId;
+      localStorage.setItem('strutturaPreferita',v.strutturaId);
+    }
+  }
   const nuovi=v.ospiti.map(o=>{
     const g={id:uid(), _bid:b.id, imgs:o.fotoUrls||[],
       cognome:o.cognome||'', nome:o.nome||'', sesso:o.sesso||'', dataNascita:o.dataNascita||'',
