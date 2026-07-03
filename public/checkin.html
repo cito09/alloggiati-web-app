@@ -308,11 +308,11 @@ function sceglilingua(l){
   $('#langWrap').style.display='none';
   applicaTraduzioniStatiche();
   aggiornaPulsanteLingua();
+  caricaNomeStruttura();
   if(!onboardingFatto){
     onboardingFatto=true;
     aggiornaPulsanteLingua();
     verificaAccesso();
-    caricaNomeStruttura();
   }else if(vistaPrimaDiLingua){
     mostraSolo(vistaPrimaDiLingua);
   }
