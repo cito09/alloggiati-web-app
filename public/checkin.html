@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>KeyFlow Check-in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#0d1b2a; --surface:#14283c; --surface2:#1b3550; --line:#274867;
@@ -12,34 +15,39 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{background:var(--bg); color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
-    font-size:16px; line-height:1.45; padding:0 0 40px;
+  body{background:radial-gradient(1100px 550px at 50% -12%, rgba(255,183,3,.09), transparent 60%), var(--bg); color:var(--ink);
+    font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    font-size:16px; line-height:1.5; padding:0 0 40px;
     padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
-  header{background:rgba(13,27,42,.92); border-bottom:1px solid var(--line); padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top));}
+  header{background:linear-gradient(180deg, rgba(23,44,66,.96), rgba(13,27,42,.94)); border-bottom:1px solid var(--line);
+    padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top)); box-shadow:0 6px 24px -8px rgba(0,0,0,.4); position:relative; z-index:2}
   header .eyebrow{display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.04em; text-transform:uppercase;
     color:var(--amber); font-weight:700; background:rgba(255,183,3,.12); border:1px solid rgba(255,183,3,.35);
     border-radius:999px; padding:4px 11px}
-  header h1{margin:10px 0 0; font-size:21px; font-weight:800; letter-spacing:-.02em}
-  header .sub{font-size:13px; color:var(--muted); margin-top:5px}
-  .wrap{max-width:640px; margin:0 auto; padding:16px}
-  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px}
+  header h1{margin:10px 0 0; font-size:22px; font-weight:800; letter-spacing:-.02em}
+  header .sub{font-size:13.5px; color:var(--muted); margin-top:5px}
+  .wrap{max-width:640px; margin:0 auto; padding:16px; animation:fadeSlideIn .45s ease both}
+  @keyframes fadeSlideIn{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)}}
+  .card{background:linear-gradient(165deg, var(--surface), var(--surface2) 140%); border:1px solid var(--line); border-radius:16px;
+    padding:18px; margin-bottom:14px; box-shadow:0 8px 24px -12px rgba(0,0,0,.45)}
   label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
   input[type=text], input[type=date], select{
     width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
-    border-radius:10px; padding:11px 12px; font-size:16px; font-family:inherit;}
-  input:focus, select:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber)}
+    border-radius:10px; padding:12px 12px; font-size:16px; font-family:inherit; transition:border-color .15s, box-shadow .15s;}
+  input:focus, select:focus{outline:none; border-color:var(--amber); box-shadow:0 0 0 3px rgba(255,183,3,.2)}
   .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-  .btn{appearance:none; border:none; border-radius:11px; font-size:15px; font-weight:700; padding:13px 16px; cursor:pointer; font-family:inherit; width:100%}
-  .btn.primary{background:var(--amber); color:#23170a}
-  .btn.primary:active{background:var(--amber-d)}
-  .btn.accent{background:linear-gradient(135deg,#5aa0f2,#7c5cff); color:#fff; box-shadow:0 2px 10px rgba(90,160,242,.35)}
-  .btn.accent:active{filter:brightness(.9)}
+  .btn{appearance:none; border:none; border-radius:13px; font-size:15px; font-weight:700; padding:14px 16px; cursor:pointer;
+    font-family:inherit; width:100%; transition:transform .12s ease, filter .12s ease, box-shadow .12s ease}
+  .btn.primary{background:linear-gradient(135deg,#ffce54,var(--amber)); color:#23170a; box-shadow:0 8px 22px -6px rgba(255,183,3,.5)}
+  .btn.primary:active{transform:scale(.98); filter:brightness(.95)}
+  .btn.accent{background:linear-gradient(135deg,#5aa0f2,#7c5cff); color:#fff; box-shadow:0 8px 22px -6px rgba(124,92,255,.45)}
+  .btn.accent:active{transform:scale(.98); filter:brightness(.9)}
   .btn.ghost{background:var(--surface2); color:var(--ink); border:1px solid var(--line)}
+  .btn.ghost:active{transform:scale(.98)}
   .btn.sm{padding:9px 12px; font-size:13px; width:auto}
   .btn:disabled{opacity:.5}
   .muted{color:var(--muted); font-size:12.5px}
-  .guest{border:1px solid var(--line); border-radius:11px; padding:14px; margin-top:12px; background:var(--surface2)}
+  .guest{border:1px solid var(--line); border-radius:15px; padding:14px; margin-top:12px; background:var(--surface2); box-shadow:0 6px 18px -10px rgba(0,0,0,.4)}
   .ghead{display:flex; justify-content:space-between; align-items:center; gap:8px}
   .gname{font-weight:700; font-size:14px}
   .thumbs{display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; align-items:center; border-radius:10px; transition:outline-color .15s}
@@ -52,8 +60,9 @@
   .datepick input[type=date]{width:100%}
   .spin{display:inline-block; width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#000; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; z-index:50; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%}
-  .toast.show{opacity:.95}
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#0a1826; color:#fff; padding:11px 18px; border-radius:12px;
+    font-size:13px; z-index:50; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%; border:1px solid var(--line); box-shadow:0 10px 30px -8px rgba(0,0,0,.5)}
+  .toast.show{opacity:.97}
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:9px 11px; margin-top:10px}
   .consent{display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--muted); margin-top:14px}
   .consent input[type=checkbox]{-webkit-appearance:none; appearance:none; width:24px; height:24px; min-width:24px;
@@ -62,27 +71,33 @@
   .consent input[type=checkbox]:checked{background:var(--amber); border-color:var(--amber)}
   .consent input[type=checkbox]:checked::after{content:'✓'; position:absolute; inset:0; display:flex;
     align-items:center; justify-content:center; color:#23170a; font-size:16px; font-weight:900; line-height:1}
-  .ok-screen{text-align:center; padding:40px 16px}
-  .ok-screen .big{font-size:44px}
+  .ok-screen{text-align:center; padding:44px 16px}
+  .ok-screen h2{font-size:25px; font-weight:800; letter-spacing:-.02em; margin:0 0 10px}
   .warn-badge{font-size:10px; color:var(--amber); margin-left:6px; font-weight:700}
   .field-warn{outline:2px solid var(--amber)!important; border-color:var(--amber)!important}
   .steplbl{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--amber); font-weight:700; margin:14px 0 8px}
   .steplbl:first-child{margin-top:0}
   .lang-screen{max-width:420px; margin:60px auto; padding:16px; text-align:center}
-  .lang-screen .big{font-size:40px; margin-bottom:6px}
   .lang-btn{display:flex; align-items:center; gap:12px; width:100%; text-align:left; margin-top:10px;
-    background:var(--surface2); border:1px solid var(--line); color:var(--ink); border-radius:12px; padding:14px 16px;
-    font-size:16px; font-weight:700; cursor:pointer; font-family:inherit}
-  .lang-btn:active{border-color:var(--amber)}
+    background:var(--surface2); border:1px solid var(--line); color:var(--ink); border-radius:13px; padding:15px 16px;
+    font-size:16px; font-weight:700; cursor:pointer; font-family:inherit; transition:border-color .12s, transform .12s}
+  .lang-btn:active{border-color:var(--amber); transform:scale(.98)}
   .lang-btn .flag{font-size:22px}
   .lang-switch-btn{background:var(--surface2); border:1px solid var(--line); border-radius:999px; padding:5px 11px;
     font-size:18px; cursor:pointer; line-height:1; flex-shrink:0}
-  .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:14px; padding:22px 14px; text-align:center;
+  .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:16px; padding:24px 14px; text-align:center;
     cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface)}
   .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
   .dropzone .dz-big{font-size:28px; line-height:1}
   .dropzone .dz-t{font-weight:700; margin-top:8px}
   .dropzone .dz-s{font-size:12px; color:var(--muted); margin-top:4px}
+  .icon-badge{width:92px; height:92px; margin:0 auto 18px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:42px; background:radial-gradient(circle at 32% 28%, rgba(255,183,3,.32), rgba(255,183,3,.05) 62%, transparent 75%), var(--surface2);
+    border:1px solid rgba(255,183,3,.3); box-shadow:0 12px 30px -8px rgba(255,183,3,.28)}
+  .lang-screen .icon-badge{font-size:38px}
+  .trust-row{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:2px 0 24px}
+  .trust-chip{display:flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--line);
+    border-radius:999px; padding:8px 14px; font-size:12.5px; color:var(--muted); font-weight:600}
 </style>
 </head>
 <body>
@@ -96,7 +111,7 @@
 </header>
 
 <div class="wrap lang-screen" id="langWrap">
-  <div class="big">🌐</div>
+  <div class="icon-badge">🌐</div>
   <div class="muted" style="margin-bottom:6px">Select your language · Scegli la lingua<br>Choisissez la langue · Elige el idioma</div>
   <button class="lang-btn" onclick="sceglilingua('it')"><span class="flag">🇮🇹</span> Italiano</button>
   <button class="lang-btn" onclick="sceglilingua('en')"><span class="flag">🇬🇧</span> English</button>
@@ -105,9 +120,14 @@
 </div>
 
 <div class="wrap ok-screen" id="welcomeWrap" style="display:none">
-  <div class="big">🛂</div>
+  <div class="icon-badge">🛂</div>
   <h2 id="welcomeTitle"></h2>
-  <div class="muted" id="welcomeText" style="margin-bottom:20px"></div>
+  <div class="muted" id="welcomeText" style="margin-bottom:20px; max-width:440px; margin-left:auto; margin-right:auto"></div>
+  <div class="trust-row">
+    <div class="trust-chip">🔒 <span id="trustSecure"></span></div>
+    <div class="trust-chip">⏱️ <span id="trustFast"></span></div>
+    <div class="trust-chip">👤 <span id="trustReviewed"></span></div>
+  </div>
   <button class="btn primary" id="welcomeBtn" style="max-width:320px; margin:0 auto" onclick="iniziaCheckin()"></button>
 </div>
 
@@ -136,13 +156,13 @@
 </div>
 
 <div class="wrap ok-screen" id="okWrap" style="display:none">
-  <div class="big">✅</div>
+  <div class="icon-badge">✅</div>
   <h2 id="okTitle"></h2>
   <div class="muted" id="okText"></div>
 </div>
 
 <div class="wrap ok-screen" id="blockWrap" style="display:none">
-  <div class="big">🔒</div>
+  <div class="icon-badge">🔒</div>
   <h2 id="blockTitle"></h2>
   <div class="muted" id="blockText"></div>
 </div>
@@ -172,6 +192,7 @@ const T={
     welcome_title:'Completa il check-in per proseguire',
     welcome_text:"Per legge dobbiamo registrare i dati di ogni ospite prima dell'arrivo. Ci vogliono 2 minuti: carica una foto del documento di ciascun ospite e conferma i dati.",
     welcome_btn:'Continua',
+    trust_secure:'Dati protetti', trust_fast:'Solo 2 minuti', trust_reviewed:"Rivisto dall'host, mai automatico",
     privacy_title:'Informativa privacy (GDPR)',
     privacy_html:"<b>Titolare del trattamento:</b> il gestore della struttura ricettiva.<br><b>Finalità:</b> i dati anagrafici e la copia del documento d'identità sono raccolti esclusivamente per adempiere all'obbligo di legge di comunicazione alla Questura tramite il portale Alloggiati Web (art. 109 TULPS) — non per finalità commerciali o di marketing.<br><b>Conservazione:</b> per il tempo previsto dalla normativa (5 anni), poi cancellati.<br><b>Destinatari:</b> Polizia di Stato (Alloggiati Web); nessuna comunicazione a terzi per altre finalità.<br><b>Diritti:</b> puoi chiedere in qualsiasi momento accesso, rettifica o informazioni sui tuoi dati contattando la struttura.",
     consent_label:"Ho letto l'informativa e acconsento al trattamento dei miei dati personali e del documento caricato per le finalità sopra indicate.",
@@ -206,6 +227,7 @@ const T={
     welcome_title:'Complete check-in to continue',
     welcome_text:'By law we must register every guest\'s details before arrival. It only takes 2 minutes: upload a photo of each guest\'s ID document and confirm the details.',
     welcome_btn:'Continue',
+    trust_secure:'Data protected', trust_fast:'Just 2 minutes', trust_reviewed:'Reviewed by host, never automatic',
     privacy_title:'Privacy notice (GDPR)',
     privacy_html:"<b>Data controller:</b> the accommodation manager.<br><b>Purpose:</b> your personal data and the copy of your ID document are collected solely to comply with the legal obligation to report guests to the local Police Headquarters via the Alloggiati Web portal (art. 109 TULPS) — not for commercial or marketing purposes.<br><b>Retention:</b> for the period required by law (5 years), then deleted.<br><b>Recipients:</b> Italian State Police (Alloggiati Web); no data shared with third parties for other purposes.<br><b>Your rights:</b> you may request access, correction or information about your data at any time by contacting the accommodation.",
     consent_label:'I have read the notice and consent to the processing of my personal data and the uploaded document for the purposes stated above.',
@@ -240,6 +262,7 @@ const T={
     welcome_title:'Complétez le check-in pour continuer',
     welcome_text:"La loi nous oblige à enregistrer les données de chaque voyageur avant l'arrivée. Cela ne prend que 2 minutes : téléchargez une photo du document de chaque voyageur et confirmez les données.",
     welcome_btn:'Continuer',
+    trust_secure:'Données protégées', trust_fast:'2 minutes seulement', trust_reviewed:"Vérifié par l'hôte, jamais automatique",
     privacy_title:"Note d'information (RGPD)",
     privacy_html:"<b>Responsable du traitement :</b> le gestionnaire de la structure d'hébergement.<br><b>Finalité :</b> les données personnelles et la copie du document d'identité sont recueillies uniquement pour respecter l'obligation légale de déclaration à la Questure via le portail Alloggiati Web (art. 109 TULPS) — non à des fins commerciales ou de marketing.<br><b>Conservation :</b> pendant la durée prévue par la loi (5 ans), puis supprimées.<br><b>Destinataires :</b> Police d'État italienne (Alloggiati Web) ; aucune communication à des tiers à d'autres fins.<br><b>Vos droits :</b> vous pouvez demander à tout moment l'accès, la rectification ou des informations sur vos données en contactant la structure.",
     consent_label:"J'ai lu la note d'information et je consens au traitement de mes données personnelles et du document téléchargé aux fins indiquées ci-dessus.",
@@ -274,6 +297,7 @@ const T={
     welcome_title:'Completa el check-in para continuar',
     welcome_text:'Por ley debemos registrar los datos de cada huésped antes de la llegada. Solo toma 2 minutos: sube una foto del documento de cada huésped y confirma los datos.',
     welcome_btn:'Continuar',
+    trust_secure:'Datos protegidos', trust_fast:'Solo 2 minutos', trust_reviewed:'Revisado por el anfitrión, nunca automático',
     privacy_title:'Información de privacidad (RGPD)',
     privacy_html:'<b>Responsable del tratamiento:</b> el gestor del alojamiento.<br><b>Finalidad:</b> los datos personales y la copia del documento de identidad se recogen exclusivamente para cumplir con la obligación legal de comunicación a la Questura a través del portal Alloggiati Web (art. 109 TULPS) — no con fines comerciales ni de marketing.<br><b>Conservación:</b> durante el tiempo previsto por la normativa (5 años), después se eliminan.<br><b>Destinatarios:</b> Policía del Estado italiana (Alloggiati Web); no se comunican a terceros para otros fines.<br><b>Tus derechos:</b> puedes solicitar en cualquier momento el acceso, rectificación o información sobre tus datos contactando con el alojamiento.',
     consent_label:'He leído la información y consiento el tratamiento de mis datos personales y del documento cargado para las finalidades indicadas.',
@@ -342,7 +366,10 @@ function applicaTraduzioniStatiche(){
   $('#subHeader').textContent=t('sub_header');
   $('#welcomeTitle').textContent=t('welcome_title');
   $('#welcomeText').textContent=t('welcome_text');
-  $('#welcomeBtn').textContent=t('welcome_btn');
+  $('#welcomeBtn').textContent=t('welcome_btn')+' →';
+  $('#trustSecure').textContent=t('trust_secure');
+  $('#trustFast').textContent=t('trust_fast');
+  $('#trustReviewed').textContent=t('trust_reviewed');
   $('#labArrivo').textContent=t('label_arrivo');
   $('#labPartenza').textContent=t('label_partenza');
   $('#btnAddGuest').textContent=t('btn_add_guest');
