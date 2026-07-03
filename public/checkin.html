@@ -94,6 +94,17 @@
   .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
   .dropzone .dz-t{font-weight:700; margin-top:8px}
   .dropzone .dz-s{font-size:12px; color:var(--muted); margin-top:4px}
+  .steps{display:flex; gap:4px; margin-bottom:18px}
+  .step-item{flex:1; text-align:center; font-size:10.5px; color:var(--muted); font-weight:700; letter-spacing:.02em}
+  .step-item .dot{width:32px; height:32px; border-radius:50%; margin:0 auto 5px; display:flex; align-items:center; justify-content:center;
+    background:var(--surface2); border:1.5px solid var(--line); font-weight:800; font-size:13px; transition:all .2s}
+  .step-item.active .dot{background:linear-gradient(135deg,#ffd166,var(--amber)); border-color:var(--amber); color:#23170a; box-shadow:0 4px 14px -4px rgba(255,183,3,.55)}
+  .step-item.active{color:var(--ink)}
+  .step-item.done .dot{background:rgba(45,198,83,.15); border-color:var(--ok); color:var(--ok)}
+  .btn.big{font-size:17px; padding:17px 16px}
+  .warn-box{font-size:13px; color:#ffd98a; background:rgba(255,183,3,.1); border:1px solid rgba(255,183,3,.4); border-radius:10px; padding:10px 12px; margin-top:10px; font-weight:600}
+  .recap-item{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--line); font-size:14px}
+  .recap-item:last-child{border-bottom:none}
   .icon-badge{width:92px; height:92px; margin:0 auto 18px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     background:radial-gradient(circle at 32% 28%, rgba(255,183,3,.32), rgba(255,183,3,.05) 62%, transparent 75%), var(--surface2);
     border:1px solid rgba(255,183,3,.3); box-shadow:0 12px 30px -8px rgba(255,183,3,.28)}
@@ -146,27 +157,8 @@
 </div>
 
 <div class="wrap" id="formWrap" style="display:none">
-  <div class="card">
-    <div class="row">
-      <div><label id="labArrivo"></label><div class="datepick"><input id="arrivoInput" type="date" onchange="setDate('arrivo',this.value)"></div></div>
-      <div><label id="labPartenza"></label><div class="datepick"><input id="partenzaInput" type="date" onchange="setDate('partenza',this.value)"></div></div>
-    </div>
-    <div class="muted" id="nottiInfo" style="margin-top:8px"></div>
-  </div>
-
-  <div id="guests"></div>
-  <button class="btn ghost" id="btnAddGuest" onclick="addGuest()"></button>
-
-  <div class="card" style="margin-top:14px">
-    <div class="steplbl" id="privacyTitle"></div>
-    <div class="hint" id="privacyBody" style="line-height:1.6"></div>
-    <label class="consent">
-      <input type="checkbox" id="consenso">
-      <span id="consentLabel"></span>
-    </label>
-    <button class="btn primary" id="submitBtn" style="margin-top:14px" onclick="inviaCheckin()"></button>
-    <div class="muted" id="submitStatus" style="margin-top:8px"></div>
-  </div>
+  <div class="steps" id="stepsBar"></div>
+  <div id="stepBody"></div>
 </div>
 
 <div class="wrap ok-screen" id="okWrap" style="display:none">
@@ -211,6 +203,16 @@ const T={
     welcome_text:"Bastano 2 minuti: carica il documento di ogni ospite e conferma i dati.",
     welcome_btn:'Continua',
     trust_secure:'Dati protetti', trust_fast:'Solo 2 minuti', trust_reviewed:"Rivisto dall'host, mai automatico",
+    prog_date:'Date', prog_doc:'Documento', prog_check:'Controllo', prog_send:'Invio',
+    btn_next:'Avanti', btn_back:'‹ Indietro',
+    manual_link:'oppure compila i dati a mano',
+    btn_confirm_data:'Conferma i dati ✓',
+    guest_added:'Ospite registrato!',
+    add_more_q:'Ci sono altri ospiti da registrare?',
+    btn_no_continue:'No, prosegui',
+    warn_alert:'Alcuni campi potrebbero non essere stati letti bene: controlla quelli evidenziati in giallo.',
+    toast_fill_name:'Inserisci almeno cognome e nome',
+    recap_title:'Riepilogo ospiti', btn_edit:'Modifica',
     privacy_title:'Informativa privacy (GDPR)',
     privacy_html:"<b>Titolare del trattamento:</b> il gestore della struttura ricettiva.<br><b>Finalità:</b> i dati anagrafici e la copia del documento d'identità sono raccolti esclusivamente per adempiere all'obbligo di legge di comunicazione alla Questura tramite il portale Alloggiati Web (art. 109 TULPS) — non per finalità commerciali o di marketing.<br><b>Conservazione:</b> per il tempo previsto dalla normativa (5 anni), poi cancellati.<br><b>Destinatari:</b> Polizia di Stato (Alloggiati Web); nessuna comunicazione a terzi per altre finalità.<br><b>Diritti:</b> puoi chiedere in qualsiasi momento accesso, rettifica o informazioni sui tuoi dati contattando la struttura.",
     consent_label:"Ho letto l'informativa e acconsento al trattamento dei miei dati personali e del documento caricato per le finalità sopra indicate.",
@@ -246,6 +248,16 @@ const T={
     welcome_text:"It only takes 2 minutes: upload each guest's ID document and confirm the details.",
     welcome_btn:'Continue',
     trust_secure:'Data protected', trust_fast:'Just 2 minutes', trust_reviewed:'Reviewed by host, never automatic',
+    prog_date:'Dates', prog_doc:'Document', prog_check:'Review', prog_send:'Send',
+    btn_next:'Next', btn_back:'‹ Back',
+    manual_link:'or enter the details manually',
+    btn_confirm_data:'Confirm details ✓',
+    guest_added:'Guest saved!',
+    add_more_q:'Any other guests to register?',
+    btn_no_continue:'No, continue',
+    warn_alert:'Some fields may not have been read correctly: please check the ones highlighted in yellow.',
+    toast_fill_name:'Please enter at least surname and first name',
+    recap_title:'Guest summary', btn_edit:'Edit',
     privacy_title:'Privacy notice (GDPR)',
     privacy_html:"<b>Data controller:</b> the accommodation manager.<br><b>Purpose:</b> your personal data and the copy of your ID document are collected solely to comply with the legal obligation to report guests to the local Police Headquarters via the Alloggiati Web portal (art. 109 TULPS) — not for commercial or marketing purposes.<br><b>Retention:</b> for the period required by law (5 years), then deleted.<br><b>Recipients:</b> Italian State Police (Alloggiati Web); no data shared with third parties for other purposes.<br><b>Your rights:</b> you may request access, correction or information about your data at any time by contacting the accommodation.",
     consent_label:'I have read the notice and consent to the processing of my personal data and the uploaded document for the purposes stated above.',
@@ -281,6 +293,16 @@ const T={
     welcome_text:"Cela ne prend que 2 minutes : téléchargez le document de chaque voyageur et confirmez les données.",
     welcome_btn:'Continuer',
     trust_secure:'Données protégées', trust_fast:'2 minutes seulement', trust_reviewed:"Vérifié par l'hôte, jamais automatique",
+    prog_date:'Dates', prog_doc:'Document', prog_check:'Vérification', prog_send:'Envoi',
+    btn_next:'Suivant', btn_back:'‹ Retour',
+    manual_link:'ou saisissez les données à la main',
+    btn_confirm_data:'Confirmer les données ✓',
+    guest_added:'Voyageur enregistré !',
+    add_more_q:"D'autres voyageurs à enregistrer ?",
+    btn_no_continue:'Non, continuer',
+    warn_alert:'Certains champs pourraient ne pas avoir été bien lus : vérifiez ceux surlignés en jaune.',
+    toast_fill_name:'Saisissez au moins le nom et le prénom',
+    recap_title:'Récapitulatif des voyageurs', btn_edit:'Modifier',
     privacy_title:"Note d'information (RGPD)",
     privacy_html:"<b>Responsable du traitement :</b> le gestionnaire de la structure d'hébergement.<br><b>Finalité :</b> les données personnelles et la copie du document d'identité sont recueillies uniquement pour respecter l'obligation légale de déclaration à la Questure via le portail Alloggiati Web (art. 109 TULPS) — non à des fins commerciales ou de marketing.<br><b>Conservation :</b> pendant la durée prévue par la loi (5 ans), puis supprimées.<br><b>Destinataires :</b> Police d'État italienne (Alloggiati Web) ; aucune communication à des tiers à d'autres fins.<br><b>Vos droits :</b> vous pouvez demander à tout moment l'accès, la rectification ou des informations sur vos données en contactant la structure.",
     consent_label:"J'ai lu la note d'information et je consens au traitement de mes données personnelles et du document téléchargé aux fins indiquées ci-dessus.",
@@ -316,6 +338,16 @@ const T={
     welcome_text:'Solo toma 2 minutos: sube el documento de cada huésped y confirma los datos.',
     welcome_btn:'Continuar',
     trust_secure:'Datos protegidos', trust_fast:'Solo 2 minutos', trust_reviewed:'Revisado por el anfitrión, nunca automático',
+    prog_date:'Fechas', prog_doc:'Documento', prog_check:'Revisión', prog_send:'Envío',
+    btn_next:'Siguiente', btn_back:'‹ Atrás',
+    manual_link:'o introduce los datos a mano',
+    btn_confirm_data:'Confirmar datos ✓',
+    guest_added:'¡Huésped registrado!',
+    add_more_q:'¿Hay más huéspedes que registrar?',
+    btn_no_continue:'No, continuar',
+    warn_alert:'Algunos campos podrían no haberse leído bien: revisa los resaltados en amarillo.',
+    toast_fill_name:'Introduce al menos apellido y nombre',
+    recap_title:'Resumen de huéspedes', btn_edit:'Editar',
     privacy_title:'Información de privacidad (RGPD)',
     privacy_html:'<b>Responsable del tratamiento:</b> el gestor del alojamiento.<br><b>Finalidad:</b> los datos personales y la copia del documento de identidad se recogen exclusivamente para cumplir con la obligación legal de comunicación a la Questura a través del portal Alloggiati Web (art. 109 TULPS) — no con fines comerciales ni de marketing.<br><b>Conservación:</b> durante el tiempo previsto por la normativa (5 años), después se eliminan.<br><b>Destinatarios:</b> Policía del Estado italiana (Alloggiati Web); no se comunican a terceros para otros fines.<br><b>Tus derechos:</b> puedes solicitar en cualquier momento el acceso, rectificación o información sobre tus datos contactando con el alojamiento.',
     consent_label:'He leído la información y consiento el tratamiento de mis datos personales y del documento cargado para las finalidades indicadas.',
@@ -388,13 +420,6 @@ function applicaTraduzioniStatiche(){
   $('#trustSecure').textContent=t('trust_secure');
   $('#trustFast').textContent=t('trust_fast');
   $('#trustReviewed').textContent=t('trust_reviewed');
-  $('#labArrivo').textContent=t('label_arrivo');
-  $('#labPartenza').textContent=t('label_partenza');
-  $('#btnAddGuest').textContent=t('btn_add_guest');
-  $('#privacyTitle').textContent=t('privacy_title');
-  $('#privacyBody').innerHTML=t('privacy_html');
-  $('#consentLabel').textContent=t('consent_label');
-  $('#submitBtn').textContent=t('btn_submit');
   $('#okTitle').textContent=t('ok_title');
   $('#okText').textContent=t('ok_text');
   $('#blockTitle').textContent=t('block_title');
@@ -419,6 +444,10 @@ let arrivo='';
 let partenza='';
 let notti=0;
 let guests=[];
+let passo='date';        // 'date' | 'foto' | 'verifica' | 'altro' | 'invio'
+let gIdx=0;              // ospite su cui si sta lavorando nei passi foto/verifica
+let consensoOk=false;
+function mostraPasso(p){ passo=p; render(); window.scrollTo(0,0); }
 
 function setDate(kind,iso){
   if(kind==='arrivo')arrivo=dateToItalian(iso); else partenza=dateToItalian(iso);
@@ -475,7 +504,10 @@ async function estraiDati(id){
       cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
       luogoRilascio:j.luogo_rilascio||g.luogoRilascio});
     g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
+    g._busy=false;
     toast(t('toast_data_read'));
+    mostraPasso('verifica');
+    return;
   }catch(e){ toast(t('toast_extract_failed')+e.message); }
   g._busy=false; render();
 }
@@ -483,21 +515,96 @@ async function estraiDati(id){
 function warnBadge(g,k){ return (g._warn||[]).includes(k) ? ` <span class="warn-badge">${t('warn_badge')}</span>` : ''; }
 function fw(g,k){ return (g._warn||[]).includes(k) ? 'field-warn' : ''; }
 
+function stepIndex(){ return passo==='date'?0 : passo==='foto'?1 : (passo==='verifica'||passo==='altro')?2 : 3; }
+
 function render(){
-  const root=$('#guests'); if(!root||!lang)return;
+  const root=$('#stepBody'); if(!root||!lang)return;
   const active=document.activeElement;
   const activeId=active&&active.id?active.id:null;
   const selStart=active&&typeof active.selectionStart==='number'?active.selectionStart:null;
   const selEnd=active&&typeof active.selectionEnd==='number'?active.selectionEnd:null;
   const scrollY=window.scrollY;
 
-  root.innerHTML='';
-  guests.forEach((g,idx)=>{
-    const el=document.createElement('div'); el.className='guest';
-    const haFoto=(g.imgs||[]).length>0;
-    const campi=!haFoto?`<div class="muted" style="margin-top:10px">${t('no_photo_msg')}</div>`:`
-      <div class="steplbl">${t('step2_label')}</div>
-      <div class="hint">${t('step2_hint')}</div>
+  const labels=[t('prog_date'),t('prog_doc'),t('prog_check'),t('prog_send')];
+  const cur=stepIndex();
+  $('#stepsBar').innerHTML=labels.map((l,i)=>
+    `<div class="step-item ${i===cur?'active':''} ${i<cur?'done':''}"><div class="dot">${i<cur?'✓':i+1}</div>${l}</div>`).join('');
+
+  if(passo==='date') renderDate(root);
+  else if(passo==='foto') renderFoto(root);
+  else if(passo==='verifica') renderVerifica(root);
+  else if(passo==='altro') renderAltro(root);
+  else renderInvio(root);
+
+  if(activeId){
+    const el=document.getElementById(activeId);
+    if(el&&typeof el.focus==='function'){
+      el.focus({preventScroll:true});
+      if(selStart!=null&&typeof el.setSelectionRange==='function'){
+        try{el.setSelectionRange(selStart,selEnd);}catch(e){/* input type non supporta selectionRange */}
+      }
+    }
+  }
+  window.scrollTo(0,scrollY);
+}
+
+/* ---- passo 1: date ---- */
+function renderDate(root){
+  root.innerHTML=`
+    <div class="card">
+      <div class="row">
+        <div><label>${t('label_arrivo')}</label><div class="datepick"><input id="arrivoInput" type="date" value="${italianToIso(arrivo)}" onchange="setDate('arrivo',this.value)"></div></div>
+        <div><label>${t('label_partenza')}</label><div class="datepick"><input id="partenzaInput" type="date" value="${italianToIso(partenza)}" onchange="setDate('partenza',this.value)"></div></div>
+      </div>
+      <div class="muted" id="nottiInfo" style="margin-top:8px"></div>
+    </div>
+    <button class="btn primary big" onclick="avantiDate()">${t('btn_next')} →</button>`;
+  aggiornaNotti();
+}
+function avantiDate(){
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo)){toast(t('toast_indica_arrivo'));return;}
+  if(!/^\d{2}\/\d{2}\/\d{4}$/.test(partenza)){toast(t('toast_indica_partenza'));return;}
+  if(!(notti>0)){toast(t('notti_error'));return;}
+  if(!guests.length)guests.push(nuovoOspite());
+  gIdx=0; mostraPasso('foto');
+}
+
+/* ---- passo 2: foto documento ---- */
+function renderFoto(root){
+  const g=guests[gIdx]; if(!g)return;
+  const haFoto=(g.imgs||[]).length>0;
+  root.innerHTML=`
+    <div class="card">
+      <div class="gname" style="font-size:16px">👤 ${t('guest_default_name')} ${gIdx+1}</div>
+      <div class="steplbl" style="margin-top:10px">${t('step1_label')}</div>
+      <div class="thumbs" id="gimg-${g.id}"></div>
+      <div id="dz-${g.id}"></div>
+      <button class="btn accent big" style="margin-top:14px" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> '+t('btn_extract_loading'):t('btn_extract')}</button>
+      ${haFoto&&!g._busy?`<div style="text-align:center; margin-top:12px"><a href="#" class="muted" style="text-decoration:underline" onclick="mostraPasso('verifica');return false">${t('manual_link')}</a></div>`:''}
+    </div>
+    <button class="btn ghost" onclick="indietroDaFoto()">${t('btn_back')}</button>`;
+  const gi=root.querySelector('#gimg-'+g.id);
+  (g.imgs||[]).forEach((im,i)=>gi.appendChild(thumb(im,()=>{g.imgs.splice(i,1);render();})));
+  const dzHost=root.querySelector('#dz-'+g.id);
+  if(dzHost) dzHost.appendChild(bigDropzone(files=>handleImgs(g.id,files)));
+}
+function indietroDaFoto(){
+  const g=guests[gIdx];
+  if(gIdx>0){
+    if(!(g.imgs||[]).length&&!g.cognome&&!g.nome) guests.splice(gIdx,1);
+    gIdx=Math.min(gIdx-1,guests.length-1);
+    mostraPasso('verifica');
+  } else mostraPasso('date');
+}
+
+/* ---- passo 3: verifica e correggi ---- */
+function renderVerifica(root){
+  const g=guests[gIdx]; if(!g)return;
+  root.innerHTML=`
+    <div class="card">
+      <div class="gname" style="font-size:16px">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:t('guest_default_name')+' '+(gIdx+1)}</div>
+      <div class="steplbl" style="margin-top:10px">${t('step2_label')}</div>
+      ${(g._warn||[]).length?`<div class="warn-box">⚠️ ${t('warn_alert')}</div>`:`<div class="hint">${t('step2_hint')}</div>`}
       <div class="row" style="margin-top:10px">
         <div><label>${t('label_cognome')}${warnBadge(g,'cognome')}</label><input id="cogn-${g.id}" type="text" class="${fw(g,'cognome')}" value="${g.cognome||''}" oninput="setG('${g.id}','cognome',this.value)"></div>
         <div><label>${t('label_nome')}${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
@@ -521,43 +628,69 @@ function render(){
       <input id="numdoc-${g.id}" type="text" class="${fw(g,'numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${g.id}','numeroDoc',this.value)">
       <label>${t('label_luogo_rilascio')}${warnBadge(g,'luogoRilascio')} <span class="muted">${t('luogo_rilascio_hint')}</span></label>
       <input id="luogo-${g.id}" type="text" class="${fw(g,'luogoRilascio')}" value="${g.luogoRilascio||''}" oninput="setG('${g.id}','luogoRilascio',this.value)">
-    `;
-    el.innerHTML=`
-      <div class="ghead"><span class="gname">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:t('guest_default_name')+' '+(idx+1)}</span>
-        ${guests.length>1?`<button class="btn ghost sm" onclick="rmGuest('${g.id}')">×</button>`:''}</div>
-      <div class="steplbl">${t('step1_label')}</div>
-      <div class="thumbs" id="gimg-${g.id}"></div>
-      <div id="dz-${g.id}"></div>
-      <button class="btn accent sm" style="width:100%" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> '+t('btn_extract_loading'):t('btn_extract')}</button>
-      ${campi}
-    `;
-    root.appendChild(el);
-    const gi=el.querySelector('#gimg-'+g.id);
-    (g.imgs||[]).forEach((im,i)=>gi.appendChild(thumb(im,()=>{g.imgs.splice(i,1);render();})));
-    const dzHost=el.querySelector('#dz-'+g.id);
-    if(dzHost) dzHost.appendChild(bigDropzone(files=>handleImgs(g.id,files)));
-  });
-
-  if(activeId){
-    const el=document.getElementById(activeId);
-    if(el&&typeof el.focus==='function'){
-      el.focus({preventScroll:true});
-      if(selStart!=null&&typeof el.setSelectionRange==='function'){
-        try{el.setSelectionRange(selStart,selEnd);}catch(e){/* input type non supporta selectionRange */}
-      }
-    }
-  }
-  window.scrollTo(0,scrollY);
+    </div>
+    <button class="btn primary big" onclick="confermaDati()">${t('btn_confirm_data')}</button>
+    <button class="btn ghost" style="margin-top:10px" onclick="mostraPasso('foto')">${t('btn_back')}</button>`;
+}
+function confermaDati(){
+  const g=guests[gIdx];
+  if(!g.cognome&&!g.nome){toast(t('toast_fill_name'));return;}
+  mostraPasso('altro');
 }
 
-// incolla (Ctrl+V) va sempre sull'ultimo ospite della lista
+/* ---- passo 3b: altri ospiti? ---- */
+function renderAltro(root){
+  root.innerHTML=`
+    <div class="card" style="text-align:center; padding:28px 18px">
+      <div class="icon-badge" style="width:64px; height:64px; margin-bottom:12px"><svg style="width:30px;height:30px" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="m8.3 12.4 2.6 2.6 5-5.6"/></svg></div>
+      <div style="font-weight:800; font-size:18px">${t('guest_added')}</div>
+      <div class="muted" style="margin:8px 0 18px">${t('add_more_q')}</div>
+      <button class="btn ghost" onclick="aggiungiAltroOspite()">${t('btn_add_guest')}</button>
+      <button class="btn primary big" style="margin-top:10px" onclick="mostraPasso('invio')">${t('btn_no_continue')} →</button>
+    </div>`;
+}
+function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1; mostraPasso('foto'); }
+
+/* ---- passo 4: riepilogo e invio ---- */
+function renderInvio(root){
+  root.innerHTML=`
+    <div class="card">
+      <div class="steplbl">${t('recap_title')}</div>
+      ${guests.map((g,i)=>`
+        <div class="recap-item">
+          <span>👤 <b>${g.cognome||''} ${g.nome||''}</b></span>
+          <span style="display:flex; gap:6px">
+            <button class="btn ghost sm" onclick="gIdx=${i};mostraPasso('verifica')">${t('btn_edit')}</button>
+            ${guests.length>1?`<button class="btn ghost sm" onclick="rimuoviOspite(${i})">×</button>`:''}
+          </span>
+        </div>`).join('')}
+    </div>
+    <div class="card">
+      <div class="steplbl">${t('privacy_title')}</div>
+      <div class="hint" style="line-height:1.6">${t('privacy_html')}</div>
+      <label class="consent">
+        <input type="checkbox" id="consenso" ${consensoOk?'checked':''} onchange="consensoOk=this.checked">
+        <span>${t('consent_label')}</span>
+      </label>
+      <button class="btn primary big" id="submitBtn" style="margin-top:14px" onclick="inviaCheckin()">${t('btn_submit')}</button>
+      <div class="muted" id="submitStatus" style="margin-top:8px"></div>
+    </div>
+    <button class="btn ghost" onclick="gIdx=${guests.length-1};mostraPasso('verifica')">${t('btn_back')}</button>`;
+}
+function rimuoviOspite(i){
+  guests.splice(i,1);
+  if(gIdx>=guests.length)gIdx=Math.max(0,guests.length-1);
+  render();
+}
+
+// incolla (Ctrl+V): vale solo nel passo foto, sull'ospite corrente
 document.addEventListener('paste',e=>{
-  if(!guests.length)return;
+  if(passo!=='foto'||!guests[gIdx])return;
   const items=(e.clipboardData&&e.clipboardData.items)||[];
   const files=[...items].filter(it=>it.kind==='file'&&it.type&&it.type.startsWith('image/')).map(it=>it.getAsFile()).filter(Boolean);
   if(!files.length)return;
   e.preventDefault();
-  handleImgs(guests[guests.length-1].id,files);
+  handleImgs(guests[gIdx].id,files);
 });
 
 async function inviaCheckin(){
@@ -566,7 +699,7 @@ async function inviaCheckin(){
   if(!(notti>0)){toast(t('notti_error'));return;}
   const validi=guests.filter(g=>g.cognome||g.nome);
   if(!validi.length){toast(t('toast_add_guest'));return;}
-  if(!$('#consenso').checked){toast(t('toast_accept_privacy'));return;}
+  if(!consensoOk){toast(t('toast_accept_privacy'));return;}
 
   const btn=$('#submitBtn'); btn.disabled=true;
   $('#submitStatus').innerHTML=`<span class="spin"></span> ${t('submit_status_invio')}`;
