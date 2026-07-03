@@ -11514,7 +11514,29 @@ function cleanDoc(v){return (v||'').replace(/[^A-Za-z0-9.\-/]/g,'').slice(0,20);
 function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/ /g,'·');}
 
 /* lookup */
-function lookupStato(name){if(!name)return null;const e=statiByName.get(normKey(name));return e?e.c:null;}
+// aggettivi di nazionalità → nome ufficiale dello stato (l'AI o l'ospite a volte scrivono "POLACCA" invece di "POLONIA")
+const NAZ_TO_STATO={POLACCA:'POLONIA',POLACCO:'POLONIA',POLSKIE:'POLONIA',POLISH:'POLONIA',
+  TEDESCA:'GERMANIA',TEDESCO:'GERMANIA',DEUTSCH:'GERMANIA',GERMAN:'GERMANIA',
+  FRANCESE:'FRANCIA',FRENCH:'FRANCIA',SPAGNOLA:'SPAGNA',SPAGNOLO:'SPAGNA',SPANISH:'SPAGNA',
+  PORTOGHESE:'PORTOGALLO',INGLESE:'REGNO UNITO',BRITANNICA:'REGNO UNITO',BRITANNICO:'REGNO UNITO',BRITISH:'REGNO UNITO',
+  IRLANDESE:'IRLANDA',OLANDESE:'PAESI BASSI',BELGA:'BELGIO',AUSTRIACA:'AUSTRIA',AUSTRIACO:'AUSTRIA',
+  UNGHERESE:'UNGHERIA',CECA:'REPUBBLICA CECA',CECO:'REPUBBLICA CECA',SLOVACCA:'SLOVACCHIA',SLOVACCO:'SLOVACCHIA',
+  SLOVENA:'SLOVENIA',SLOVENO:'SLOVENIA',CROATA:'CROAZIA',ROMENA:'ROMANIA',ROMENO:'ROMANIA',RUMENA:'ROMANIA',RUMENO:'ROMANIA',
+  BULGARA:'BULGARIA',BULGARO:'BULGARIA',GRECA:'GRECIA',GRECO:'GRECIA',RUSSA:'FEDERAZIONE RUSSA',RUSSO:'FEDERAZIONE RUSSA',
+  UCRAINO:'UCRAINA',AMERICANA:"STATI UNITI D'AMERICA",AMERICANO:"STATI UNITI D'AMERICA",
+  STATUNITENSE:"STATI UNITI D'AMERICA",DANESE:'DANIMARCA',SVEDESE:'SVEZIA',NORVEGESE:'NORVEGIA',FINLANDESE:'FINLANDIA',
+  ITALIANA:'ITALIA',ITALIANO:'ITALIA',ALBANESE:'ALBANIA',TURCA:'TURCHIA',TURCO:'TURCHIA',
+  MAROCCHINA:'MAROCCO',MAROCCHINO:'MAROCCO',TUNISINA:'TUNISIA',TUNISINO:'TUNISIA',EGIZIANA:'EGITTO',EGIZIANO:'EGITTO',
+  CINESE:'CINA',GIAPPONESE:'GIAPPONE',INDIANA:'INDIA',INDIANO:'INDIA',BRASILIANA:'BRASILE',BRASILIANO:'BRASILE',
+  SVIZZERO:'SVIZZERA'};
+function lookupStato(name){
+  if(!name)return null;
+  const e=statiByName.get(normKey(name));
+  if(e)return e.c;
+  const agg=NAZ_TO_STATO[(name||'').trim().toUpperCase()];
+  if(agg){const e2=statiByName.get(normKey(agg)); if(e2)return e2.c;}
+  return null;
+}
 function lookupDoc(name){if(!name)return null;const e=docByName.get(normKey(name));return e?e.c:null;}
 function lookupComune(name){if(!name)return null;return comuniByName.get(normKey(name))||null;}
 
@@ -11811,9 +11833,8 @@ function renderGuest(b,g,idx){
     ` : '<div class="muted" style="margin-top:8px">Componente gruppo/famiglia: documento non richiesto (34 spazi).</div>';
     f.innerHTML=`
       ${warn.length?'<div class="hint" style="margin-top:10px">⚠ L\'AI non era sicura di alcuni campi qui sotto (segnati in arancione): ricontrollali a occhio sul documento.</div>':''}
-      <div class="row" style="margin-top:10px">
-        <div><label>Cognome${warnBadge(warn.includes('cognome'))}</label><input id="cogn-${g.id}" type="text" class="${fb('cognome')||fw('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
-        <div><label>Nome${warnBadge(warn.includes('nome'))}</label><input id="nome-${g.id}" type="text" class="${fb('nome')||fw('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div></div>
+      <div style="margin-top:10px"><label>Cognome${warnBadge(warn.includes('cognome'))}</label><input id="cogn-${g.id}" type="text" class="${fb('cognome')||fw('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
+      <div><label>Nome${warnBadge(warn.includes('nome'))}</label><input id="nome-${g.id}" type="text" class="${fb('nome')||fw('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div>
       <div class="row3">
         <div><label>Sesso${warnBadge(warn.includes('sesso'))}</label><select id="sesso-${g.id}" class="${fb('sesso')||fw('sesso')}" onchange="setG('${b.id}','${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
         <div style="grid-column:span 2"><label>Data nascita${warnBadge(warn.includes('dataNascita'))}</label><div class="datefield">

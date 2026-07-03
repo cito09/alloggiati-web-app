@@ -605,10 +605,8 @@ function renderVerifica(root){
       <div class="gname" style="font-size:16px">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:t('guest_default_name')+' '+(gIdx+1)}</div>
       <div class="steplbl" style="margin-top:10px">${t('step2_label')}</div>
       ${(g._warn||[]).length?`<div class="warn-box">⚠️ ${t('warn_alert')}</div>`:`<div class="hint">${t('step2_hint')}</div>`}
-      <div class="row" style="margin-top:10px">
-        <div><label>${t('label_cognome')}${warnBadge(g,'cognome')}</label><input id="cogn-${g.id}" type="text" class="${fw(g,'cognome')}" value="${g.cognome||''}" oninput="setG('${g.id}','cognome',this.value)"></div>
-        <div><label>${t('label_nome')}${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
-      </div>
+      <div style="margin-top:10px"><label>${t('label_cognome')}${warnBadge(g,'cognome')}</label><input id="cogn-${g.id}" type="text" class="${fw(g,'cognome')}" value="${g.cognome||''}" oninput="setG('${g.id}','cognome',this.value)"></div>
+      <div><label>${t('label_nome')}${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
       <div class="row">
         <div><label>${t('label_sesso')}${warnBadge(g,'sesso')}</label><select id="sesso-${g.id}" class="${fw(g,'sesso')}" onchange="setG('${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
         <div><label>${t('label_data_nascita')}${warnBadge(g,'dataNascita')}</label><div class="datepick"><input id="nasc-${g.id}" type="date" class="${fw(g,'dataNascita')}" value="${italianToIso(g.dataNascita)}" onchange="setG('${g.id}','dataNascita',dateToItalian(this.value))"></div></div>
