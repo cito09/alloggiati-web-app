@@ -79,17 +79,26 @@ module.exports = async (req, res) => {
       ospiti: ospitiSalvati,
     };
 
-    const raw = await redisCmd(conn, ["GET", KEY]);
+    let raw;
+    try {
+      raw = await redisCmd(conn, ["GET", KEY]);
+    } catch (e) {
+      return res.status(500).json({ error: `Errore lettura coda (KV GET): ${String(e.message || e)}` });
+    }
     const coda = raw ? JSON.parse(raw) : [];
     coda.unshift(voce);
     if (coda.length > MAX_VOCI) coda.length = MAX_VOCI;
-    await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
+    try {
+      await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
+    } catch (e) {
+      return res.status(500).json({ error: `Errore scrittura coda (KV SET): ${String(e.message || e)}` });
+    }
 
     const nomi = ospitiSalvati.map((o) => [o.cognome, o.nome].filter(Boolean).join(" ")).filter(Boolean).join(", ");
     await notificaHost(`${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ha completato il check-in`);
 
     return res.status(200).json({ ok: true });
   } catch (e) {
-    return res.status(500).json({ error: String(e.message || e) });
+    return res.status(500).json({ error: `Errore generico: ${String(e.message || e)}` });
   }
 };
