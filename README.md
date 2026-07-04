@@ -91,6 +91,26 @@ Richiede queste cose in più:
 
 > `CHECKIN_CODE` e il canale ntfy sono "segreti leggeri" incorporati nel link/canale: proteggono da chi trova la pagina per caso o la scansiona automaticamente, ma se il link finisce in mani sbagliate va rigenerato (cambi `CHECKIN_CODE` e ridai il nuovo link ai prossimi ospiti).
 
+### Ross1000 — flussi turistici ISTAT (es. Emilia-Romagna, facoltativo)
+
+Per le strutture in regioni che usano **Ross1000** (es. Bologna/Emilia-Romagna) esiste anche l'obbligo statistico ISTAT, separato da Alloggiati Web, con scadenza il giorno 5 del mese successivo. L'app lo copre in due modi:
+
+- **Scarica Ross1000 (.xml)**: genera il file nel tracciato ufficiale, da caricare sul portale (menu check-in → *importa file gestionale*). Basta configurare il `codice` struttura.
+- **Invio automatico via web service**: con le credenziali di trasmissione rilasciate dalla Regione, il pulsante *Invia ufficialmente* trasmette prima le schedine alla Questura e poi i dati a Ross1000, in un colpo solo. (Endpoint Emilia-Romagna già preimpostato; per altre regioni si può indicare `endpoint`.)
+
+Configurazione, variabile `ROSS_STRUTTURE` (JSON su una riga):
+
+```
+ROSS_STRUTTURE = [{"id":"bologna","codice":"CODICE_ASSEGNATO_DALLA_REGIONE","utente":"...","password":"...","cameredisponibili":2,"lettidisponibili":4}]
+```
+
+- `id` deve coincidere con l'`id` usato in `ALLOGGIATI_STRUTTURE`.
+- `codice` = identificativo struttura assegnato dalla Regione al momento della registrazione su Ross1000.
+- `utente`/`password` = credenziali di **trasmissione web service** (da chiedere alla Regione: per l'Emilia-Romagna StatisticaTurismo@regione.emilia-romagna.it). Senza di esse resta comunque disponibile il download del file .xml.
+- `cameredisponibili`/`lettidisponibili` = capacità della struttura (camere e posti letto), richieste dal tracciato per ogni giornata.
+
+Note: la residenza degli ospiti (campo obbligatorio del tracciato, non presente sui documenti) viene approssimata con il luogo di nascita; tipo turismo e mezzo di trasporto sono trasmessi come "Non specificato" (valori ammessi dal tracciato).
+
 ### ⚠️ Identificazione "de visu": leggi prima di affidarti solo a questo modulo
 
 Una sentenza del Consiglio di Stato (n. 5732/2025, 21 novembre 2025) ha stabilito che l'identificazione degli ospiti deve avvenire **de visu**, anche a distanza ma **solo se in tempo reale** (videochiamata, videocitofono): **non basta** l'invio di una foto del documento rivista in un secondo momento, che è esattamente il funzionamento base di questo modulo. Questo self check-in resta utile come **aiuto alla raccolta dati** (l'ospite scrive/carica, tu non ritrascrivi), ma se il check-in è interamente da remoto senza nessun contatto dal vivo (nemmeno una breve videochiamata), da solo probabilmente **non basta** a soddisfare l'obbligo di legge. Non è una consulenza legale: verifica con un professionista specializzato in affitti brevi prima di affidarti solo a questo flusso per l'identificazione.

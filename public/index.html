@@ -153,6 +153,14 @@
       <button class="btn primary sm" style="flex:1" id="sendBtn" onclick="invia()" disabled>Invia ufficialmente</button>
     </div>
     <div id="sendResult"></div>
+    <div id="rossWrap" style="display:none">
+      <div class="muted" style="margin-top:12px">📊 Questa struttura richiede anche l'invio ISTAT a <b>Ross1000</b>: con "Invia ufficialmente" parte in automatico dopo le schedine, oppure usa i pulsanti qui sotto.</div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">Scarica Ross1000 (.xml)</button>
+        <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Invia a Ross1000</button>
+      </div>
+      <div id="rossResult"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -12200,7 +12208,9 @@ async function invia(){
     showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ultima ricevuta PDF disponibile</button>`);
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     const snap=snapshotOspiti();
-    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, records:recordsInviati});}
+    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, records:recordsInviati});
+    if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
+  }
 }
 async function scaricaRicevuta(){
   toast('Recupero ricevuta…');
@@ -12215,17 +12225,79 @@ async function scaricaRicevuta(){
     toast('Ricevuta del '+data.data.split('-').reverse().join('/')+' scaricata');
   }catch(e){toast('Ricevuta: '+e.message);}
 }
+let struttureList=[];
 async function loadStrutture(){
   try{const r=await fetch('/api/strutture');const data=await r.json();
     const list=(data.strutture||[]);
+    struttureList=list;
     if(list.length>1){
       const sel=$('#strutturaSel');
       const preferita=localStorage.getItem('strutturaPreferita')||'canazei';
       sel.innerHTML=list.map(s=>`<option value="${s.id}" ${s.id===preferita?'selected':''}>${s.nome}</option>`).join('');
-      sel.onchange=()=>localStorage.setItem('strutturaPreferita',sel.value);
+      sel.onchange=()=>{localStorage.setItem('strutturaPreferita',sel.value); aggiornaRossUI();};
       $('#strutturaWrap').style.display='';
     }
+    aggiornaRossUI();
   }catch(e){/* offline: i pulsanti mostreranno l'errore al click */}
+}
+
+/* ===== Ross1000 (flussi ISTAT, es. Bologna/Emilia-Romagna) ===== */
+function rossStrutturaId(){ return currentStruttura() || (struttureList[0]&&struttureList[0].id); }
+function rossAttivo(){ const id=rossStrutturaId(); return struttureList.some(s=>s.id===id&&s.ross); }
+function aggiornaRossUI(){ const w=$('#rossWrap'); if(w) w.style.display=rossAttivo()?'':'none'; }
+
+// dati per Ross1000: solo gli ospiti completi (stessi controlli delle schedine),
+// con residenza approssimata al luogo di nascita (i documenti non riportano la residenza)
+function rossPayload(){
+  const b=bookings[0]; if(!b)return null;
+  const os=[]; let capoId='';
+  b.guests.forEach((g,idx)=>{
+    if(!(g.cognome||g.nome))return;
+    const rec=buildRecord(b,g,idx);
+    if(rec.bad.length||rec.len!==168)return;
+    const rr=rec.resolved;
+    const idswh=((b.arrivo||'').replace(/\//g,'')+'-'+g.id).slice(0,20);
+    if(rec.tipo==='16'||rec.tipo==='17'||rec.tipo==='18')capoId=idswh;
+    const natoInItalia=!!rr.comuneNascita;
+    const statores=natoInItalia?ITALIA_CODE:(rr.statoNascita||rr.cittadinanza);
+    os.push({idswh, tipoalloggiato:rec.tipo, idcapo:(rec.tipo==='19'||rec.tipo==='20')?capoId:'',
+      cognome:cleanName(g.cognome), nome:cleanName(g.nome), sesso:g.sesso,
+      cittadinanza:rr.cittadinanza, statoresidenza:statores,
+      luogoresidenza:natoInItalia?rr.comuneNascita:((g.statoNascita||g.cittadinanza||'ESTERO').toUpperCase().slice(0,30)),
+      datanascita:(g.dataNascita||'').split('/').reverse().join(''),
+      statonascita:natoInItalia?ITALIA_CODE:rr.statoNascita,
+      comunenascita:rr.comuneNascita||''});
+  });
+  if(!os.length)return null;
+  return {struttura:rossStrutturaId(), arrivo:b.arrivo, notti:b.notti, ospiti:os};
+}
+async function scaricaRossXml(){
+  const p=rossPayload(); if(!p){toast('Nessun ospite completo da esportare');return;}
+  try{
+    const r=await fetch('/api/ross',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({azione:'file',...p})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Errore');
+    const url=URL.createObjectURL(new Blob([data.xml],{type:'application/xml;charset=utf-8'}));
+    const a=document.createElement('a');a.href=url;a.download=data.filename||'ross1000.xml';a.click();URL.revokeObjectURL(url);
+    toast('File Ross1000 scaricato: importalo sul portale (check-in → importa file gestionale)');
+  }catch(e){toast('Ross1000: '+e.message);}
+}
+async function inviaRoss(manuale){
+  const p=rossPayload();
+  const out=$('#rossResult');
+  if(!p){if(manuale)toast('Nessun ospite completo da trasmettere');return;}
+  const btn=$('#rossSendBtn'); if(btn)btn.disabled=true;
+  if(out)out.innerHTML='<div class="muted" style="margin-top:10px"><span class="spin"></span> Invio a Ross1000…</div>';
+  try{
+    const r=await fetch('/api/ross',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({azione:'invia',...p})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Errore');
+    if(out)out.innerHTML='<div class="pill ok" style="margin-top:10px">Ross1000: trasmesso ✓</div>';
+    toast('Ross1000: dati trasmessi');
+  }catch(e){
+    if(out)out.innerHTML=`<div class="pill err" style="margin-top:10px">Ross1000: ${e.message}</div>`;
+    if(manuale)toast('Ross1000: '+e.message);
+  }finally{ if(btn)btn.disabled=false; }
 }
 
 /* init */
