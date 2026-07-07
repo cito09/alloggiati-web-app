@@ -225,6 +225,11 @@ const T={
     step2_hint:'Controlla che i dati siano stati letti correttamente dal documento e correggi quelli sbagliati o mancanti.',
     no_photo_msg:'📷 Carica prima la foto del documento per continuare.',
     dz_title:'Tocca per scegliere, trascina o incolla (Ctrl+V)', dz_sub:'foto del documento (anche più foto insieme, es. fronte e retro)',
+    step1_label_first:'1 · Documenti degli ospiti (obbligatori)',
+    first_multi_hint:"Puoi caricare i documenti di TUTTI gli ospiti in una volta sola (anche in un'unica foto): li riconosco e li separo io. Oppure carica solo il tuo: gli altri li aggiungi dopo.",
+    btn_extract_all:'✨ Riconosci i documenti',
+    toast_multi_read:'ospiti riconosciuti: controlla i dati di ognuno',
+    toast_no_doc:'Nessun documento riconosciuto nelle foto',
     btn_extract:'✨ Estrai dati dal documento', btn_extract_loading:'Lettura…',
     label_cognome:'Cognome', label_nome:'Nome', label_sesso:'Sesso', label_data_nascita:'Data di nascita',
     label_comune_nascita:'Comune di nascita', comune_nascita_hint:'(solo se nato in Italia)',
@@ -270,6 +275,11 @@ const T={
     step2_hint:'Check that the data was read correctly from the document and correct anything wrong or missing.',
     no_photo_msg:'📷 Upload the document photo first to continue.',
     dz_title:'Tap to choose, drag or paste (Ctrl+V)', dz_sub:'document photo (you can add more than one, e.g. front and back)',
+    step1_label_first:"1 · Guests' ID documents (required)",
+    first_multi_hint:"You can upload ALL guests' documents at once (even in a single photo): I'll recognise and separate them. Or upload just yours and add the others later.",
+    btn_extract_all:'✨ Read the documents',
+    toast_multi_read:"guests recognised: check everyone's details",
+    toast_no_doc:'No document recognised in the photos',
     btn_extract:'✨ Extract data from document', btn_extract_loading:'Reading…',
     label_cognome:'Surname', label_nome:'First name', label_sesso:'Sex', label_data_nascita:'Date of birth',
     label_comune_nascita:'Town of birth', comune_nascita_hint:'(only if born in Italy)',
@@ -315,6 +325,11 @@ const T={
     step2_hint:'Vérifiez que les données ont été lues correctement à partir du document et corrigez celles qui sont erronées ou manquantes.',
     no_photo_msg:"📷 Téléchargez d'abord la photo du document pour continuer.",
     dz_title:'Touchez pour choisir, glissez ou collez (Ctrl+V)', dz_sub:'photo du document (vous pouvez en ajouter plusieurs, ex. recto et verso)',
+    step1_label_first:'1 · Documents des voyageurs (obligatoires)',
+    first_multi_hint:"Vous pouvez télécharger les documents de TOUS les voyageurs en une seule fois (même sur une seule photo) : je les reconnais et les sépare. Ou téléchargez seulement le vôtre et ajoutez les autres ensuite.",
+    btn_extract_all:'✨ Lire les documents',
+    toast_multi_read:'voyageurs reconnus : vérifiez les données de chacun',
+    toast_no_doc:'Aucun document reconnu sur les photos',
     btn_extract:'✨ Extraire les données du document', btn_extract_loading:'Lecture…',
     label_cognome:'Nom', label_nome:'Prénom', label_sesso:'Sexe', label_data_nascita:'Date de naissance',
     label_comune_nascita:'Commune de naissance', comune_nascita_hint:'(seulement si né en Italie)',
@@ -360,6 +375,11 @@ const T={
     step2_hint:'Comprueba que los datos se hayan leído correctamente del documento y corrige lo que esté mal o falte.',
     no_photo_msg:'📷 Sube primero la foto del documento para continuar.',
     dz_title:'Toca para elegir, arrastra o pega (Ctrl+V)', dz_sub:'foto del documento (puedes añadir más de una, ej. anverso y reverso)',
+    step1_label_first:'1 · Documentos de los huéspedes (obligatorios)',
+    first_multi_hint:'Puedes subir los documentos de TODOS los huéspedes a la vez (incluso en una sola foto): los reconozco y los separo. O sube solo el tuyo y añade los demás después.',
+    btn_extract_all:'✨ Leer los documentos',
+    toast_multi_read:'huéspedes reconocidos: revisa los datos de cada uno',
+    toast_no_doc:'Ningún documento reconocido en las fotos',
     btn_extract:'✨ Extraer datos del documento', btn_extract_loading:'Leyendo…',
     label_cognome:'Apellido', label_nome:'Nombre', label_sesso:'Sexo', label_data_nascita:'Fecha de nacimiento',
     label_comune_nascita:'Municipio de nacimiento', comune_nascita_hint:'(solo si nació en Italia)',
@@ -496,16 +516,37 @@ async function handleImgs(id,files){
 
 const CAMPO_AI_TO_G={cognome:'cognome',nome:'nome',sesso:'sesso',data_nascita:'dataNascita',comune_nascita:'comuneNascita',
   stato_nascita:'statoNascita',cittadinanza:'cittadinanza',tipo_documento:'tipoDoc',numero_documento:'numeroDoc',luogo_rilascio:'luogoRilascio'};
+function applicaEstratto(g,j){
+  Object.assign(g,{cognome:j.cognome||g.cognome,nome:j.nome||g.nome,sesso:j.sesso||g.sesso,
+    dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:j.stato_nascita||g.statoNascita,
+    cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
+    luogoRilascio:j.luogo_rilascio||g.luogoRilascio});
+  g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
+}
 async function estraiDati(id){
   const g=getG(id); if(!g.imgs.length){toast(t('toast_add_photo_first'));return;}
   g._busy=true; render();
   try{
+    if(guests.indexOf(g)===0){
+      // primo ospite: le foto possono contenere i documenti di TUTTO il gruppo,
+      // l'AI li separa e creiamo un ospite per ciascun documento riconosciuto
+      const j=await apiExtract(g.imgs,'auto');
+      const os=(j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome));
+      if(!os.length) throw new Error(t('toast_no_doc'));
+      applicaEstratto(g,os[0]);
+      guests=guests.filter((x,i)=>i===0||x.cognome||x.nome||(x.imgs||[]).length); // via eventuali ospiti vuoti residui
+      for(let k=1;k<os.length;k++){
+        const ng=nuovoOspite();
+        applicaEstratto(ng,os[k]);
+        guests.push(ng); // le foto restano sul primo ospite: l'host le vede comunque tutte insieme
+      }
+      g._busy=false;
+      toast(os.length>1 ? os.length+' '+t('toast_multi_read') : t('toast_data_read'));
+      gIdx=0; mostraPasso('verifica');
+      return;
+    }
     const j=await apiExtract(g.imgs,'documento');
-    Object.assign(g,{cognome:j.cognome||g.cognome,nome:j.nome||g.nome,sesso:j.sesso||g.sesso,
-      dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:j.stato_nascita||g.statoNascita,
-      cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
-      luogoRilascio:j.luogo_rilascio||g.luogoRilascio});
-    g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
+    applicaEstratto(g,j);
     g._busy=false;
     toast(t('toast_data_read'));
     mostraPasso('verifica');
@@ -575,13 +616,15 @@ function avantiDate(){
 function renderFoto(root){
   const g=guests[gIdx]; if(!g)return;
   const haFoto=(g.imgs||[]).length>0;
+  const primo=gIdx===0;
   root.innerHTML=`
     <div class="card">
-      <div class="gname" style="font-size:16px">👤 ${t('guest_default_name')} ${gIdx+1}</div>
-      <div class="steplbl" style="margin-top:10px">${t('step1_label')}</div>
+      ${primo?'':`<div class="gname" style="font-size:16px">👤 ${t('guest_default_name')} ${gIdx+1}</div>`}
+      <div class="steplbl" ${primo?'':'style="margin-top:10px"'}>${primo?t('step1_label_first'):t('step1_label')}</div>
+      ${primo?`<div class="hint">${t('first_multi_hint')}</div>`:''}
       <div class="thumbs" id="gimg-${g.id}"></div>
       <div id="dz-${g.id}"></div>
-      <button class="btn accent big" style="margin-top:14px" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> '+t('btn_extract_loading'):t('btn_extract')}</button>
+      <button class="btn accent big" style="margin-top:14px" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> '+t('btn_extract_loading'):(primo?t('btn_extract_all'):t('btn_extract'))}</button>
       ${haFoto&&!g._busy?`<div style="text-align:center; margin-top:12px"><a href="#" class="muted" style="text-decoration:underline" onclick="mostraPasso('verifica');return false">${t('manual_link')}</a></div>`:''}
     </div>
     <button class="btn ghost" onclick="indietroDaFoto()">${t('btn_back')}</button>`;
@@ -604,7 +647,7 @@ function renderVerifica(root){
   const g=guests[gIdx]; if(!g)return;
   root.innerHTML=`
     <div class="card">
-      <div class="gname" style="font-size:16px">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:t('guest_default_name')+' '+(gIdx+1)}</div>
+      <div class="gname" style="font-size:16px">👤 ${g.cognome?`${g.cognome} ${g.nome||''}`:t('guest_default_name')+' '+(gIdx+1)}${guests.length>1?` <span class="muted" style="font-weight:600">(${gIdx+1}/${guests.length})</span>`:''}</div>
       <div class="steplbl" style="margin-top:10px">${t('step2_label')}</div>
       ${(g._warn||[]).length?`<div class="warn-box">⚠️ ${t('warn_alert')}</div>`:`<div class="hint">${t('step2_hint')}</div>`}
       <div style="margin-top:10px"><label>${t('label_cognome')}${warnBadge(g,'cognome')}</label><input id="cogn-${g.id}" type="text" class="${fw(g,'cognome')}" value="${g.cognome||''}" oninput="setG('${g.id}','cognome',this.value)"></div>
@@ -630,12 +673,18 @@ function renderVerifica(root){
       <input id="luogo-${g.id}" type="text" class="${fw(g,'luogoRilascio')}" value="${g.luogoRilascio||''}" oninput="setG('${g.id}','luogoRilascio',this.value)">
     </div>
     <button class="btn primary big" onclick="confermaDati()">${t('btn_confirm_data')}</button>
-    <button class="btn ghost" style="margin-top:10px" onclick="mostraPasso('foto')">${t('btn_back')}</button>`;
+    <button class="btn ghost" style="margin-top:10px" onclick="indietroDaVerifica()">${t('btn_back')}</button>`;
 }
 function confermaDati(){
   const g=guests[gIdx];
   if(!g.cognome&&!g.nome){toast(t('toast_fill_name'));return;}
+  const next=guests[gIdx+1];
+  if(next&&(next.cognome||next.nome)){ gIdx++; mostraPasso('verifica'); return; } // controllo a catena degli ospiti riconosciuti insieme
   mostraPasso('altro');
+}
+function indietroDaVerifica(){
+  if(gIdx>0){ gIdx--; mostraPasso('verifica'); }
+  else mostraPasso('foto');
 }
 
 /* ---- passo 3b: altri ospiti? ---- */

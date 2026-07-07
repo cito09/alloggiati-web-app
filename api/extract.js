@@ -20,6 +20,7 @@ function promptAuto(oggi) {
 {"prenotazione":{"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null},"ospiti":[${CAMPI_OSPITE}]}
 Regole:
 - "ospiti": UNA voce per ogni DOCUMENTO d'identità. NON creare ospiti dagli screenshot di prenotazione (i nomi nello screenshot NON sono ospiti).
+- Se una stessa foto contiene PIÙ documenti di persone diverse (es. più carte d'identità affiancate sul tavolo), crea un ospite per CIASCUN documento presente nella foto.
 - Se due foto sono fronte/retro o due pagine dello STESSO documento, sono UN solo ospite.
 - "prenotazione": ricava le date dallo screenshot, un soggiorno futuro o recente (vicino a oggi). Se vedi check-in e check-out calcola numero_notti come differenza. Se l'anno non è scritto esplicitamente, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date: NON usare mai un anno passato a caso. Se non c'è nessuno screenshot, metti i campi a null.
 - Se non ci sono documenti, "ospiti": [].
