@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Schedine → Alloggiati Web</title>
+<title>KeyFlow · Gestionale</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%23ffb703"/><circle cx="22" cy="32" r="8" fill="none" stroke="%2323170a" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="%2323170a" stroke-width="6" stroke-linecap="round" fill="none"/></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#0d1b2a; --surface:#14283c; --surface2:#1b3550; --line:#274867;
@@ -13,20 +17,26 @@
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
-  body{background:var(--bg); color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  body{background:radial-gradient(1100px 550px at 50% -12%, rgba(255,183,3,.08), transparent 60%), var(--bg); color:var(--ink);
+    font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
     font-size:16px; line-height:1.45; padding:0 0 176px;
     padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
-  header{position:sticky; top:0; z-index:20; background:rgba(13,27,42,.92); backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--line); padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top));}
-  header .eyebrow{display:inline-flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.04em; text-transform:uppercase;
-    color:var(--amber); font-weight:700; background:rgba(255,183,3,.12); border:1px solid rgba(255,183,3,.35);
-    border-radius:999px; padding:4px 11px}
-  header h1{margin:10px 0 0; font-size:22px; font-weight:800; letter-spacing:-.02em}
-  header .sub{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ok); margin-top:5px; font-weight:600}
+  header{position:sticky; top:0; z-index:20; background:linear-gradient(180deg, rgba(23,44,66,.96), rgba(13,27,42,.94)); backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line); padding:12px 16px; padding-top:calc(12px + env(safe-area-inset-top)); box-shadow:0 6px 24px -8px rgba(0,0,0,.4)}
+  .brand{display:inline-flex; align-items:center; gap:10px}
+  .brand-badge{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,#ffd166,var(--amber)); box-shadow:0 5px 16px -5px rgba(255,183,3,.6); flex-shrink:0}
+  .brand-badge svg{width:20px; height:20px}
+  .brand-name{font-weight:800; font-size:17px; letter-spacing:-.01em}
+  .brand-name .flow{color:var(--amber)}
+  .brand-role{font-size:9.5px; letter-spacing:.05em; font-weight:800; padding:3px 8px; border-radius:999px; text-transform:uppercase;
+    background:rgba(90,160,242,.15); color:var(--blue); border:1px solid rgba(90,160,242,.4)}
+  header h1{margin:8px 0 0; font-size:20px; font-weight:800; letter-spacing:-.02em}
+  header .sub{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ok); margin-top:4px; font-weight:600}
   header .sub .dot{width:6px; height:6px; border-radius:50%; background:var(--ok); flex-shrink:0}
   .wrap{max-width:680px; margin:0 auto; padding:16px}
-  .card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px}
+  .card{background:linear-gradient(165deg, var(--surface), var(--surface2) 140%); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px; box-shadow:0 8px 24px -12px rgba(0,0,0,.45)}
   .card h2{margin:0 0 12px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
   .card h2 .n{font-family:var(--mono); color:var(--amber); font-size:13px}
   label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
@@ -41,10 +51,12 @@
   .datepick{position:relative; display:inline-flex}
   .datepick-btn{pointer-events:none}
   .datepick-input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:0; padding:0}
-  .btn{appearance:none; border:none; border-radius:11px; font-size:15px; font-weight:700; padding:13px 16px; cursor:pointer; font-family:inherit; width:100%}
-  .btn.primary{background:var(--amber); color:#23170a}
-  .btn.primary:active{background:var(--amber-d)}
+  .btn{appearance:none; border:none; border-radius:12px; font-size:15px; font-weight:700; padding:13px 16px; cursor:pointer; font-family:inherit; width:100%;
+    transition:transform .12s ease, filter .12s ease}
+  .btn.primary{background:linear-gradient(135deg,#ffce54,var(--amber)); color:#23170a; box-shadow:0 6px 18px -6px rgba(255,183,3,.5)}
+  .btn.primary:active{transform:scale(.98); filter:brightness(.95)}
   .btn.ghost{background:var(--surface2); color:var(--ink); border:1px solid var(--line)}
+  .btn.ghost:active{transform:scale(.98)}
   .btn.sm{padding:9px 12px; font-size:13px; width:auto}
   .btn:disabled{opacity:.5}
   .muted{color:var(--muted); font-size:12.5px}
@@ -129,9 +141,17 @@
 </head>
 <body>
 <header>
-  <div class="eyebrow">🛡️ Polizia di Stato</div>
-  <h1>Schedine → Alloggiati Web</h1>
-  <div class="sub" id="hsub"><span class="dot"></span><span id="hsubText">Tabelle ufficiali caricate</span></div>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+    <div class="brand">
+      <span class="brand-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#23170a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.8" cy="12" r="3.1"/><path d="M11 12h9.5M17.8 12v3M14.6 12v2.2"/></svg>
+      </span>
+      <span class="brand-name">Key<span class="flow">Flow</span></span>
+    </div>
+    <span class="brand-role">Gestionale host</span>
+  </div>
+  <h1>Registrazione ospiti</h1>
+  <div class="sub" id="hsub"><span class="dot"></span><span id="hsubText">Alloggiati Web · Ross1000 · tabelle ufficiali caricate</span></div>
 </header>
 
 <div class="wrap">
