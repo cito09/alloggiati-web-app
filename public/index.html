@@ -231,16 +231,6 @@
     <button class="btn ghost sm" id="dlBtn" onclick="downloadTxt()" disabled style="width:100%;margin-top:10px">Scarica .txt (caricamento manuale)</button>
   </div>
 
-  <div class="card" id="impostaCard">
-    <h2><span class="n">💶</span> Imposta di soggiorno</h2>
-    <div class="row3">
-      <div><label>Tariffa €/notte</label><input type="number" id="impTariffa" step="0.10" min="0" placeholder="es. 5" oninput="salvaImposta()"></div>
-      <div><label>Esenti sotto (anni)</label><input type="number" id="impEta" min="0" placeholder="es. 14" oninput="salvaImposta()"></div>
-      <div><label>Max notti</label><input type="number" id="impMax" min="0" placeholder="tutte" oninput="salvaImposta()"></div>
-    </div>
-    <div id="impostaOut" style="margin-top:10px"></div>
-    <div class="muted" style="margin-top:8px">Calcolo indicativo sulla prenotazione qui sopra, salvato per struttura. Controlla tariffe, esenzioni e tetto notti del tuo Comune.</div>
-  </div>
 
   <div class="hint">La <b>Verifica</b> usa il metodo Test del portale (controlla senza inviare). L'<b>Invio ufficiale</b> trasmette davvero le schedine alla Questura: è irreversibile, quindi chiede conferma. Dopo l'invio puoi scaricare la ricevuta PDF.</div>
 
@@ -12014,7 +12004,7 @@ function renderPreview(){const recs=allRecords();const w=$('#previewWrap');const
   const none=valid.length===0;
   ['dlBtn','testBtn','sendBtn','sendBtn2'].forEach(id=>{const el=$('#'+id);if(el)el.disabled=none;});
   w.innerHTML=recs.length?recs.map(recLine).join(''):'<div class="muted">Nessuna schedina pronta. Aggiungi una prenotazione e un ospite.</div>';
-  aggiornaImposta();}
+}
 function validRecords(){return allRecords().filter(r=>r.bad.length===0&&r.len===168).map(r=>r.rec);}
 function currentStruttura(){const s=$('#strutturaSel');return s&&s.value?s.value:undefined;}
 
@@ -12347,11 +12337,10 @@ async function loadStrutture(){
       const sel=$('#strutturaSel');
       const preferita=localStorage.getItem('strutturaPreferita')||'canazei';
       sel.innerHTML=list.map(s=>`<option value="${s.id}" ${s.id===preferita?'selected':''}>${s.nome}</option>`).join('');
-      sel.onchange=()=>{localStorage.setItem('strutturaPreferita',sel.value); aggiornaRossUI(); caricaImpostaUI();};
+      sel.onchange=()=>{localStorage.setItem('strutturaPreferita',sel.value); aggiornaRossUI();};
       $('#strutturaWrap').style.display='';
     }
     aggiornaRossUI();
-    caricaImpostaUI();
     aggiornaOggi();
   }catch(e){/* offline: i pulsanti mostreranno l'errore al click */}
 }
@@ -12473,46 +12462,6 @@ function esportaStoricoCsv(){
   toast(storico.length+' voci esportate in CSV');
 }
 
-/* ===== imposta di soggiorno (calcolo indicativo, impostazioni salvate per struttura) ===== */
-function impostaConf(){
-  const id=rossStrutturaId()||'default';
-  try{return JSON.parse(localStorage.getItem('imposta_'+id)||'{}');}catch(e){return{};}
-}
-function salvaImposta(){
-  const id=rossStrutturaId()||'default';
-  const c={tariffa:parseFloat($('#impTariffa').value)||0, eta:parseInt($('#impEta').value)||0, max:parseInt($('#impMax').value)||0};
-  localStorage.setItem('imposta_'+id,JSON.stringify(c));
-  aggiornaImposta();
-}
-function caricaImpostaUI(){
-  const c=impostaConf();
-  if(!$('#impTariffa'))return;
-  $('#impTariffa').value=c.tariffa||''; $('#impEta').value=c.eta||''; $('#impMax').value=c.max||'';
-  aggiornaImposta();
-}
-function etaAllArrivo(nascita,arrivo){
-  const dn=parseGGMMAAAA(nascita), da=parseGGMMAAAA(arrivo); if(!dn||!da)return null;
-  let e=da.getFullYear()-dn.getFullYear();
-  const m=da.getMonth()-dn.getMonth();
-  if(m<0||(m===0&&da.getDate()<dn.getDate()))e--;
-  return e;
-}
-function aggiornaImposta(){
-  const w=$('#impostaOut'); if(!w)return;
-  const b=bookings[0]; const c=impostaConf();
-  const conNome=b?b.guests.filter(g=>g.cognome||g.nome):[];
-  if(!b||!(b.notti>0)||!conNome.length){w.innerHTML='<div class="muted">Compila prenotazione e ospiti qui sopra per vedere il calcolo.</div>';return;}
-  if(!c.tariffa){w.innerHTML='<div class="muted">Imposta la tariffa €/notte del tuo Comune per vedere il totale.</div>';return;}
-  const notti=c.max>0?Math.min(b.notti,c.max):b.notti;
-  let paganti=0, esenti=0;
-  conNome.forEach(g=>{
-    const eta=etaAllArrivo(g.dataNascita,b.arrivo);
-    if(c.eta>0&&eta!=null&&eta<c.eta)esenti++; else paganti++;
-  });
-  const eur=n=>n.toFixed(2).replace('.',',');
-  const tot=paganti*notti*c.tariffa;
-  w.innerHTML=`<div style="font-size:16px"><b>${eur(tot)} €</b> <span class="muted">= ${paganti} pagant${paganti===1?'e':'i'} × ${notti} nott${notti===1?'e':'i'} × ${eur(c.tariffa)} €${esenti?` · ${esenti} esent${esenti===1?'e':'i'} per età`:''}</span></div>`;
-}
 
 /* init */
 $('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
