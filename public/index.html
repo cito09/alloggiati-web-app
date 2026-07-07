@@ -123,6 +123,10 @@
   .page.active{display:block}
   .oggi-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line); font-size:14px; cursor:pointer}
   .oggi-row:last-child{border-bottom:none}
+  .link-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:11px 12px; border:1px solid var(--line); border-radius:12px; margin-top:10px; background:var(--surface2)}
+  .link-row .link-name{font-weight:700; font-size:14px}
+  .link-row .link-url{font-size:10.5px; color:var(--muted); word-break:break-all; margin-top:2px; line-height:1.35}
+  .btn-link{text-decoration:none; display:inline-flex; align-items:center; justify-content:center}
   .actionbar .inner{max-width:680px; margin:0 auto; display:flex; gap:10px; align-items:center}
   .actionbar .stat{flex:1; font-size:12.5px; color:var(--muted)}
   .actionbar .stat b{color:var(--ink)}
@@ -12104,18 +12108,22 @@ async function loadCheckinLink(){
     let strutture=[];
     try{ const sd=await (await fetch('/api/strutture')).json(); strutture=sd.strutture||[]; }catch(e){/* usa link generico */}
     const base=`${location.origin}/checkin.html?c=${encodeURIComponent(codeData.codice)}`;
+    const riga=(nome,link,i)=>`
+      <div class="link-row">
+        <div style="flex:1; min-width:0">
+          <div class="link-name">🏠 ${escText(nome)}</div>
+          <div class="link-url">${escText(link.replace(/^https?:\/\//,''))}</div>
+        </div>
+        <div style="display:flex; gap:6px; flex-shrink:0">
+          <a class="btn primary sm btn-link" href="${link}" target="_blank" rel="noopener">↗ Apri</a>
+          <button class="btn ghost sm" id="copyCheckinBtn-${i}" title="Copia link" onclick="copiaLinkCheckin('${link}','copyCheckinBtn-${i}')">📋</button>
+        </div>
+      </div>`;
     if(strutture.length>1){
-      w.innerHTML='<label>Link check-in da mandare agli ospiti (uno per struttura, sempre gli stessi)</label>'+
-        strutture.map((s,i)=>{
-          const link=`${base}&s=${encodeURIComponent(s.id)}`;
-          return `<button class="btn primary" id="copyCheckinBtn-${i}" style="margin-top:${i?10:0}px" onclick="copiaLinkCheckin('${link}','copyCheckinBtn-${i}')">📋 Copia link — ${escText(s.nome)}</button>
-            <div class="muted" style="margin-top:4px; font-size:11px; word-break:break-all">${link}</div>`;
-        }).join('');
+      w.innerHTML=strutture.map((s,i)=>riga(s.nome,`${base}&s=${encodeURIComponent(s.id)}`,i)).join('');
     }else{
       const link=strutture.length===1?`${base}&s=${encodeURIComponent(strutture[0].id)}`:base;
-      w.innerHTML=`<label>Link check-in da mandare agli ospiti (sempre lo stesso)</label>
-        <button class="btn primary" id="copyCheckinBtn" onclick="copiaLinkCheckin('${link}','copyCheckinBtn')">📋 Copia link check-in</button>
-        <div class="muted" style="margin-top:6px; font-size:11px; word-break:break-all">${link}</div>`;
+      w.innerHTML=riga(strutture.length===1?strutture[0].nome:'Check-in ospiti',link,0);
     }
   }catch(e){/* offline: nessun link mostrato, non blocca il resto dell'app */}
 }
