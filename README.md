@@ -111,6 +111,14 @@ ROSS_STRUTTURE = [{"id":"bologna","codice":"CODICE_ASSEGNATO_DALLA_REGIONE","ute
 
 Note: la residenza degli ospiti (campo obbligatorio del tracciato, non presente sui documenti) viene approssimata con il luogo di nascita; tipo turismo e mezzo di trasporto sono trasmessi come "Non specificato" (valori ammessi dal tracciato).
 
+### Promemoria automatici (facoltativi)
+
+Un cron giornaliero di Vercel (`vercel.json` → `/api/promemoria`, ore 8 UTC) manda una notifica ntfy se ci sono check-in ospiti fermi da più di 24 ore, e il giorno 3 del mese ricorda la scadenza Ross1000 (se configurato). Richiede solo `NTFY_TOPIC`. Consigliato: aggiungi anche una variabile `CRON_SECRET` (stringa casuale) — Vercel la usa da solo per firmare le chiamate del cron, ed evita che estranei possano far scattare notifiche chiamando l'endpoint.
+
+### App sul telefono (PWA)
+
+Il gestionale è installabile dalla home: aprilo dal telefono → menu del browser → "Aggiungi a schermata Home". Icona KeyFlow e schermo intero, senza barra del browser (manifest + icone incluse nel progetto).
+
 ### ⚠️ Identificazione "de visu": leggi prima di affidarti solo a questo modulo
 
 Una sentenza del Consiglio di Stato (n. 5732/2025, 21 novembre 2025) ha stabilito che l'identificazione degli ospiti deve avvenire **de visu**, anche a distanza ma **solo se in tempo reale** (videochiamata, videocitofono): **non basta** l'invio di una foto del documento rivista in un secondo momento, che è esattamente il funzionamento base di questo modulo. Questo self check-in resta utile come **aiuto alla raccolta dati** (l'ospite scrive/carica, tu non ritrascrivi), ma se il check-in è interamente da remoto senza nessun contatto dal vivo (nemmeno una breve videochiamata), da solo probabilmente **non basta** a soddisfare l'obbligo di legge. Non è una consulenza legale: verifica con un professionista specializzato in affitti brevi prima di affidarti solo a questo flusso per l'identificazione.
