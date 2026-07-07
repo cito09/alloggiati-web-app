@@ -15,7 +15,7 @@
   html,body{margin:0;padding:0}
   body{background:var(--bg); color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
-    font-size:16px; line-height:1.45; padding:0 0 112px;
+    font-size:16px; line-height:1.45; padding:0 0 176px;
     padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
   header{position:sticky; top:0; z-index:20; background:rgba(13,27,42,.92); backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line); padding:14px 16px; padding-top:calc(14px + env(safe-area-inset-top));}
@@ -93,11 +93,21 @@
   .ta-item:active,.ta-item.hl{background:var(--line)}
   .ta-item .meta{color:var(--muted); font-family:var(--mono); font-size:11px}
   .ta-item.cessato{color:var(--muted); text-decoration:line-through}
-  .actionbar{position:fixed; left:0; right:0; bottom:0; z-index:30; background:rgba(13,27,42,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line); padding:12px 16px; padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .actionbar{position:fixed; left:0; right:0; bottom:calc(56px + env(safe-area-inset-bottom)); z-index:30; background:rgba(13,27,42,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line); padding:12px 16px}
+  .tabbar{position:fixed; left:0; right:0; bottom:0; z-index:35; background:rgba(10,21,33,.98); backdrop-filter:blur(10px);
+    border-top:1px solid var(--line); display:flex; padding-bottom:env(safe-area-inset-bottom)}
+  .tabbar button{flex:1; background:none; border:none; color:var(--muted); font-family:inherit; font-size:11px; font-weight:700;
+    padding:8px 4px 9px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; position:relative}
+  .tabbar button.active{color:var(--amber)}
+  .tabbar .tico{font-size:20px; line-height:1}
+  .tabbar .tbadge{position:absolute; top:3px; right:calc(50% - 26px); background:var(--err); color:#fff; font-size:10px; font-weight:800;
+    border-radius:999px; min-width:17px; height:17px; display:flex; align-items:center; justify-content:center; padding:0 4px}
+  .page{display:none}
+  .page.active{display:block}
   .actionbar .inner{max-width:680px; margin:0 auto; display:flex; gap:10px; align-items:center}
   .actionbar .stat{flex:1; font-size:12.5px; color:var(--muted)}
   .actionbar .stat b{color:var(--ink)}
-  .toast{position:fixed; bottom:92px; left:50%; transform:translateX(-50%); background:#000; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; z-index:50; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%}
+  .toast{position:fixed; bottom:150px; left:50%; transform:translateX(-50%); background:#000; color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; z-index:50; opacity:0; transition:opacity .25s; pointer-events:none; max-width:90%}
   .toast.show{opacity:.95}
   .spin{display:inline-block; width:13px; height:13px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; animation:sp .7s linear infinite; vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -126,12 +136,7 @@
 
 <div class="wrap">
 
-  <div class="card" id="checkinPendingCard">
-    <h2><span class="n">📥</span> Ospiti in attesa <span id="checkinBadge" class="pill wait" style="display:none"></span></h2>
-    <div class="muted" style="font-size:12px;margin-top:2px">Check-in compilati dagli ospiti (link pubblico): verificali prima di aggiungerli alla prenotazione.</div>
-    <div id="checkinLinkBox" style="margin-top:10px"></div>
-    <div id="checkinList" style="margin-top:10px"><div class="muted">Nessun check-in in attesa.</div></div>
-  </div>
+  <div class="page" id="page-registra">
 
   <div class="card" id="intakeCard">
     <h2><span class="n">1</span> Carica tutto</h2>
@@ -183,17 +188,41 @@
 
   <div class="hint">La <b>Verifica</b> usa il metodo Test del portale (controlla senza inviare). L'<b>Invio ufficiale</b> trasmette davvero le schedine alla Questura: è irreversibile, quindi chiede conferma. Dopo l'invio puoi scaricare la ricevuta PDF.</div>
 
-  <div class="card" id="storicoCard">
-    <h2><span class="n">🕘</span> Storico</h2>
-    <div class="muted" style="font-size:12px;margin-top:2px">Solo le schedine effettivamente inviate alla Questura o scaricate come .txt.</div>
-    <div id="storicoList" style="margin-top:10px"></div>
-  </div>
+  </div><!-- /page-registra -->
+
+  <div class="page" id="page-ospiti">
+    <div class="card">
+      <h2><span class="n">🔗</span> Link check-in per gli ospiti</h2>
+      <div class="muted" style="font-size:12px;margin-top:2px">Il link fisso da incollare nel messaggio automatico (es. Airbnb/Booking): l'ospite carica documento e dati da solo, tu li ritrovi qui sotto in "Ospiti in attesa".</div>
+      <div id="checkinLinkBox" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="checkinPendingCard">
+      <h2><span class="n">📥</span> Ospiti in attesa <span id="checkinBadge" class="pill wait" style="display:none"></span></h2>
+      <div class="muted" style="font-size:12px;margin-top:2px">Check-in compilati dagli ospiti: verificali e aggiungili alla prenotazione con un tocco.</div>
+      <div id="checkinList" style="margin-top:10px"><div class="muted">Nessun check-in in attesa.</div></div>
+    </div>
+  </div><!-- /page-ospiti -->
+
+  <div class="page" id="page-archivio">
+    <div class="card" id="storicoCard">
+      <h2><span class="n">🕘</span> Storico</h2>
+      <div class="muted" style="font-size:12px;margin-top:2px">Solo le schedine effettivamente inviate alla Questura o scaricate come .txt.</div>
+      <div id="storicoList" style="margin-top:10px"></div>
+    </div>
+  </div><!-- /page-archivio -->
 </div>
 
-<div class="actionbar"><div class="inner">
+<div class="actionbar" id="actionbar"><div class="inner">
   <div class="stat"><b id="statValid">0</b> valide · <span id="statBad">0</span> da sistemare</div>
   <button class="btn primary sm" id="sendBtn2" onclick="invia()" disabled style="width:auto;padding:12px 18px">Invia</button>
 </div></div>
+
+<div class="tabbar">
+  <button data-tab="registra" onclick="mostraTab('registra')"><span class="tico">📝</span>Registrazione</button>
+  <button data-tab="ospiti" onclick="mostraTab('ospiti')"><span class="tico">🔗</span>Ospiti e link<span class="tbadge" id="tabBadgeOspiti" style="display:none"></span></button>
+  <button data-tab="archivio" onclick="mostraTab('archivio')"><span class="tico">🗂️</span>Archivio</button>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="shared.js"></script>
@@ -12054,6 +12083,7 @@ async function loadCheckinPending(){
 function renderCheckinPending(){
   const w=$('#checkinList'); const badge=$('#checkinBadge'); if(!w)return;
   if(badge){ if(checkinPending.length){badge.textContent=checkinPending.length;badge.style.display='';} else badge.style.display='none'; }
+  const tb=$('#tabBadgeOspiti'); if(tb){ if(checkinPending.length){tb.textContent=checkinPending.length;tb.style.display='flex';} else tb.style.display='none'; }
   if(!checkinPending.length){ w.innerHTML='<div class="muted">Nessun check-in in attesa.</div>'; return; }
   w.innerHTML=checkinPending.map(v=>{
     const quando=new Date(v.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -12104,6 +12134,7 @@ function accettaCheckin(id){
   b.soggiorno=inferSoggiorno(b.guests);
   rimuoviCheckinPendingLocal(id);
   render();
+  mostraTab('registra'); // porta alla scheda di lavoro, dove ora c'è l'ospite appena aggiunto
   toast(`${nuovi.length} ospit${nuovi.length===1?'e':'i'} aggiunt${nuovi.length===1?'o':'i'} dal check-in`);
   const lbl=$('#step2lbl'); if(lbl)lbl.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -12312,8 +12343,18 @@ async function inviaRoss(manuale){
   }finally{ if(btn)btn.disabled=false; }
 }
 
+/* ===== schede dashboard ===== */
+function mostraTab(t){
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id==='page-'+t));
+  document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  const ab=$('#actionbar'); if(ab)ab.style.display=(t==='registra')?'':'none';
+  localStorage.setItem('tabAttiva',t);
+  window.scrollTo(0,0);
+}
+
 /* init */
 $('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
+mostraTab(localStorage.getItem('tabAttiva')||'registra');
 loadStrutture();
 wireDropzone();
 renderStorico();
