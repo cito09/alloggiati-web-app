@@ -66,6 +66,11 @@
   .pill{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px}
   .pill.ok{background:rgba(45,198,83,.14); color:var(--ok)}
   .pill.err{background:rgba(239,71,111,.14); color:var(--err)}
+  .portale{border:1px solid var(--line); border-radius:12px; padding:13px; margin-top:12px; background:rgba(255,255,255,.02)}
+  .ptit{font-weight:700; font-size:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .ptag{font-size:9.5px; letter-spacing:.05em; font-weight:800; padding:3px 8px; border-radius:999px; text-transform:uppercase}
+  .ptag.blu{background:rgba(90,160,242,.15); color:var(--blue); border:1px solid rgba(90,160,242,.4)}
+  .ptag.verde{background:rgba(45,198,83,.13); color:var(--ok); border:1px solid rgba(45,198,83,.4)}
   .pill.wait{background:rgba(90,160,242,.14); color:var(--blue)}
   .code-badge{font-family:var(--mono); font-size:10px; color:var(--ok); margin-left:6px}
   .code-badge.miss{color:var(--err)}
@@ -146,17 +151,24 @@
   <div id="bookings"></div>
 
   <div class="card" style="margin-top:14px">
-    <h2><span class="n">PS</span> Invio ad Alloggiati Web</h2>
+    <h2><span class="n">📤</span> Invio ufficiale</h2>
     <div id="strutturaWrap" style="display:none"><label>Struttura</label><select id="strutturaSel"></select></div>
-    <div style="display:flex;gap:10px;margin-top:12px">
-      <button class="btn ghost sm" style="flex:1" id="testBtn" onclick="verifica()" disabled>Verifica</button>
-      <button class="btn primary sm" style="flex:1" id="sendBtn" onclick="invia()" disabled>Invia ufficialmente</button>
+
+    <div class="portale">
+      <div class="ptit"><span class="ptag blu">Questura · Polizia</span> Alloggiati Web</div>
+      <div class="muted" style="margin-top:5px">Le schedine degli ospiti (obbligo di Pubblica Sicurezza, per tutte le strutture). Con <b>Invia ufficialmente</b> parte anche Ross1000, se previsto qui sotto.</div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn ghost sm" style="flex:1" id="testBtn" onclick="verifica()" disabled>Verifica</button>
+        <button class="btn primary sm" style="flex:1" id="sendBtn" onclick="invia()" disabled>Invia ufficialmente</button>
+      </div>
+      <div id="sendResult"></div>
     </div>
-    <div id="sendResult"></div>
-    <div id="rossWrap" style="display:none">
-      <div class="muted" style="margin-top:12px">📊 Questa struttura richiede anche l'invio ISTAT a <b>Ross1000</b>: con "Invia ufficialmente" parte in automatico dopo le schedine, oppure usa i pulsanti qui sotto.</div>
-      <div style="display:flex;gap:10px;margin-top:8px">
-        <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">Scarica Ross1000 (.xml)</button>
+
+    <div class="portale" id="rossWrap" style="display:none">
+      <div class="ptit"><span class="ptag verde">Regione · ISTAT</span> Ross1000</div>
+      <div class="muted" style="margin-top:5px">Statistica dei flussi turistici, richiesta per questa struttura. Parte da sola dopo l'invio alla Questura; oppure scarica il file .xml e caricalo sul portale Ross1000 (check-in → importa file gestionale).</div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">Scarica .xml</button>
         <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Invia a Ross1000</button>
       </div>
       <div id="rossResult"></div>
