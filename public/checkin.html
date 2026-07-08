@@ -846,6 +846,8 @@ function renderInvio(root){
       <div class="sig-wrap"><canvas id="firmaCanvas"></canvas></div>
       <div class="sig-hint">${t('sig_hint')}</div>
       <button class="btn ghost sm" style="width:auto;margin-top:8px" onclick="cancellaFirma()">${t('sig_clear')}</button>
+      <label style="display:block;margin-top:14px" class="muted">${t('email_copia_label')}</label>
+      <input type="text" id="emailOspite" inputmode="email" autocomplete="email" placeholder="${t('email_copia_ph')}" value="${emailOspiteVal||''}" oninput="emailOspiteVal=this.value">
     </div>`;
   })() : '';
   root.innerHTML=`

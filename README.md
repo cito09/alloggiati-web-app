@@ -123,13 +123,21 @@ Nell'ultimo passo del check-in, se la struttura è configurata, l'ospite vede il
 
    Una struttura senza voce qui semplicemente non ha il passo del contratto nel suo check-in (utile finché non hai ancora i dati di tutte le strutture).
 
-2. **Invio email (Resend)**: registrati gratis su [resend.com](https://resend.com) (fino a 3.000 email/mese gratis), crea una API key, e su Vercel aggiungi:
+2. **Invio email**: hai due modi, ne basta uno.
 
-   | Variabile | Valore |
-   |---|---|
-   | `RESEND_API_KEY` | la chiave presa da Resend |
+   **Modo consigliato — Gmail (gratis, manda a chiunque, nessun dominio):** il contratto parte dal tuo indirizzo Gmail vero, sia verso di te sia verso l'ospite. Serve una "password per le app" di Google:
+   - Sul tuo account Google attiva la **verifica in due passaggi** (myaccount.google.com → Sicurezza).
+   - Poi vai su [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), crea una password per le app (nome a piacere, es. `KeyFlow`): Google ti dà una stringa di 16 lettere.
+   - Su Vercel → Environment Variables aggiungi:
 
-   Il contratto firmato arriva via email all'indirizzo indicato in `email` per quella struttura in `CONTRATTI_STRUTTURE`. Senza `RESEND_API_KEY` il check-in funziona lo stesso (l'ospite firma comunque), semplicemente l'email non parte: nella coda "Ospiti in attesa" dell'app admin trovi comunque un'etichetta "📝 contratto non inviato" per accorgertene.
+     | Variabile | Valore |
+     |---|---|
+     | `GMAIL_USER` | il tuo indirizzo Gmail completo (es. `canazeibnb25@gmail.com`) |
+     | `GMAIL_APP_PASSWORD` | la stringa di 16 lettere data da Google (gli spazi non contano) |
+
+   **Modo alternativo — Resend:** registrati su [resend.com](https://resend.com), crea una API key e aggiungi `RESEND_API_KEY`. Attenzione: senza un dominio verificato Resend manda **solo** al tuo stesso indirizzo, non all'ospite. Per questo Gmail è preferibile.
+
+   Se configuri entrambi, vince Gmail. Il contratto firmato arriva all'indirizzo indicato in `email` per quella struttura in `CONTRATTI_STRUTTURE`, e (se l'ospite la inserisce) anche alla sua email. Senza nessuno dei due configurato il check-in funziona lo stesso (l'ospite firma e può scaricare il PDF), semplicemente l'email non parte: nella coda "Ospiti in attesa" trovi l'etichetta "📝 contratto non inviato" col motivo.
 
 ### Ross1000 — flussi turistici ISTAT (es. Emilia-Romagna, facoltativo)
 

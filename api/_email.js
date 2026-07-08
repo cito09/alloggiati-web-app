@@ -1,12 +1,42 @@
-// api/_email.js — invio email con allegato via Resend (https://resend.com), solo fetch,
-// nessuna libreria: coerente con lo stile del resto del progetto.
-// Richiede la variabile d'ambiente RESEND_API_KEY. Se manca, l'invio viene semplicemente
-// saltato (non blocca il check-in dell'ospite): il contratto resta comunque nella coda
-// "Ospiti in attesa" per l'host, solo senza la copia via email.
+// api/_email.js — invio email con allegato. Due modi possibili:
+//   1) Gmail (SMTP con "password per le app"): variabili GMAIL_USER + GMAIL_APP_PASSWORD.
+//      Manda dal tuo indirizzo Gmail vero a CHIUNQUE (host e ospite), gratis, senza dominio.
+//   2) Resend (https://resend.com): variabile RESEND_API_KEY. Senza dominio verificato
+//      manda solo al tuo stesso indirizzo.
+// Se sono configurati entrambi vince Gmail (più flessibile). Se non è configurato nessuno,
+// l'invio viene saltato senza bloccare il check-in.
+const nodemailer = require("nodemailer");
+
 async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegatoBuffer }) {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) return { ok: false, error: "RESEND_API_KEY non configurata" };
   if (!to) return { ok: false, error: "Nessun indirizzo email di destinazione" };
+
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  if (gmailUser && gmailPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        // Google mostra la password per le app con spazi (es. "abcd efgh ijkl mnop"):
+        // li togliamo, così va bene anche se viene incollata così com'è.
+        auth: { user: gmailUser, pass: gmailPass.replace(/\s+/g, "") },
+      });
+      await transporter.sendMail({
+        from: `KeyFlow <${gmailUser}>`,
+        to,
+        subject,
+        text: testo,
+        attachments: [{ filename: allegatoNome, content: allegatoBuffer }],
+      });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: `Gmail: ${String(e.message || e)}` };
+    }
+  }
+
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { ok: false, error: "Invio email non configurato (GMAIL_APP_PASSWORD o RESEND_API_KEY)" };
   try {
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
