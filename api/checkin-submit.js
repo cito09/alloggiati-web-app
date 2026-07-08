@@ -89,34 +89,41 @@ module.exports = async (req, res) => {
     const cfgContratto = getContrattoStruttura(struttura);
     const firma = (req.body || {}).firma;
     let contrattoInviato = false;
-    if (cfgContratto && firma) {
-      try {
-        const capofamiglia = validi[0];
-        const dati = {
-          conduttoreNome: [capofamiglia.cognome, capofamiglia.nome].filter(Boolean).join(" "),
-          conduttoreDoc: capofamiglia.numeroDoc || "",
-          arrivo: conTrattini(arrivo),
-          partenza: conTrattini(partenza),
-          numOspiti: validi.length,
-          dataFirma: dataOggiTrattini(),
-        };
-        const pdfBuffer = await generaContrattoPdf({
-          blocchiIT: testoIT(cfgContratto, dati),
-          blocchiEN: testoEN(cfgContratto, dati),
-          firmaPngBuffer: toBuffer(firma),
-          dataFirma: dati.dataFirma,
-          ip: clientIp(req),
-        });
-        const esito = await inviaEmailConAllegato({
-          to: cfgContratto.email,
-          subject: `Contratto firmato · ${strutturaInfo ? strutturaInfo.nome : struttura} · ${dati.conduttoreNome}`,
-          testo: `In allegato il contratto di locazione turistica firmato da ${dati.conduttoreNome}, soggiorno dal ${arrivo} al ${partenza}.\n\nInviato automaticamente da KeyFlow: non è stato salvato altrove.`,
-          allegatoNome: `contratto_${(dati.conduttoreNome || "ospite").replace(/\s+/g, "_")}.pdf`,
-          allegatoBuffer: pdfBuffer,
-        });
-        contrattoInviato = esito.ok;
-      } catch (e) {
-        /* un contratto non generato/inviato non deve bloccare il check-in: l'host se ne accorge dal badge mancante */
+    let contrattoErrore = "";
+    if (cfgContratto) {
+      if (!firma) {
+        contrattoErrore = "firma mancante (l'ospite non ha firmato)";
+      } else {
+        try {
+          const capofamiglia = validi[0];
+          const dati = {
+            conduttoreNome: [capofamiglia.cognome, capofamiglia.nome].filter(Boolean).join(" "),
+            conduttoreDoc: capofamiglia.numeroDoc || "",
+            arrivo: conTrattini(arrivo),
+            partenza: conTrattini(partenza),
+            numOspiti: validi.length,
+            dataFirma: dataOggiTrattini(),
+          };
+          const pdfBuffer = await generaContrattoPdf({
+            blocchiIT: testoIT(cfgContratto, dati),
+            blocchiEN: testoEN(cfgContratto, dati),
+            firmaPngBuffer: toBuffer(firma),
+            dataFirma: dati.dataFirma,
+            ip: clientIp(req),
+          });
+          const esito = await inviaEmailConAllegato({
+            to: cfgContratto.email,
+            subject: `Contratto firmato · ${strutturaInfo ? strutturaInfo.nome : struttura} · ${dati.conduttoreNome}`,
+            testo: `In allegato il contratto di locazione turistica firmato da ${dati.conduttoreNome}, soggiorno dal ${arrivo} al ${partenza}.\n\nInviato automaticamente da KeyFlow: non è stato salvato altrove.`,
+            allegatoNome: `contratto_${(dati.conduttoreNome || "ospite").replace(/\s+/g, "_")}.pdf`,
+            allegatoBuffer: pdfBuffer,
+          });
+          contrattoInviato = esito.ok;
+          if (!esito.ok) contrattoErrore = esito.error || "invio email non riuscito";
+        } catch (e) {
+          // un contratto non generato/inviato non deve bloccare il check-in: l'host lo vede dal badge
+          contrattoErrore = String(e.message || e);
+        }
       }
     }
 
@@ -131,6 +138,7 @@ module.exports = async (req, res) => {
       ospiti: ospitiSalvati,
       contrattoRichiesto: !!cfgContratto,
       contrattoInviato,
+      contrattoErrore,
     };
 
     let raw;
