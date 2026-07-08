@@ -19,7 +19,9 @@ async function apiExtract(images,kind){
   return data;
 }
 
-function onlyImages(files){return [...(files||[])].filter(f=>f&&f.type&&f.type.startsWith('image/'));}
+// accetta immagini e PDF (documenti salvati come file): il PDF passa cosi' com'e',
+// downscale() lo lascia intatto (img.onerror) e il server lo manda all'AI come documento
+function onlyImages(files){return [...(files||[])].filter(f=>f&&f.type&&(f.type.startsWith('image/')||f.type==='application/pdf'));}
 
 /* selettore calendario: converte tra gg/mm/aaaa (usato ovunque nell'app) e aaaa-mm-gg (input type=date) */
 function dateToItalian(iso){ if(!iso)return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }

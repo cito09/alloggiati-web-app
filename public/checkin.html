@@ -61,6 +61,8 @@
   .thumb{position:relative; width:64px; height:64px; border-radius:8px; overflow:hidden; border:1px solid var(--line); background:var(--surface)}
   .thumb img{width:100%; height:100%; object-fit:cover}
   .thumb .rm{position:absolute; top:2px; right:2px; background:rgba(0,0,0,.6); color:#fff; border:none; border-radius:50%; width:18px; height:18px; font-size:11px; line-height:1; cursor:pointer}
+  .thumb-pdf{width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:20px; background:var(--surface2)}
+  .thumb-pdf span{font-size:9px; font-weight:800; color:var(--muted); letter-spacing:.05em}
   .addimg{width:64px; height:64px; border:1.5px dashed var(--line); border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:22px; cursor:pointer; background:transparent}
   .datepick{position:relative; display:inline-flex; width:100%}
   .datepick input[type=date]{width:100%}
@@ -224,9 +226,11 @@ const T={
     step1_label:'1 · Foto del documento (obbligatoria)', step2_label:'2 · Verifica i tuoi dati',
     step2_hint:'Controlla che i dati siano stati letti correttamente dal documento e correggi quelli sbagliati o mancanti.',
     no_photo_msg:'📷 Carica prima la foto del documento per continuare.',
-    dz_title:'Tocca per scegliere, trascina o incolla (Ctrl+V)', dz_sub:'foto del documento (anche più foto insieme, es. fronte e retro)',
+    dz_title:'Tocca, trascina o incolla qui', dz_sub:'foto nitida o PDF: i dati devono essere ben leggibili',
     step1_label_first:'1 · Documenti degli ospiti (obbligatori)',
-    first_multi_hint:"Puoi caricare i documenti di TUTTI gli ospiti in una volta sola (anche in un'unica foto): li riconosco e li separo io. Oppure carica solo il tuo: gli altri li aggiungi dopo.",
+    first_multi_hint:'Carica i documenti di tutti gli ospiti insieme (li separo io) o solo il tuo. Foto in alta qualità o PDF.',
+    btn_camera:'📸 Scatta una foto', btn_file:'📂 Carica foto o PDF',
+    toast_pdf_big:'PDF troppo grande (massimo 4 MB)',
     btn_extract_all:'✨ Riconosci i documenti',
     toast_multi_read:'ospiti riconosciuti: controlla i dati di ognuno',
     toast_no_doc:'Nessun documento riconosciuto nelle foto',
@@ -274,9 +278,11 @@ const T={
     step1_label:'1 · ID document photo (required)', step2_label:'2 · Check your details',
     step2_hint:'Check that the data was read correctly from the document and correct anything wrong or missing.',
     no_photo_msg:'📷 Upload the document photo first to continue.',
-    dz_title:'Tap to choose, drag or paste (Ctrl+V)', dz_sub:'document photo (you can add more than one, e.g. front and back)',
+    dz_title:'Tap, drag or paste here', dz_sub:'sharp photo or PDF: the details must be clearly readable',
     step1_label_first:"1 · Guests' ID documents (required)",
-    first_multi_hint:"You can upload ALL guests' documents at once (even in a single photo): I'll recognise and separate them. Or upload just yours and add the others later.",
+    first_multi_hint:"Upload all guests' documents together (I'll separate them) or just yours. High-quality photos or PDF.",
+    btn_camera:'📸 Take a photo', btn_file:'📂 Upload photo or PDF',
+    toast_pdf_big:'PDF too large (4 MB max)',
     btn_extract_all:'✨ Read the documents',
     toast_multi_read:"guests recognised: check everyone's details",
     toast_no_doc:'No document recognised in the photos',
@@ -324,9 +330,11 @@ const T={
     step1_label:'1 · Photo du document (obligatoire)', step2_label:'2 · Vérifiez vos données',
     step2_hint:'Vérifiez que les données ont été lues correctement à partir du document et corrigez celles qui sont erronées ou manquantes.',
     no_photo_msg:"📷 Téléchargez d'abord la photo du document pour continuer.",
-    dz_title:'Touchez pour choisir, glissez ou collez (Ctrl+V)', dz_sub:'photo du document (vous pouvez en ajouter plusieurs, ex. recto et verso)',
+    dz_title:'Touchez, glissez ou collez ici', dz_sub:'photo nette ou PDF : les données doivent être bien lisibles',
     step1_label_first:'1 · Documents des voyageurs (obligatoires)',
-    first_multi_hint:"Vous pouvez télécharger les documents de TOUS les voyageurs en une seule fois (même sur une seule photo) : je les reconnais et les sépare. Ou téléchargez seulement le vôtre et ajoutez les autres ensuite.",
+    first_multi_hint:'Chargez les documents de tous les voyageurs ensemble (je les sépare) ou seulement le vôtre. Photos de haute qualité ou PDF.',
+    btn_camera:'📸 Prendre une photo', btn_file:'📂 Charger photo ou PDF',
+    toast_pdf_big:'PDF trop volumineux (4 Mo max)',
     btn_extract_all:'✨ Lire les documents',
     toast_multi_read:'voyageurs reconnus : vérifiez les données de chacun',
     toast_no_doc:'Aucun document reconnu sur les photos',
@@ -374,9 +382,11 @@ const T={
     step1_label:'1 · Foto del documento (obligatoria)', step2_label:'2 · Verifica tus datos',
     step2_hint:'Comprueba que los datos se hayan leído correctamente del documento y corrige lo que esté mal o falte.',
     no_photo_msg:'📷 Sube primero la foto del documento para continuar.',
-    dz_title:'Toca para elegir, arrastra o pega (Ctrl+V)', dz_sub:'foto del documento (puedes añadir más de una, ej. anverso y reverso)',
+    dz_title:'Toca, arrastra o pega aquí', dz_sub:'foto nítida o PDF: los datos deben leerse bien',
     step1_label_first:'1 · Documentos de los huéspedes (obligatorios)',
-    first_multi_hint:'Puedes subir los documentos de TODOS los huéspedes a la vez (incluso en una sola foto): los reconozco y los separo. O sube solo el tuyo y añade los demás después.',
+    first_multi_hint:'Sube los documentos de todos los huéspedes juntos (yo los separo) o solo el tuyo. Fotos de alta calidad o PDF.',
+    btn_camera:'📸 Hacer una foto', btn_file:'📂 Subir foto o PDF',
+    toast_pdf_big:'PDF demasiado grande (máx. 4 MB)',
     btn_extract_all:'✨ Leer los documentos',
     toast_multi_read:'huéspedes reconocidos: revisa los datos de cada uno',
     toast_no_doc:'Ningún documento reconocido en las fotos',
@@ -491,16 +501,30 @@ function rmGuest(id){ guests=guests.filter(g=>g.id!==id); render(); }
 function getG(id){ return guests.find(g=>g.id===id); }
 function setG(id,k,v){ getG(id)[k]=v; render(); }
 
-function thumb(src,onRm){const d=document.createElement('div');d.className='thumb';d.innerHTML=`<img src="${src}"><button class="rm">×</button>`;d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
+function thumb(src,onRm){
+  const d=document.createElement('div');d.className='thumb';
+  const isPdf=String(src).startsWith('data:application/pdf')||/\.pdf(\?|$)/i.test(String(src));
+  d.innerHTML=`${isPdf?'<div class="thumb-pdf">📄<span>PDF</span></div>':`<img src="${src}">`}<button class="rm">×</button>`;
+  d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
 function bigDropzone(onFiles){
+  const wrap=document.createElement('div');
   const dz=document.createElement('div'); dz.className='dropzone';
   dz.innerHTML=`<svg class="dz-cam" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5h2.8l1.6-2.2h7.2L17.2 8.5H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.4" r="3.1"/></svg><div class="dz-t">${t('dz_title')}</div><div class="dz-s">${t('dz_sub')}</div>`;
-  const i=document.createElement('input'); i.type='file'; i.accept='image/*'; i.multiple=true; i.style.display='none';
-  i.onchange=e=>{onFiles(e.target.files); i.value='';};
-  dz.appendChild(i);
-  dz.onclick=()=>i.click();
+  const iFile=document.createElement('input'); iFile.type='file'; iFile.accept='image/*,application/pdf'; iFile.multiple=true; iFile.style.display='none';
+  iFile.onchange=e=>{onFiles(e.target.files); iFile.value='';};
+  const iCam=document.createElement('input'); iCam.type='file'; iCam.accept='image/*'; iCam.capture='environment'; iCam.style.display='none';
+  iCam.onchange=e=>{onFiles(e.target.files); iCam.value='';};
+  dz.appendChild(iFile); dz.appendChild(iCam);
+  dz.onclick=()=>iFile.click();
   wireThumbsDrop(dz,onFiles);
-  return dz;
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;margin-top:10px';
+  const bCam=document.createElement('button'); bCam.type='button'; bCam.className='btn ghost sm'; bCam.style.flex='1';
+  bCam.textContent=t('btn_camera'); bCam.onclick=e=>{e.stopPropagation(); iCam.click();};
+  const bFile=document.createElement('button'); bFile.type='button'; bFile.className='btn ghost sm'; bFile.style.flex='1';
+  bFile.textContent=t('btn_file'); bFile.onclick=e=>{e.stopPropagation(); iFile.click();};
+  row.appendChild(bCam); row.appendChild(bFile);
+  wrap.appendChild(dz); wrap.appendChild(row);
+  return wrap;
 }
 function wireThumbsDrop(el,onFiles){
   ['dragenter','dragover'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.add('drag');}));
@@ -510,7 +534,10 @@ function wireThumbsDrop(el,onFiles){
 async function handleImgs(id,files){
   const list=onlyImages(files); if(!list.length)return;
   const g=getG(id); g.imgs=g.imgs||[];
-  for(const f of list){ g.imgs.push(await fileToDataURL(f)); }
+  for(const f of list){
+    if(f.type==='application/pdf'&&f.size>4*1024*1024){ toast(t('toast_pdf_big')); continue; }
+    g.imgs.push(await fileToDataURL(f));
+  }
   render();
 }
 

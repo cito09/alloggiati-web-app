@@ -34,10 +34,16 @@ async function toBlock(d) {
     const r = await fetch(d);
     const buf = Buffer.from(await r.arrayBuffer());
     const media = r.headers.get("content-type") || "image/jpeg";
+    if (media.includes("pdf") || /\.pdf(\?|$)/i.test(d)) {
+      return { type: "document", source: { type: "base64", media_type: "application/pdf", data: buf.toString("base64") } };
+    }
     return { type: "image", source: { type: "base64", media_type: media, data: buf.toString("base64") } };
   }
   const media = (d.match(/^data:(.*?);base64,/) || [])[1] || "image/jpeg";
   const data = d.includes(",") ? d.split(",")[1] : d;
+  if (media === "application/pdf") {
+    return { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
+  }
   return { type: "image", source: { type: "base64", media_type: media, data } };
 }
 

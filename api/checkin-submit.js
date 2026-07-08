@@ -57,8 +57,9 @@ module.exports = async (req, res) => {
       for (let i = 0; i < immagini.length; i++) {
         try {
           const buf = toBuffer(immagini[i]);
-          const nomeFile = `checkin/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${i}.jpg`;
-          const blob = await put(nomeFile, buf, { access: "public", contentType: "image/jpeg" });
+          const isPdf = String(immagini[i]).startsWith("data:application/pdf");
+          const nomeFile = `checkin/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${i}.${isPdf ? "pdf" : "jpg"}`;
+          const blob = await put(nomeFile, buf, { access: "public", contentType: isPdf ? "application/pdf" : "image/jpeg" });
           fotoUrls.push(blob.url);
         } catch (e) {
           /* una foto non caricata non deve bloccare le altre: l'host la vedrà mancante e potrà richiederla */
