@@ -13,6 +13,8 @@
 // "codice" è l'identificativo struttura assegnato dalla Regione (obbligatorio per il file);
 // "utente"/"password" sono le credenziali di trasmissione web service (servono solo per 'invia').
 
+const { checkAdmin } = require("./_admin");
+
 const ENDPOINT_DEFAULT = "https://datiturismo.regione.emilia-romagna.it";
 const PRODOTTO = "KeyFlow";
 const ITALIA = "100000100";
@@ -83,6 +85,7 @@ function buildMovimenti(conf, arrivoDate, notti, ospiti) {
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (!checkAdmin(req)) return res.status(401).json({ error: "Accesso non autorizzato" });
   try {
     const { azione, struttura, arrivo, notti, ospiti = [] } = req.body || {};
     const conf = getRossStrutture().find((s) => s.id === struttura);

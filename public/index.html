@@ -40,6 +40,15 @@
   header .sub{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ok); margin-top:4px; font-weight:600}
   header .sub .dot{width:6px; height:6px; border-radius:50%; background:var(--ok); flex-shrink:0}
   .wrap{max-width:680px; margin:0 auto; padding:16px}
+  body{visibility:hidden}
+  body.ready{visibility:visible}
+  .login-gate{visibility:visible; position:fixed; inset:0; z-index:9999; display:none;
+    align-items:center; justify-content:center; padding:20px;
+    background:radial-gradient(1100px 550px at 50% -12%, rgba(255,183,3,.08), transparent 60%), var(--bg)}
+  .login-gate .card{max-width:340px; width:100%; text-align:center}
+  .login-gate input[type=password]{width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
+    border-radius:10px; padding:13px 14px; font-size:17px; font-family:inherit; text-align:center; letter-spacing:.08em}
+  .login-gate .err{color:var(--err); font-size:13px; font-weight:600; margin-top:8px; min-height:16px}
   .card{background:linear-gradient(165deg, var(--surface), var(--surface2) 140%); border:1px solid var(--line); border-radius:16px;
     padding:16px; margin-bottom:14px; box-shadow:0 8px 24px -12px rgba(0,0,0,.45)}
   .card h2{margin:0 0 12px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
@@ -153,6 +162,23 @@
 </style>
 </head>
 <body>
+<div class="login-gate" id="loginGate">
+  <div class="card">
+    <div class="brand" style="justify-content:center;margin-bottom:14px">
+      <span class="brand-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#23170a" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.8" cy="12" r="3.1"/><path d="M11 12h9.5M17.8 12v3M14.6 12v2.2"/></svg>
+      </span>
+      <span class="brand-name">Key<span class="flow">Flow</span></span>
+    </div>
+    <h2 style="margin:0 0 6px">Accesso gestionale</h2>
+    <div class="muted" style="font-size:13px;margin-bottom:14px">Area riservata all'host. Inserisci il codice d'accesso.</div>
+    <form id="loginForm">
+      <input type="password" id="loginCode" inputmode="numeric" autocomplete="off" placeholder="Codice d'accesso" required>
+      <button type="submit" class="btn primary" style="margin-top:12px">Entra</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+  </div>
+</div>
 <header>
   <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
     <div class="brand">
@@ -289,6 +315,49 @@
 
 <script src="shared.js"></script>
 <script>
+/* ===== accesso gestionale (codice ADMIN_CODE) ===== */
+window.ADMIN_CODE='';
+function adminHeaders(extra){return Object.assign({}, extra||{}, window.ADMIN_CODE?{'x-admin-code':window.ADMIN_CODE}:{});}
+async function verificaAdminCode(codice){
+  try{
+    const r=await fetch('/api/admin-verify?c='+encodeURIComponent(codice));
+    return await r.json();
+  }catch(e){ return {ok:false, configurato:true}; } // offline: per prudenza resta bloccato
+}
+async function adminGate(){
+  const salvato=sessionStorage.getItem('adminCode')||'';
+  if(salvato){
+    const d=await verificaAdminCode(salvato);
+    if(d.ok){ window.ADMIN_CODE=salvato; return; }
+    if(!d.configurato) return; // protezione non attiva lato server
+    sessionStorage.removeItem('adminCode');
+  }else{
+    const d=await verificaAdminCode('');
+    if(!d.configurato) return; // ADMIN_CODE non configurata: nessuna protezione attiva
+  }
+  return new Promise(resolve=>{
+    const gate=document.getElementById('loginGate'); gate.style.display='flex';
+    const form=document.getElementById('loginForm');
+    const inp=document.getElementById('loginCode');
+    const err=document.getElementById('loginErr');
+    form.onsubmit=async e=>{
+      e.preventDefault();
+      err.textContent='';
+      const codice=inp.value.trim(); if(!codice)return;
+      const d=await verificaAdminCode(codice);
+      if(d.ok){
+        sessionStorage.setItem('adminCode',codice);
+        window.ADMIN_CODE=codice;
+        gate.style.display='none';
+        resolve();
+      }else{
+        err.textContent='Codice errato, riprova.';
+        inp.value=''; inp.focus();
+      }
+    };
+    setTimeout(()=>inp.focus(),50);
+  });
+}
 /* ===== TABELLE UFFICIALI (incorporate) ===== */
 const ITALIA_CODE = "100000100";
 const STATI = [["100000301", "AFGHANISTAN"], ["100000201", "ALBANIA"], ["100000401", "ALGERIA"], ["100000202", "ANDORRA"], ["100000402", "ANGOLA"], ["100000733", "ANGUILLA (ISOLA)"], ["100000503", "ANTIGUA E BARBUDA"], ["100000999", "APOLIDE"], ["100000302", "ARABIA SAUDITA"], ["100000602", "ARGENTINA"], ["100000358", "ARMENIA"], ["100000701", "AUSTRALIA"], ["100000203", "AUSTRIA"], ["100000359", "AZERBAIGIAN"], ["100000505", "BAHAMAS"], ["100000304", "BAHREIN"], ["100000305", "BANGLADESH"], ["100000506", "BARBADOS"], ["100000206", "BELGIO"], ["100000507", "BELIZE"], ["100000406", "BENIN"], ["100000739", "BERMUDE"], ["100000306", "BHUTAN"], ["100000256", "BIELORUSSIA"], ["100000604", "BOLIVIA"], ["100000740", "BOPHUTHATSWANA"], ["100000252", "BOSNIA ED ERZEGOVINA"], ["100000408", "BOTSWANA"], ["100000605", "BRASILE"], ["100000309", "BRUNEI DARUSSALAM"], ["100000209", "BULGARIA"], ["100000409", "BURKINA FASO"], ["100000410", "BURUNDI"], ["100000310", "CAMBOGIA"], ["100000411", "CAMERUN"], ["100000509", "CANADA"], ["100000413", "CAPO VERDE"], ["100000742", "CAYMAN (ISOLE)"], ["100000210", "CECOSLOVACCHIA"], ["100000743", "CHRISTMAS"], ["100000415", "CIAD"], ["100000606", "CILE"], ["100000314", "CINA"], ["100000315", "CIPRO"], ["100000746", "COCOS"], ["100000608", "COLOMBIA"], ["100000417", "COMORE"], ["100000418", "CONGO"], ["100000319", "COREA DEL NORD"], ["100000320", "COREA DEL SUD"], ["100000404", "COSTA D'AVORIO"], ["100000513", "COSTA RICA"], ["100000250", "CROAZIA"], ["100000514", "CUBA"], ["100000212", "DANIMARCA"], ["100000515", "DOMINICA"], ["100000609", "ECUADOR"], ["100000419", "EGITTO"], ["100000517", "EL SALVADOR"], ["100000322", "EMIRATI ARABI UNITI"], ["100000466", "ERITREA"], ["100000247", "ESTONIA"], ["100000420", "ETIOPIA"], ["100000755", "FAER OER"], ["100000245", "FEDERAZIONE RUSSA"], ["100000703", "FIGI"], ["100000323", "FILIPPINE"], ["100000214", "FINLANDIA"], ["100000215", "FRANCIA"], ["100000421", "GABON"], ["100000422", "GAMBIA"], ["100000360", "GEORGIA"], ["110000022", "GEORGIA SUD E ISOLE SANDWICH AUSTRALI"], ["100000216", "GERMANIA"], ["100000423", "GHANA"], ["100000518", "GIAMAICA"], ["100000326", "GIAPPONE"], ["100000424", "GIBUTI"], ["100000327", "GIORDANIA"], ["100000220", "GRECIA"], ["100000519", "GRENADA"], ["100000758", "GROENLANDIA"], ["100000759", "GUADALUPA"], ["100000760", "GUAM"], ["100000523", "GUATEMALA"], ["100000761", "GUAYANA FRANCESE"], ["110000014", "GUERNSEY"], ["100000425", "GUINEA"], ["100000426", "GUINEA BISSAU"], ["100000427", "GUINEA EQUATORIALE"], ["100000612", "GUYANA"], ["100000524", "HAITI"], ["100000525", "HONDURAS"], ["110000005", "HONG KONG"], ["100000330", "INDIA"], ["100000331", "INDONESIA"], ["100000332", "IRAN"], ["100000333", "IRAQ"], ["100000221", "IRLANDA"], ["100000223", "ISLANDA"], ["100000764", "ISOLE VERGINI"], ["100000334", "ISRAELE"], ["100000100", "ITALIA"], ["100000356", "KAZAKISTAN"], ["100000428", "KENYA"], ["100000361", "KIRGHIZISTAN"], ["100000708", "KIRIBATI"], ["100001002", "KOSOVO"], ["100000335", "KUWAIT"], ["100000765", "LA REUNION"], ["100000336", "LAOS"], ["100000429", "LESOTHO"], ["100000248", "LETTONIA"], ["100000337", "LIBANO"], ["100000430", "LIBERIA"], ["100000431", "LIBIA"], ["100000225", "LIECHTENSTEIN"], ["100000249", "LITUANIA"], ["100000226", "LUSSEMBURGO"], ["110000003", "MACAO"], ["100000253", "MACEDONIA"], ["100000997", "MACEDONIA DEL NORD"], ["100000432", "MADAGASCAR"], ["100000434", "MALAWI"], ["100000767", "MALAYSIA"], ["100000339", "MALDIVE"], ["100000435", "MALI"], ["100000227", "MALTA"], ["100000768", "MALVINE"], ["100000769", "MAN"], ["100000436", "MAROCCO"], ["100000772", "MARSHALL"], ["100000773", "MARTINICA"], ["100000437", "MAURITANIA"], ["100000438", "MAURIZIO"], ["100000774", "MAYOTTE"], ["100000527", "MESSICO"], ["100000775", "MICRONESIA STATI FEDERALI"], ["100000254", "MOLDAVIA"], ["100000229", "MONACO"], ["100000341", "MONGOLIA"], ["100001001", "MONTENEGRO"], ["100000777", "MONTSERRAT"], ["100000440", "MOZAMBICO"], ["100000307", "MYANMAR-BIRMANIA"], ["100000441", "NAMIBIA"], ["100000715", "NAURU"], ["100000342", "NEPAL"], ["100000529", "NICARAGUA"], ["100000442", "NIGER"], ["100000443", "NIGERIA"], ["100000778", "NORFOLK"], ["100000231", "NORVEGIA"], ["100000780", "NUOVA CALEDONIA"], ["100000719", "NUOVA ZELANDA"], ["100000343", "OMAN"], ["100000232", "PAESI BASSI"], ["100000344", "PAKISTAN"], ["100000783", "PALAU REPUBBLICA"], ["110000001", "PALESTINA"], ["100000530", "PANAMA"], ["100000721", "PAPUASIA-N.GUINEA"], ["100000614", "PARAGUAY"], ["100000615", "PERU'"], ["100000786", "PITCAIRN"], ["100000787", "POLINESIA"], ["100000233", "POLONIA"], ["100000234", "PORTOGALLO"], ["100000790", "PUERTO RICO"], ["100000345", "QATAR"], ["100000219", "REGNO UNITO"], ["100000257", "REPUBBLICA CECA"], ["100000414", "REPUBBLICA CENTRAFRICANA"], ["100000998", "REPUBBLICA DEMOCRATICA DEL CONGO"], ["100000516", "REPUBBLICA DOMINICANA"], ["100000255", "REPUBBLICA SLOVACCA"], ["100000235", "ROMANIA"], ["100000446", "RUANDA"], ["100000534", "S. CHRISTOPHER E NEVIS"], ["100000533", "S. VINCENT E GRENADINE"], ["100000795", "SAHARA SPAGNOLO"], ["100000532", "SAINT LUCIA"], ["100000796", "SAINT PIERRE ET MIQUELON"], ["100000797", "SAINT VINCENT E GRENADINE"], ["100000725", "SALOMONE"], ["100000727", "SAMOA"], ["100000798", "SAMOA AMERICANE"], ["100000236", "SAN MARINO"], ["100000799", "SANT ELENA"], ["100000448", "SAO TOME' E PRINCIPE"], ["100000450", "SENEGAL"], ["100001000", "SERBIA"], ["100000449", "SEYCHELLES"], ["100000451", "SIERRA LEONE"], ["100000346", "SINGAPORE"], ["100000348", "SIRIA"], ["100000251", "SLOVENIA"], ["100000453", "SOMALIA"], ["100000239", "SPAGNA"], ["100000311", "SRI LANKA (CEYLON)"], ["100000536", "STATI UNITI D'AMERICA"], ["100000246", "STATO DELLA CITTA' DEL VATICANO"], ["100000467", "SUD SUDAN"], ["100000454", "SUDAFRICA"], ["100000455", "SUDAN"], ["100000616", "SURINAME"], ["100000240", "SVEZIA"], ["100000241", "SVIZZERA"], ["100000456", "SWAZILAND"], ["100000362", "TAGIKISTAN"], ["100000363", "TAIWAN"], ["100000457", "TANZANIA"], ["100000349", "THAILANDIA"], ["100000805", "TIMOR"], ["100000458", "TOGO"], ["100000806", "TOKELAU"], ["100000730", "TONGA"], ["100000617", "TRINIDAD E TOBAGO"], ["100000460", "TUNISIA"], ["100000351", "TURCHIA"], ["100000364", "TURKMENISTAN"], ["100000810", "TURKS"], ["100000731", "TUVALU"], ["100000243", "UCRAINA"], ["100000461", "UGANDA"], ["100000244", "UNGHERIA"], ["100000618", "URUGUAY"], ["100000357", "UZBEKISTAN"], ["100000732", "VANUATU"], ["100000619", "VENEZUELA"], ["100000812", "VERGINI BRITANNICHE (ISOLE)"], ["100000353", "VIETNAM"], ["100000815", "WALLIS"], ["100000354", "YEMEN"], ["100000464", "ZAMBIA"], ["100000465", "ZIMBABWE"]];          // [[code,name],...]
@@ -11677,14 +11746,14 @@ function aggiungiStorico(entry){
   storico.unshift({ts:Date.now(), ...entry});
   salvaStorico();
   renderStorico();
-  fetch('/api/storico',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(entry)})
+  fetch('/api/storico',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(entry)})
     .then(r=>r.json())
     .then(data=>{ if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); } })
     .catch(()=>{/* offline o archivio online non configurato: resta comunque salvata in locale */});
 }
 async function syncStoricoFromServer(){
   try{
-    const r=await fetch('/api/storico'); const data=await r.json();
+    const r=await fetch('/api/storico',{headers:adminHeaders()}); const data=await r.json();
     if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); }
   }catch(e){/* offline o archivio online non configurato: resta lo storico locale */}
 }
@@ -11693,7 +11762,7 @@ function rimuoviStorico(ts){
   storico=storico.filter(e=>e.ts!==ts);
   salvaStorico();
   renderStorico();
-  fetch('/api/storico',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({ts})})
+  fetch('/api/storico',{method:'DELETE',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ts})})
     .then(r=>r.json())
     .then(data=>{ if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); } })
     .catch(()=>{/* offline o archivio online non configurato: resta comunque eliminata in locale */});
@@ -12111,7 +12180,7 @@ function inferSoggiorno(guests){
 async function loadCheckinLink(){
   const w=$('#checkinLinkBox'); if(!w)return;
   try{
-    const codeData=await (await fetch('/api/checkin-code')).json();
+    const codeData=await (await fetch('/api/checkin-code',{headers:adminHeaders()})).json();
     if(!codeData.configurato){
       w.innerHTML='<div class="hint">Self check-in non ancora attivo: manca la variabile <code>CHECKIN_CODE</code> su Vercel.</div>';
       return;
@@ -12154,7 +12223,7 @@ function copiaLinkCheckin(link,btnId){
 let checkinPending=[];
 async function loadCheckinPending(){
   try{
-    const r=await fetch('/api/checkin-pending'); const data=await r.json();
+    const r=await fetch('/api/checkin-pending',{headers:adminHeaders()}); const data=await r.json();
     if(data.configurato){ checkinPending=data.coda||[]; renderCheckinPending(); }
   }catch(e){/* offline o archivio non configurato: la coda resta vuota, nessun errore mostrato */}
 }
@@ -12183,7 +12252,7 @@ function renderCheckinPending(){
 function rimuoviCheckinPendingLocal(id){
   checkinPending=checkinPending.filter(v=>v.id!==id);
   renderCheckinPending();
-  fetch('/api/checkin-pending',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})})
+  fetch('/api/checkin-pending',{method:'DELETE',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({id})})
     .then(r=>r.json())
     .then(data=>{ if(data.configurato&&Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); } })
     .catch(()=>{/* offline: resta comunque rimossa in locale */});
@@ -12308,7 +12377,7 @@ async function callSend(mode){
   if(!records.length){toast('Nessuna schedina valida');return null;}
   busySend(true, mode==='send'?'Invio in corso…':'Verifica in corso…');
   try{
-    const r=await fetch('/api/send',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch('/api/send',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({records,mode,struttura:currentStruttura()})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
@@ -12339,7 +12408,7 @@ async function invia(){
 async function scaricaRicevuta(){
   toast('Recupero ricevuta…');
   try{
-    const r=await fetch('/api/ricevuta',{method:'POST',headers:{'Content-Type':'application/json'},
+    const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({struttura:currentStruttura()})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
@@ -12399,7 +12468,7 @@ function rossPayload(){
 async function scaricaRossXml(){
   const p=rossPayload(); if(!p){toast('Nessun ospite completo da esportare');return;}
   try{
-    const r=await fetch('/api/ross',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({azione:'file',...p})});
+    const r=await fetch('/api/ross',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'file',...p})});
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Errore');
     const url=URL.createObjectURL(new Blob([data.xml],{type:'application/xml;charset=utf-8'}));
@@ -12414,7 +12483,7 @@ async function inviaRoss(manuale){
   const btn=$('#rossSendBtn'); if(btn)btn.disabled=true;
   if(out)out.innerHTML='<div class="muted" style="margin-top:10px"><span class="spin"></span> Invio a Ross1000…</div>';
   try{
-    const r=await fetch('/api/ross',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({azione:'invia',...p})});
+    const r=await fetch('/api/ross',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'invia',...p})});
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Errore');
     if(out)out.innerHTML='<div class="pill ok" style="margin-top:10px">Ross1000: trasmesso ✓</div>';
@@ -12485,15 +12554,19 @@ function esportaStoricoCsv(){
 
 
 /* init */
-$('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
-mostraTab(localStorage.getItem('tabAttiva')||'oggi');
-loadStrutture();
-wireDropzone();
-renderStorico();
-syncStoricoFromServer();
-loadCheckinLink();
-loadCheckinPending();
-addBooking();
+(async()=>{
+  await adminGate();
+  document.body.classList.add('ready');
+  $('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
+  mostraTab(localStorage.getItem('tabAttiva')||'oggi');
+  loadStrutture();
+  wireDropzone();
+  renderStorico();
+  syncStoricoFromServer();
+  loadCheckinLink();
+  loadCheckinPending();
+  addBooking();
+})();
 </script>
 </body>
 </html>

@@ -1,9 +1,11 @@
 // api/send.js — Verifica (Test) o Invio (Send) schedine ad Alloggiati Web
 // POST { records: ["...168 char..."], mode: 'test'|'send', struttura?: id }
 const { generateToken, sendSchedine, getStruttura } = require("./_alloggiati");
+const { checkAdmin } = require("./_admin");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (!checkAdmin(req)) return res.status(401).json({ error: "Accesso non autorizzato" });
   try {
     const { records = [], mode = "test", struttura } = req.body || {};
     if (!Array.isArray(records) || !records.length)

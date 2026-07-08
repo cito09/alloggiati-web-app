@@ -6,11 +6,13 @@
 // POST { ...voce } -> aggiunge una voce in testa, risponde { configurato, storico }
 // DELETE { ts } -> rimuove la voce con quel timestamp, risponde { configurato, storico }
 const { upstash, redisCmd } = require("./_kv");
+const { checkAdmin } = require("./_admin");
 
 const KEY = "storico_schedine";
 const MAX_VOCI = 500;
 
 module.exports = async (req, res) => {
+  if (!checkAdmin(req)) return res.status(401).json({ error: "Accesso non autorizzato" });
   const conn = upstash();
   if (!conn) return res.status(200).json({ configurato: false, storico: [] });
 

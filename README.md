@@ -67,6 +67,20 @@ Senza configurazione, lo Storico (invii/download registrati) resta solo nel brow
 1. Sul progetto Vercel → **Storage** → cerca **Upstash** (non "Redis Cloud", quello è a pagamento) → **Upstash for Redis - Free**.
 2. Collega il database al progetto: crea da solo le variabili `KV_REST_API_URL` e `KV_REST_API_TOKEN` (o `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, entrambe le forme sono supportate). Non serve scrivere nulla a mano.
 
+### Proteggere il gestionale admin (login con codice)
+
+Senza configurazione, chiunque conosca l'indirizzo dell'app admin (`/index.html`, la home del sito) può aprirla e vedere i dati degli ospiti. Per bloccarla dietro un codice d'accesso:
+
+1. Su Vercel → Environment Variables aggiungi:
+
+   | Variabile | Valore |
+   |---|---|
+   | `ADMIN_CODE` | una stringa lunga e casuale a tua scelta (diversa da `CHECKIN_CODE`), es. `q8vt2nrz61ph` |
+
+2. Dopo il redeploy, aprendo l'app admin comparirà una schermata "Accesso gestionale" che chiede il codice. Va inserito una volta per dispositivo/browser (resta salvato finché non chiudi la scheda). La pagina pubblica di check-in ospiti (`/checkin.html`) **non è toccata**: resta raggiungibile dagli ospiti come prima, con il suo `CHECKIN_CODE`.
+
+> Senza `ADMIN_CODE` configurata, l'app admin resta aperta a chiunque abbia il link, come sempre finora: è una protezione facoltativa che si attiva solo impostando la variabile.
+
 ### Self check-in ospiti (link fisso + notifica)
 
 Un link sempre uguale (`/checkin.html`) che puoi incollare in un messaggio automatico Airbnb/Booking: l'ospite carica il documento o compila a mano, e la sua richiesta finisce in una coda "Ospiti in attesa" nell'app admin. **Nessun invio automatico alla Questura**: tu la rivedi e la aggiungi alla prenotazione con un tap, poi Verifica/Invia come sempre.
