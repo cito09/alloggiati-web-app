@@ -96,7 +96,10 @@
   .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:16px; padding:24px 14px; text-align:center;
     cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface)}
   .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
-  .dz-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px}
+  .dz-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; position:relative}
+  .dz-or{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:28px; height:28px; border-radius:50%;
+    background:var(--surface2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    font-size:11.5px; font-weight:800; color:var(--muted); z-index:2; text-transform:uppercase}
   .dz-card{border:2px dashed var(--line); border-radius:16px; padding:20px 12px; text-align:center; cursor:pointer;
     background:var(--surface); transition:border-color .15s, background .15s; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-height:132px}
   .dz-card:active{border-color:var(--amber); background:rgba(245,180,40,.07)}
@@ -235,7 +238,7 @@ const T={
     step1_label:'1 · Foto del documento (obbligatoria)', step2_label:'2 · Verifica i tuoi dati',
     step2_hint:'Controlla che i dati siano stati letti correttamente dal documento e correggi quelli sbagliati o mancanti.',
     no_photo_msg:'📷 Carica prima la foto del documento per continuare.',
-    cam_title:'Scatta foto', cam_sub:'con la fotocamera', up_title:'Carica file', up_sub:'foto o PDF', dz_hint:'…oppure trascina o incolla qui · anche più file insieme · dati ben leggibili',
+    cam_title:'Scatta foto', cam_sub:'con la fotocamera', up_title:'Carica file', up_sub:'foto o PDF', or_divider:'o', dz_hint:'…oppure trascina o incolla qui · anche più file insieme · dati ben leggibili',
     step1_label_first:'1 · Documenti degli ospiti (obbligatori)',
     first_multi_hint:'Carica i documenti di tutti gli ospiti insieme (li separo io) o solo il tuo. Foto in alta qualità o PDF.',
     btn_camera:'Scatta una foto ora',
@@ -287,7 +290,7 @@ const T={
     step1_label:'1 · ID document photo (required)', step2_label:'2 · Check your details',
     step2_hint:'Check that the data was read correctly from the document and correct anything wrong or missing.',
     no_photo_msg:'📷 Upload the document photo first to continue.',
-    cam_title:'Take photo', cam_sub:'use the camera', up_title:'Upload file', up_sub:'photo or PDF', dz_hint:'…or drag or paste here · multiple files ok · details clearly readable',
+    cam_title:'Take photo', cam_sub:'use the camera', up_title:'Upload file', up_sub:'photo or PDF', or_divider:'or', dz_hint:'…or drag or paste here · multiple files ok · details clearly readable',
     step1_label_first:"1 · Guests' ID documents (required)",
     first_multi_hint:"Upload all guests' documents together (I'll separate them) or just yours. High-quality photos or PDF.",
     btn_camera:'Take a photo now',
@@ -339,7 +342,7 @@ const T={
     step1_label:'1 · Photo du document (obligatoire)', step2_label:'2 · Vérifiez vos données',
     step2_hint:'Vérifiez que les données ont été lues correctement à partir du document et corrigez celles qui sont erronées ou manquantes.',
     no_photo_msg:"📷 Téléchargez d'abord la photo du document pour continuer.",
-    cam_title:'Prendre photo', cam_sub:'avec la caméra', up_title:'Charger fichier', up_sub:'photo ou PDF', dz_hint:'…ou glissez ou collez ici · plusieurs fichiers ok · données bien lisibles',
+    cam_title:'Prendre photo', cam_sub:'avec la caméra', up_title:'Charger fichier', up_sub:'photo ou PDF', or_divider:'ou', dz_hint:'…ou glissez ou collez ici · plusieurs fichiers ok · données bien lisibles',
     step1_label_first:'1 · Documents des voyageurs (obligatoires)',
     first_multi_hint:'Chargez les documents de tous les voyageurs ensemble (je les sépare) ou seulement le vôtre. Photos de haute qualité ou PDF.',
     btn_camera:'Prendre une photo maintenant',
@@ -391,7 +394,7 @@ const T={
     step1_label:'1 · Foto del documento (obligatoria)', step2_label:'2 · Verifica tus datos',
     step2_hint:'Comprueba que los datos se hayan leído correctamente del documento y corrige lo que esté mal o falte.',
     no_photo_msg:'📷 Sube primero la foto del documento para continuar.',
-    cam_title:'Hacer foto', cam_sub:'con la cámara', up_title:'Subir archivo', up_sub:'foto o PDF', dz_hint:'…o arrastra o pega aquí · varios archivos ok · datos bien legibles',
+    cam_title:'Hacer foto', cam_sub:'con la cámara', up_title:'Subir archivo', up_sub:'foto o PDF', or_divider:'o', dz_hint:'…o arrastra o pega aquí · varios archivos ok · datos bien legibles',
     step1_label_first:'1 · Documentos de los huéspedes (obligatorios)',
     first_multi_hint:'Sube los documentos de todos los huéspedes juntos (yo los separo) o solo el tuyo. Fotos de alta calidad o PDF.',
     btn_camera:'Hacer una foto ahora',
@@ -537,7 +540,8 @@ function bigDropzone(onFiles){
     <div class="dz-t">${t('up_title')}</div><div class="dz-s">${t('up_sub')}</div>`;
   cUp.onclick=()=>iFile.click();
   wireThumbsDrop(cUp,onFiles);
-  grid.appendChild(cCam); grid.appendChild(cUp);
+  const orDiv=document.createElement('div'); orDiv.className='dz-or'; orDiv.textContent=t('or_divider');
+  grid.appendChild(cCam); grid.appendChild(cUp); grid.appendChild(orDiv);
   const hint=document.createElement('div'); hint.className='dz-hint'; hint.textContent=t('dz_hint');
   wrap.appendChild(iFile); wrap.appendChild(iCam);
   wrap.appendChild(grid); wrap.appendChild(hint);
