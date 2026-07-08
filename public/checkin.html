@@ -133,7 +133,7 @@
   .contratto-box{max-height:220px; overflow-y:auto; background:var(--surface2); border:1px solid var(--line); border-radius:12px;
     padding:12px 14px; font-size:12px; line-height:1.55; color:var(--muted); white-space:pre-line}
   .contratto-box b{color:var(--ink)}
-  .sig-wrap{margin-top:12px; border:2px dashed var(--line); border-radius:14px; background:var(--surface); overflow:hidden}
+  .sig-wrap{margin-top:12px; border:2px dashed var(--line); border-radius:14px; background:#ffffff; overflow:hidden}
   .sig-wrap canvas{width:100%; height:150px; display:block; touch-action:none; cursor:crosshair}
   .sig-hint{font-size:11.5px; color:var(--muted); text-align:center; padding:8px 0 0}
 </style>
@@ -189,6 +189,7 @@
   </div>
   <h2 id="okTitle"></h2>
   <div class="muted" id="okText"></div>
+  <div id="okDownload" style="margin-top:20px"></div>
 </div>
 
 <div class="wrap ok-screen" id="blockWrap" style="display:none">
@@ -269,6 +270,8 @@ const T={
     contratto_title:'Contratto di locazione turistica', contratto_hint:'Leggi il contratto e firma qui sotto per accettarlo.',
     sig_label:'Firma', sig_hint:'Firma qui col dito o col mouse', sig_clear:'Cancella firma',
     toast_sig_required:'Firma il contratto per continuare',
+    email_copia_label:'Vuoi una copia del contratto via email? (facoltativo)', email_copia_ph:'La tua email',
+    btn_download_contract:'⬇ Scarica il contratto (PDF)', ok_contract_hint:'Puoi scaricare la tua copia del contratto qui sotto.',
   },
   en:{
     default_title:'Check-in',
@@ -324,6 +327,8 @@ const T={
     contratto_title:'Tourist rental agreement', contratto_hint:'Read the agreement and sign below to accept it.',
     sig_label:'Signature', sig_hint:'Sign here with your finger or mouse', sig_clear:'Clear signature',
     toast_sig_required:'Please sign the agreement to continue',
+    email_copia_label:'Want a copy of the agreement by email? (optional)', email_copia_ph:'Your email',
+    btn_download_contract:'⬇ Download the agreement (PDF)', ok_contract_hint:'You can download your copy of the agreement below.',
   },
   fr:{
     default_title:'Check-in',
@@ -379,6 +384,8 @@ const T={
     contratto_title:'Contrat de location touristique', contratto_hint:'Lisez le contrat et signez ci-dessous pour l\'accepter.',
     sig_label:'Signature', sig_hint:'Signez ici avec le doigt ou la souris', sig_clear:'Effacer la signature',
     toast_sig_required:'Signez le contrat pour continuer',
+    email_copia_label:'Vous voulez une copie du contrat par email ? (facultatif)', email_copia_ph:'Votre email',
+    btn_download_contract:'⬇ Télécharger le contrat (PDF)', ok_contract_hint:'Vous pouvez télécharger votre copie du contrat ci-dessous.',
   },
   es:{
     default_title:'Check-in',
@@ -434,6 +441,8 @@ const T={
     contratto_title:'Contrato de alquiler turístico', contratto_hint:'Lee el contrato y firma abajo para aceptarlo.',
     sig_label:'Firma', sig_hint:'Firma aquí con el dedo o el ratón', sig_clear:'Borrar firma',
     toast_sig_required:'Firma el contrato para continuar',
+    email_copia_label:'¿Quieres una copia del contrato por email? (opcional)', email_copia_ph:'Tu email',
+    btn_download_contract:'⬇ Descargar el contrato (PDF)', ok_contract_hint:'Puedes descargar tu copia del contrato abajo.',
   },
 };
 let lang=localStorage.getItem('keyflow_lang')||null;
@@ -773,6 +782,15 @@ function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1
 /* ---- passo 4: riepilogo e invio ---- */
 /* ===== contratto di locazione turistica (solo se la struttura è configurata) ===== */
 let firmaDataUrl=null, firmaTracciata=false;
+let emailOspiteVal='';           // email facoltativa dell'ospite per ricevere una copia del contratto
+let contrattoPdfBase64=null;     // PDF restituito dal server, per il pulsante "Scarica"
+function scaricaContrattoPdf(){
+  if(!contrattoPdfBase64)return;
+  const bin=atob(contrattoPdfBase64); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
+  const a=document.createElement('a'); a.href=url; a.download='contratto.pdf'; a.click(); URL.revokeObjectURL(url);
+}
 function conTrattini(gg){ return (gg||'').replace(/\//g,'-'); }
 function dataOggiTrattini(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()}`; }
 function datiContratto(){
@@ -788,9 +806,9 @@ function datiContratto(){
 function paragrafoContratto(cfg,d,titolo,lingua){
   const indirizzo=lingua==='en'?(cfg.indirizzoViaEN||cfg.indirizzoVia):cfg.indirizzoVia;
   if(lingua==='en'){
-    return `<b>${titolo}</b>\n\nMr./Ms. ${cfg.locatoreNome}, referred to as the Landlord\nTax Code ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nLeases to\n\nMr./Ms. ${d.conduttoreNome} referred to as the Tenant\nIdentity Document Number ${d.conduttoreDoc||'—'}\n\nWHO ACCEPTS\n\nThe real estate unit located at ${indirizzo}, consisting of ${cfg.vani} rooms, ${cfg.postiLetto} beds, and ${cfg.wc} bathroom(s). The furnished unit includes, in addition to the kitchen, the following accessory elements (${cfg.accessori}). Identified in the property registry of the Municipality of ${cfg.comune}, in Map Sheet ${cfg.foglio}, Parcel ${cfg.particella}, Subordinate ${cfg.subalterno}.\n\nThe lease shall be governed by the following terms:\n\n1. The contract is stipulated from ${d.arrivo} to ${d.partenza} and will terminate without any notice.\n2. The property must be used exclusively for tourist purposes, and including the tenant, a total of ${d.numOspiti} people will be accommodated.\n3. The tenant is NOT allowed to sublet or lend, in whole or in part, the property, under penalty of automatic termination of the contract.\n4. The rental fee is the amount already paid at the time of booking and is recorded in the transaction details on the platform used ${cfg.piattaforma}. This amount is considered accepted by both parties without the need for further confirmation.\n5. The tenant must inform the owner or their representative of any defects in the property and furniture within forty-eight hours of receiving the keys.\n6. The costs related to the provision of services, such as electricity, water, gas, and condominium fees, are borne by the landlord (owner).\n\nRead, approved, and signed in ${cfg.comune}, on ${d.dataFirma}`;
+    return `<b>${titolo}</b>\n\nMr./Ms. ${cfg.locatoreNome}, referred to as the Landlord\nTax Code ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nLeases to\n\nMr./Ms. ${d.conduttoreNome} referred to as the Tenant\nIdentity Document Number ${d.conduttoreDoc||'—'}\n\nWHO ACCEPTS\n\nThe real estate unit located at ${indirizzo}, consisting of ${cfg.vani} rooms, ${cfg.postiLetto} beds, and ${cfg.wc} bathroom(s). The furnished unit includes, in addition to the kitchen, the following accessory elements (${cfg.accessori}). Identified in the property registry of the Municipality of ${cfg.comune}, in Map Sheet ${cfg.foglio}, Parcel ${cfg.particella}, Subordinate ${cfg.subalterno}.\n\nThe lease shall be governed by the following terms:\n\n1. The contract is stipulated from ${d.arrivo} to ${d.partenza} and will terminate without any notice.\n2. The property must be used exclusively for tourist purposes, and including the tenant, a total of ${d.numOspiti} ${d.numOspiti===1?'person':'people'} will be accommodated.\n3. The tenant is NOT allowed to sublet or lend, in whole or in part, the property, under penalty of automatic termination of the contract.\n4. The rental fee is the amount already paid at the time of booking and is recorded in the transaction details on the platform used ${cfg.piattaforma}. This amount is considered accepted by both parties without the need for further confirmation.\n5. The tenant must inform the owner or their representative of any defects in the property and furniture within forty-eight hours of receiving the keys.\n6. The costs related to the provision of services, such as electricity, water, gas, and condominium fees, are borne by the landlord (owner).\n\nRead, approved, and signed in ${cfg.comune}, on ${d.dataFirma}`;
   }
-  return `<b>${titolo}</b>\n\nIl/la Sig. ${cfg.locatoreNome} denominato Locatore\nCodice Fiscale ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nConcede in Locazione\n\nAlla/al Sig. ${d.conduttoreNome} denominato conduttore\nNumero Doc. Identità ${d.conduttoreDoc||'—'}\n\nCHE ACCETTA\n\nL'unità immobiliare posta in via ${indirizzo}. Locale composto di n. ${cfg.vani} vani, di n. ${cfg.postiLetto} posti letto, di n. ${cfg.wc} wc. Locale ammobiliato che include oltre alla cucina i seguenti elementi accessori (${cfg.accessori}). Identificata al catasto fabbricati del Comune di ${cfg.comune}, nel Foglio di mappa ${cfg.foglio} particella ${cfg.particella} subalterno ${cfg.subalterno}.\n\nLa locazione sarà regolata dalle seguenti pattuizioni:\n\n1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.\n2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore saranno ospitate un numero di ${d.numOspiti} persone.\n3. Il conduttore NON potrà sublocare o dare in comodato, in tutto o in parte, l'unità immobiliare, pena la risoluzione di diritto del contratto.\n4. Il canone di locazione è quello già corrisposto al momento della prenotazione e risulta dal dettaglio della transazione sulla piattaforma utilizzata ${cfg.piattaforma}. Tale importo è considerato accettato da entrambe le parti senza necessità di ulteriore conferma.\n5. Il conduttore dovrà avvisare il proprietario o chi ne fa le veci degli eventuali difetti dell'immobile e dei mobili entro quarantotto ore dalla consegna delle chiavi.\n6. Le spese inerenti all'erogazione di servizi, quali: luce; acqua; gas; spese condominiali; sono a carico del locatore (proprietario).\n\nLetto, approvato e sottoscritto ${cfg.comune}, li ${d.dataFirma}`;
+  return `<b>${titolo}</b>\n\nIl/la Sig. ${cfg.locatoreNome} denominato Locatore\nCodice Fiscale ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nConcede in Locazione\n\nAlla/al Sig. ${d.conduttoreNome} denominato conduttore\nNumero Doc. Identità ${d.conduttoreDoc||'—'}\n\nCHE ACCETTA\n\nL'unità immobiliare posta in via ${indirizzo}. Locale composto di n. ${cfg.vani} vani, di n. ${cfg.postiLetto} posti letto, di n. ${cfg.wc} wc. Locale ammobiliato che include oltre alla cucina i seguenti elementi accessori (${cfg.accessori}). Identificata al catasto fabbricati del Comune di ${cfg.comune}, nel Foglio di mappa ${cfg.foglio} particella ${cfg.particella} subalterno ${cfg.subalterno}.\n\nLa locazione sarà regolata dalle seguenti pattuizioni:\n\n1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.\n2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore ${d.numOspiti===1?'sarà ospitato un numero di 1 persona':`saranno ospitate un numero di ${d.numOspiti} persone`}.\n3. Il conduttore NON potrà sublocare o dare in comodato, in tutto o in parte, l'unità immobiliare, pena la risoluzione di diritto del contratto.\n4. Il canone di locazione è quello già corrisposto al momento della prenotazione e risulta dal dettaglio della transazione sulla piattaforma utilizzata ${cfg.piattaforma}. Tale importo è considerato accettato da entrambe le parti senza necessità di ulteriore conferma.\n5. Il conduttore dovrà avvisare il proprietario o chi ne fa le veci degli eventuali difetti dell'immobile e dei mobili entro quarantotto ore dalla consegna delle chiavi.\n6. Le spese inerenti all'erogazione di servizi, quali: luce; acqua; gas; spese condominiali; sono a carico del locatore (proprietario).\n\nLetto, approvato e sottoscritto ${cfg.comune}, li ${d.dataFirma}`;
 }
 function wireFirmaCanvas(){
   const cv=$('#firmaCanvas'); if(!cv)return;
@@ -799,7 +817,7 @@ function wireFirmaCanvas(){
   const rect=cv.getBoundingClientRect();
   cv.width=rect.width*dpr; cv.height=rect.height*dpr;
   ctx.scale(dpr,dpr);
-  ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#e8eef5';
+  ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#111111';
   let drawing=false, last=null;
   const pos=e=>{ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
   const start=e=>{ drawing=true; last=pos(e); firmaTracciata=true; cv.setPointerCapture(e.pointerId); };
@@ -888,11 +906,16 @@ async function inviaCheckin(){
       cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
       incertezze:(g._warn||[]), immagini:g.imgs||[]
-    })), firma: (contrattoCfg?firmaDataUrl:undefined)};
+    })), firma: (contrattoCfg?firmaDataUrl:undefined), emailOspite: (contrattoCfg?(emailOspiteVal||'').trim():undefined)};
     const r=await fetch('/api/checkin-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
+    contrattoPdfBase64=data.contrattoPdfBase64||null;
     mostraSolo('okWrap');
+    const okd=$('#okDownload');
+    if(okd) okd.innerHTML = contrattoPdfBase64
+      ? `<div class="muted" style="margin-bottom:10px">${t('ok_contract_hint')}</div><button class="btn ghost" style="max-width:320px;margin:0 auto" onclick="scaricaContrattoPdf()">${t('btn_download_contract')}</button>`
+      : '';
   }catch(e){
     toast(t('toast_send_failed')+e.message);
     $('#submitStatus').textContent='';

@@ -60,31 +60,36 @@ async function generaContrattoPdf({ blocchiIT, blocchiEN, firmaPngBuffer, dataFi
     }
   }
 
+  // la firma va disegnata in fondo a ENTRAMBE le versioni (italiana e inglese), come
+  // nel contratto originale che aveva la riga della firma su tutte e due le pagine.
+  const firmaImg = firmaPngBuffer ? await pdf.embedPng(firmaPngBuffer) : null;
+  function disegnaFirma() {
+    assicuraSpazio(140);
+    y -= 12;
+    page.drawText("Firma del conduttore / Tenant's signature:", { x: MARGIN, y, size: 11, font: fontBold });
+    y -= 10;
+    if (firmaImg) {
+      const scale = Math.min(220 / firmaImg.width, 90 / firmaImg.height);
+      const w = firmaImg.width * scale;
+      const h = firmaImg.height * scale;
+      assicuraSpazio(h + 12);
+      page.drawImage(firmaImg, { x: MARGIN, y: y - h, width: w, height: h });
+      y -= h + 8;
+    }
+    page.drawText(`Firmato elettronicamente il ${dataFirma}${ip ? " · IP " + ip : ""}`, {
+      x: MARGIN,
+      y,
+      size: 8.5,
+      font,
+      color: rgb(0.4, 0.45, 0.5),
+    });
+  }
+
   scriviBlocchi(blocchiIT);
+  disegnaFirma();
   nuovaPagina();
   scriviBlocchi(blocchiEN);
-
-  // firma: su una pagina nuova se non c'è abbastanza spazio nella pagina corrente
-  assicuraSpazio(140);
-  y -= 10;
-  page.drawText("Firma del conduttore:", { x: MARGIN, y, size: 11, font: fontBold });
-  y -= 8;
-  if (firmaPngBuffer) {
-    const img = await pdf.embedPng(firmaPngBuffer);
-    const scale = Math.min(220 / img.width, 90 / img.height);
-    const w = img.width * scale;
-    const h = img.height * scale;
-    assicuraSpazio(h + 10);
-    page.drawImage(img, { x: MARGIN, y: y - h, width: w, height: h });
-    y -= h + 6;
-  }
-  page.drawText(`Firmato elettronicamente il ${dataFirma}${ip ? " · IP " + ip : ""}`, {
-    x: MARGIN,
-    y,
-    size: 8.5,
-    font,
-    color: rgb(0.4, 0.45, 0.5),
-  });
+  disegnaFirma();
 
   return Buffer.from(await pdf.save());
 }

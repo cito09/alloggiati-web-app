@@ -19,11 +19,11 @@ function getContrattoStruttura(id) {
   return getContrattiStrutture().find((c) => c.id === id) || null;
 }
 
-// campi che è sicuro mandare al browser dell'ospite (mai l'email, usata solo lato server per l'invio)
+// campi mostrati nell'anteprima del contratto all'ospite. Sono tutti dati che compaiono
+// comunque stampati sul contratto (incluso l'email del locatore), quindi non c'è nulla di segreto.
 function campiPubbliciContratto(cfg) {
   if (!cfg) return null;
-  const { email, ...pubblici } = cfg;
-  return pubblici;
+  return { ...cfg };
 }
 
 function testoIT(cfg, d) {
@@ -50,7 +50,7 @@ function testoIT(cfg, d) {
     { t: "p", v: `1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.` },
     {
       t: "p",
-      v: `2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore saranno ospitate un numero di ${d.numOspiti} persone.`,
+      v: `2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore ${d.numOspiti === 1 ? "sarà ospitato un numero di 1 persona" : `saranno ospitate un numero di ${d.numOspiti} persone`}.`,
     },
     {
       t: "p",
@@ -98,7 +98,7 @@ function testoEN(cfg, d) {
     { t: "p", v: `1. The contract is stipulated from ${d.arrivo} to ${d.partenza} and will terminate without any notice.` },
     {
       t: "p",
-      v: `2. The property must be used exclusively for tourist purposes, and including the tenant, a total of ${d.numOspiti} people will be accommodated.`,
+      v: `2. The property must be used exclusively for tourist purposes, and including the tenant, a total of ${d.numOspiti} ${d.numOspiti === 1 ? "person" : "people"} will be accommodated.`,
     },
     {
       t: "p",

@@ -88,8 +88,10 @@ module.exports = async (req, res) => {
     // (Resend), MAI salvato sul sito: niente accumulo di file.
     const cfgContratto = getContrattoStruttura(struttura);
     const firma = (req.body || {}).firma;
+    const emailOspite = String((req.body || {}).emailOspite || "").trim();
     let contrattoInviato = false;
     let contrattoErrore = "";
+    let contrattoPdfBase64 = ""; // restituito al browser per il pulsante "Scarica PDF" dell'ospite
     if (cfgContratto) {
       if (!firma) {
         contrattoErrore = "firma mancante (l'ospite non ha firmato)";
@@ -111,15 +113,27 @@ module.exports = async (req, res) => {
             dataFirma: dati.dataFirma,
             ip: clientIp(req),
           });
+          contrattoPdfBase64 = pdfBuffer.toString("base64");
+          const nomeFilePdf = `contratto_${(dati.conduttoreNome || "ospite").replace(/\s+/g, "_")}.pdf`;
           const esito = await inviaEmailConAllegato({
             to: cfgContratto.email,
             subject: `Contratto firmato · ${strutturaInfo ? strutturaInfo.nome : struttura} · ${dati.conduttoreNome}`,
             testo: `In allegato il contratto di locazione turistica firmato da ${dati.conduttoreNome}, soggiorno dal ${arrivo} al ${partenza}.\n\nInviato automaticamente da KeyFlow: non è stato salvato altrove.`,
-            allegatoNome: `contratto_${(dati.conduttoreNome || "ospite").replace(/\s+/g, "_")}.pdf`,
+            allegatoNome: nomeFilePdf,
             allegatoBuffer: pdfBuffer,
           });
           contrattoInviato = esito.ok;
           if (!esito.ok) contrattoErrore = esito.error || "invio email non riuscito";
+          // copia facoltativa all'ospite, se ha lasciato la sua email (best-effort, non blocca nulla)
+          if (emailOspite) {
+            inviaEmailConAllegato({
+              to: emailOspite,
+              subject: `La tua copia del contratto · ${strutturaInfo ? strutturaInfo.nome : struttura}`,
+              testo: `In allegato la tua copia del contratto di locazione turistica firmato per il soggiorno dal ${arrivo} al ${partenza}.`,
+              allegatoNome: nomeFilePdf,
+              allegatoBuffer: pdfBuffer,
+            }).catch(() => {});
+          }
         } catch (e) {
           // un contratto non generato/inviato non deve bloccare il check-in: l'host lo vede dal badge
           contrattoErrore = String(e.message || e);
@@ -159,7 +173,7 @@ module.exports = async (req, res) => {
     const nomi = ospitiSalvati.map((o) => [o.cognome, o.nome].filter(Boolean).join(" ")).filter(Boolean).join(", ");
     await notificaHost(`${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ha completato il check-in`);
 
-    return res.status(200).json({ ok: true });
+    return res.status(200).json({ ok: true, contrattoPdfBase64 });
   } catch (e) {
     return res.status(500).json({ error: `Errore generico: ${String(e.message || e)}` });
   }
