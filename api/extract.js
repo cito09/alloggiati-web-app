@@ -14,17 +14,19 @@ function promptBooking(oggi) {
   return `Oggi è ${oggi}. Dallo screenshot di una prenotazione estrai le date di un soggiorno futuro o recente (vicino a oggi). Rispondi SOLO con JSON: {"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null}. Se vedi check-in e check-out calcola le notti come differenza. Se l'anno non è scritto esplicitamente nello screenshot, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date del soggiorno: NON usare mai un anno passato a caso, e non confondere l'anno con quello di altre cifre presenti nello screenshot.`;
 }
 
-// 'auto': riceve immagini MISTE (screenshot prenotazione + foto documenti) e le separa da solo.
-function promptAuto(oggi) {
-  return `Oggi è ${oggi}. Ricevi una o più immagini che possono essere di due tipi: (a) screenshot di una prenotazione (Airbnb, Booking, ecc.) oppure (b) foto di documenti d'identità (passaporto, carta d'identità, patente). Classifica ogni immagine ed estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
+// 'auto': riceve immagini MISTE (screenshot prenotazione + foto documenti) e/o un messaggio di testo, e li separa da solo.
+function promptAuto(oggi, haTesto) {
+  return `Oggi è ${oggi}. Ricevi una o più immagini che possono essere di due tipi: (a) screenshot di una prenotazione (Airbnb, Booking, ecc.) oppure (b) foto di documenti d'identità (passaporto, carta d'identità, patente)${haTesto ? `, ed inoltre un MESSAGGIO DI TESTO scritto dall'ospite (es. copiato da una chat Airbnb/Booking) con i dati anagrafici di uno o più ospiti, da usare come fonte al pari dei documenti` : ""}. Classifica ogni immagine ed estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
 {"prenotazione":{"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null},"ospiti":[${CAMPI_OSPITE}]}
 Regole:
-- "ospiti": UNA voce per ogni DOCUMENTO d'identità. NON creare ospiti dagli screenshot di prenotazione (i nomi nello screenshot NON sono ospiti).
+- "ospiti": UNA voce per ogni DOCUMENTO d'identità, PIÙ una voce per ogni ospite descritto SOLO nel messaggio di testo (se presente) e non già coperto da un documento. NON creare ospiti dagli screenshot di prenotazione (i nomi nello screenshot NON sono ospiti).
 - Se una stessa foto contiene PIÙ documenti di persone diverse (es. più carte d'identità affiancate sul tavolo), crea un ospite per CIASCUN documento presente nella foto.
 - Se due foto sono fronte/retro o due pagine dello STESSO documento, sono UN solo ospite.
-- "prenotazione": ricava le date dallo screenshot, un soggiorno futuro o recente (vicino a oggi). Se vedi check-in e check-out calcola numero_notti come differenza. Se l'anno non è scritto esplicitamente, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date: NON usare mai un anno passato a caso. Se non c'è nessuno screenshot, metti i campi a null.
-- Se non ci sono documenti, "ospiti": [].
-- Per ogni ospite (data di nascita: leggi l'anno con attenzione dal documento, può essere molto nel passato, va bene così): ${REGOLE_OSPITE}`;
+${haTesto ? `- Il messaggio di testo spesso contiene una lista di dati per ospite (una lista ripetuta per ogni persona), non sempre con etichette esplicite: usa il buon senso per riconoscere nome, cognome, nazionalità/cittadinanza (converti sempre l'aggettivo nel nome dello stato, es. "danese"→"DANIMARCA"), città, data di nascita (gg/mm/aaaa), tipo e numero di documento. Se un dato del messaggio manca o è ambiguo, lascialo null e aggiungi il campo a "incertezze" per quell'ospite, non inventare.
+- Se lo stesso ospite compare sia in una foto di documento sia nel messaggio di testo, unisci le informazioni in UN solo ospite (non duplicare) usando il documento come fonte primaria e il testo per completare ciò che manca.
+` : ""}- "prenotazione": ricava le date dallo screenshot, un soggiorno futuro o recente (vicino a oggi). Se vedi check-in e check-out calcola numero_notti come differenza. Se l'anno non è scritto esplicitamente, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date: NON usare mai un anno passato a caso. Se non c'è nessuno screenshot, metti i campi a null.
+- Se non ci sono documenti né dati nel testo, "ospiti": [].
+- Per ogni ospite (data di nascita: leggi l'anno con attenzione, può essere molto nel passato, va bene così): ${REGOLE_OSPITE}`;
 }
 
 // accetta sia data-URL (foto caricate dal browser) sia URL http(s) (foto gia' su Vercel Blob,
@@ -52,11 +54,18 @@ module.exports = async (req, res) => {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: "ANTHROPIC_API_KEY non configurata" });
   try {
-    const { images = [], kind = "documento" } = req.body || {};
-    if (!images.length) return res.status(400).json({ error: "Nessuna immagine" });
+    const { images = [], kind = "documento", text = "" } = req.body || {};
+    const testo = String(text || "").trim();
+    if (!images.length && !testo) return res.status(400).json({ error: "Nessuna immagine o testo" });
     const content = await Promise.all(images.map(toBlock));
+    if (testo) {
+      content.push({
+        type: "text",
+        text: `MESSAGGIO DI TESTO RICEVUTO DALL'OSPITE (es. copiato da una chat Airbnb/Booking), può contenere i dati anagrafici di uno o più ospiti da estrarre insieme ai documenti:\n"""\n${testo}\n"""`,
+      });
+    }
     const oggi = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi) : PROMPT_DOC;
+    const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi, !!testo) : PROMPT_DOC;
     content.push({ type: "text", text: prompt });
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -70,8 +79,8 @@ module.exports = async (req, res) => {
     });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: data?.error?.message || "Errore API" });
-    const text = (data.content || []).filter((i) => i.type === "text").map((i) => i.text).join("\n");
-    const json = JSON.parse(text.replace(/```json|```/g, "").trim());
+    const replyText = (data.content || []).filter((i) => i.type === "text").map((i) => i.text).join("\n");
+    const json = JSON.parse(replyText.replace(/```json|```/g, "").trim());
     return res.status(200).json(json);
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });

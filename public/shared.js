@@ -10,10 +10,10 @@ function downscale(dataURL,max=1600,q=0.82){return new Promise(res=>{const img=n
     res(c.toDataURL('image/jpeg',q));};
   img.onerror=()=>res(dataURL); img.src=dataURL;});}
 
-async function apiExtract(images,kind){
+async function apiExtract(images,kind,text){
   const small=await Promise.all(images.map(d=>downscale(d)));
   const resp=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({images:small,kind})});
+    body:JSON.stringify({images:small,kind,text:text||''})});
   const data=await resp.json();
   if(!resp.ok) throw new Error(data.error||'Errore estrazione');
   return data;

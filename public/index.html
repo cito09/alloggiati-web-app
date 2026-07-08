@@ -199,6 +199,11 @@
       <input id="dzInput" type="file" accept="image/*" multiple style="display:none">
     </div>
     <div class="thumbs" id="intakeThumbs" style="margin-top:10px"></div>
+    <details class="intake-text" style="margin-top:10px">
+      <summary class="muted" style="cursor:pointer;font-size:13px">✉️ Ho anche un messaggio di testo con i dati (es. da Airbnb)</summary>
+      <div class="muted" style="font-size:12px;margin-top:6px">Se l'ospite ti ha scritto i dati per messaggio invece di mandare foto, incolla qui il testo: lo leggo insieme al resto.</div>
+      <textarea id="intakeText" placeholder="Incolla qui il messaggio con i dati degli ospiti…" style="width:100%;margin-top:8px;min-height:90px;background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:15px;font-family:inherit;resize:vertical" oninput="updateIntakeBtn()"></textarea>
+    </details>
     <button class="btn primary" id="intakeBtn" style="width:100%;margin-top:12px;display:none" onclick="runIntake()">✨ Riconosci tutto</button>
     <div class="intake-status" id="intakeStatus"></div>
   </div>
@@ -12076,7 +12081,7 @@ async function extractBooking(bid){
 
 /* ===== Carica tutto (intake unico: screenshot + documenti insieme) ===== */
 let intakeFiles=[];
-function updateIntakeBtn(){const b=$('#intakeBtn'); if(b)b.style.display=intakeFiles.length?'':'none';}
+function updateIntakeBtn(){const b=$('#intakeBtn'); const t=$('#intakeText'); if(b)b.style.display=(intakeFiles.length||(t&&t.value.trim()))?'':'none';}
 function renderIntakeThumbs(){
   const w=$('#intakeThumbs'); if(!w)return; w.innerHTML='';
   intakeFiles.forEach((u,i)=>w.appendChild(thumb(u,()=>{intakeFiles.splice(i,1);renderIntakeThumbs();})));
@@ -12217,14 +12222,15 @@ function scartaCheckin(id){
   rimuoviCheckinPendingLocal(id);
 }
 async function runIntake(){
-  if(!intakeFiles.length){toast('Aggiungi prima screenshot e foto');return;}
+  const testoEl=$('#intakeText'); const testo=testoEl?testoEl.value.trim():'';
+  if(!intakeFiles.length&&!testo){toast('Aggiungi prima screenshot, foto o un messaggio di testo');return;}
   const btn=$('#intakeBtn'); if(btn)btn.disabled=true;
   const imgs=intakeFiles.slice();
   const b=bookingAttivo();
   const newGuests=[];
   try{
-    setIntakeStatus(`<span class="spin"></span> Leggo prenotazione e documenti con l'AI…`);
-    const j=await apiExtract(imgs,'auto');
+    setIntakeStatus(`<span class="spin"></span> Leggo prenotazione, documenti${testo?' e messaggio':''} con l'AI…`);
+    const j=await apiExtract(imgs,'auto',testo);
     const pr=j.prenotazione||{};
     if(pr.data_arrivo)b.arrivo=pr.data_arrivo;
     if(pr.numero_notti)b.notti=pr.numero_notti;
@@ -12236,6 +12242,7 @@ async function runIntake(){
       b.guests.push(...newGuests);
       b.soggiorno=inferSoggiorno(b.guests);
       intakeFiles=[]; renderIntakeThumbs();
+      if(testoEl)testoEl.value='';
       setIntakeStatus(`✓ Riconosciuti ${newGuests.length} ospit${newGuests.length===1?'e':'i'} · tipo soggiorno: <b>${b.soggiorno}</b>. Controlla qui sotto e conferma.`);
     }
     render();
