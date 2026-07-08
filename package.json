@@ -5,6 +5,7 @@
   "description": "Foto documenti -> schedine Alloggiati Web, con invio diretto al web service della Polizia di Stato",
   "engines": { "node": ">=18" },
   "dependencies": {
-    "@vercel/blob": "latest"
+    "@vercel/blob": "latest",
+    "pdf-lib": "^1.17.1"
   }
 }

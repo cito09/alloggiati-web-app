@@ -12303,7 +12303,7 @@ function renderCheckinPending(){
     const nomi=v.ospiti.map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ');
     const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
     return `<div class="storico-item">
-      <div class="storico-head"><span>${escText(quando)}</span>${v.strutturaNome?`<span class="pill ok">${escText(v.strutturaNome)}</span>`:'<span class="pill wait">in attesa</span>'}</div>
+      <div class="storico-head"><span>${escText(quando)}</span>${v.strutturaNome?`<span class="pill ok">${escText(v.strutturaNome)}</span>`:'<span class="pill wait">in attesa</span>'}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}</div>
       <div class="storico-meta">${[v.arrivo?('arrivo '+v.arrivo):null, v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
       ${foto.length?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img src="${u}">`}</div>`).join('')}</div>`:''}

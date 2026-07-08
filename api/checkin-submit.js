@@ -9,6 +9,9 @@
 const { put } = require("@vercel/blob");
 const { upstash, redisCmd } = require("./_kv");
 const { getStrutture } = require("./_alloggiati");
+const { getContrattoStruttura, testoIT, testoEN } = require("./_contratto");
+const { generaContrattoPdf } = require("./_pdf");
+const { inviaEmailConAllegato } = require("./_email");
 
 const KEY = "checkin_pending";
 const MAX_VOCI = 200;
@@ -16,6 +19,17 @@ const MAX_VOCI = 200;
 function toBuffer(dataUrl) {
   const base64 = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
   return Buffer.from(base64, "base64");
+}
+
+function conTrattini(gg) {
+  return String(gg || "").replace(/\//g, "-");
+}
+function dataOggiTrattini() {
+  return new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-");
+}
+function clientIp(req) {
+  const fwd = req.headers["x-forwarded-for"];
+  return (fwd ? fwd.split(",")[0].trim() : req.socket && req.socket.remoteAddress) || "";
 }
 
 async function notificaHost(testo) {
@@ -69,6 +83,43 @@ module.exports = async (req, res) => {
       ospitiSalvati.push({ ...campi, fotoUrls });
     }
 
+    // contratto di locazione turistica: solo se la struttura ha una config (CONTRATTI_STRUTTURE)
+    // e l'ospite ha effettivamente firmato. Il PDF viene generato e mandato via email all'host
+    // (Resend), MAI salvato sul sito: niente accumulo di file.
+    const cfgContratto = getContrattoStruttura(struttura);
+    const firma = (req.body || {}).firma;
+    let contrattoInviato = false;
+    if (cfgContratto && firma) {
+      try {
+        const capofamiglia = validi[0];
+        const dati = {
+          conduttoreNome: [capofamiglia.cognome, capofamiglia.nome].filter(Boolean).join(" "),
+          conduttoreDoc: capofamiglia.numeroDoc || "",
+          arrivo: conTrattini(arrivo),
+          partenza: conTrattini(partenza),
+          numOspiti: validi.length,
+          dataFirma: dataOggiTrattini(),
+        };
+        const pdfBuffer = await generaContrattoPdf({
+          blocchiIT: testoIT(cfgContratto, dati),
+          blocchiEN: testoEN(cfgContratto, dati),
+          firmaPngBuffer: toBuffer(firma),
+          dataFirma: dati.dataFirma,
+          ip: clientIp(req),
+        });
+        const esito = await inviaEmailConAllegato({
+          to: cfgContratto.email,
+          subject: `Contratto firmato · ${strutturaInfo ? strutturaInfo.nome : struttura} · ${dati.conduttoreNome}`,
+          testo: `In allegato il contratto di locazione turistica firmato da ${dati.conduttoreNome}, soggiorno dal ${arrivo} al ${partenza}.\n\nInviato automaticamente da KeyFlow: non è stato salvato altrove.`,
+          allegatoNome: `contratto_${(dati.conduttoreNome || "ospite").replace(/\s+/g, "_")}.pdf`,
+          allegatoBuffer: pdfBuffer,
+        });
+        contrattoInviato = esito.ok;
+      } catch (e) {
+        /* un contratto non generato/inviato non deve bloccare il check-in: l'host se ne accorge dal badge mancante */
+      }
+    }
+
     const voce = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ts: Date.now(),
@@ -78,6 +129,8 @@ module.exports = async (req, res) => {
       partenza: partenza || "",
       notti: Number(notti) || 0,
       ospiti: ospitiSalvati,
+      contrattoRichiesto: !!cfgContratto,
+      contrattoInviato,
     };
 
     let raw;

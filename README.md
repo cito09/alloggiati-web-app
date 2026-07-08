@@ -107,6 +107,30 @@ Richiede queste cose in più:
 
 > `CHECKIN_CODE` e il canale ntfy sono "segreti leggeri" incorporati nel link/canale: proteggono da chi trova la pagina per caso o la scansiona automaticamente, ma se il link finisce in mani sbagliate va rigenerato (cambi `CHECKIN_CODE` e ridai il nuovo link ai prossimi ospiti).
 
+### Contratto di locazione turistica con firma (facoltativo)
+
+Nell'ultimo passo del check-in, se la struttura è configurata, l'ospite vede il testo del contratto (bilingue IT/EN) già compilato con i suoi dati e firma con il dito/mouse. Il PDF firmato viene generato al volo e **mandato via email**, mai salvato sul sito (nessun accumulo su Vercel) — esattamente come succedeva con Jotform.
+
+1. **Dati del contratto per struttura**: su Vercel → Environment Variables aggiungi `CONTRATTI_STRUTTURE` (JSON su una riga, un oggetto per struttura, stesso `id` usato altrove):
+
+   ```json
+   [{"id":"canazei","locatoreNome":"Nicola Chirco","codiceFiscale":"CHRNCL73L01A944D",
+     "email":"canazeibnb25@gmail.com","indirizzoVia":"STREDA DE COSTA n.71, interno n° 25",
+     "comune":"Canazei","vani":2,"postiLetto":4,"wc":1,
+     "accessori":"cantina, autorimessa singola, posto macchina in comune, parcheggio coperto",
+     "foglio":"817","particella":"66","subalterno":"43","piattaforma":"Airbnb"}]
+   ```
+
+   Una struttura senza voce qui semplicemente non ha il passo del contratto nel suo check-in (utile finché non hai ancora i dati di tutte le strutture).
+
+2. **Invio email (Resend)**: registrati gratis su [resend.com](https://resend.com) (fino a 3.000 email/mese gratis), crea una API key, e su Vercel aggiungi:
+
+   | Variabile | Valore |
+   |---|---|
+   | `RESEND_API_KEY` | la chiave presa da Resend |
+
+   Il contratto firmato arriva via email all'indirizzo indicato in `email` per quella struttura in `CONTRATTI_STRUTTURE`. Senza `RESEND_API_KEY` il check-in funziona lo stesso (l'ospite firma comunque), semplicemente l'email non parte: nella coda "Ospiti in attesa" dell'app admin trovi comunque un'etichetta "📝 contratto non inviato" per accorgertene.
+
 ### Ross1000 — flussi turistici ISTAT (es. Emilia-Romagna, facoltativo)
 
 Per le strutture in regioni che usano **Ross1000** (es. Bologna/Emilia-Romagna) esiste anche l'obbligo statistico ISTAT, separato da Alloggiati Web, con scadenza il giorno 5 del mese successivo. L'app lo copre in due modi:

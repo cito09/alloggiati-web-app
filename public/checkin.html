@@ -130,6 +130,12 @@
     border-radius:999px; padding:8px 14px; font-size:12.5px; color:var(--muted); font-weight:600}
   .trust-chip svg{width:15px; height:15px; flex-shrink:0}
   .dropzone .dz-cam{width:36px; height:36px}
+  .contratto-box{max-height:220px; overflow-y:auto; background:var(--surface2); border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; font-size:12px; line-height:1.55; color:var(--muted); white-space:pre-line}
+  .contratto-box b{color:var(--ink)}
+  .sig-wrap{margin-top:12px; border:2px dashed var(--line); border-radius:14px; background:var(--surface); overflow:hidden}
+  .sig-wrap canvas{width:100%; height:150px; display:block; touch-action:none; cursor:crosshair}
+  .sig-hint{font-size:11.5px; color:var(--muted); text-align:center; padding:8px 0 0}
 </style>
 </head>
 <body>
@@ -260,6 +266,9 @@ const T={
     toast_indica_arrivo:'Indica la data di arrivo', toast_indica_partenza:'Indica la data di partenza',
     toast_add_guest:'Aggiungi almeno un ospite', toast_accept_privacy:"Devi accettare l'informativa per procedere",
     toast_send_failed:'Invio non riuscito: ', submit_status_invio:'Invio in corso…',
+    contratto_title:'Contratto di locazione turistica', contratto_hint:'Leggi il contratto e firma qui sotto per accettarlo.',
+    sig_label:'Firma', sig_hint:'Firma qui col dito o col mouse', sig_clear:'Cancella firma',
+    toast_sig_required:'Firma il contratto per continuare',
   },
   en:{
     default_title:'Check-in',
@@ -312,6 +321,9 @@ const T={
     toast_indica_arrivo:'Please enter the arrival date', toast_indica_partenza:'Please enter the departure date',
     toast_add_guest:'Please add at least one guest', toast_accept_privacy:'You must accept the notice to proceed',
     toast_send_failed:'Submission failed: ', submit_status_invio:'Sending…',
+    contratto_title:'Tourist rental agreement', contratto_hint:'Read the agreement and sign below to accept it.',
+    sig_label:'Signature', sig_hint:'Sign here with your finger or mouse', sig_clear:'Clear signature',
+    toast_sig_required:'Please sign the agreement to continue',
   },
   fr:{
     default_title:'Check-in',
@@ -364,6 +376,9 @@ const T={
     toast_indica_arrivo:"Indiquez la date d'arrivée", toast_indica_partenza:'Indiquez la date de départ',
     toast_add_guest:'Ajoutez au moins un voyageur', toast_accept_privacy:'Vous devez accepter la note d\'information pour continuer',
     toast_send_failed:"Échec de l'envoi : ", submit_status_invio:'Envoi en cours…',
+    contratto_title:'Contrat de location touristique', contratto_hint:'Lisez le contrat et signez ci-dessous pour l\'accepter.',
+    sig_label:'Signature', sig_hint:'Signez ici avec le doigt ou la souris', sig_clear:'Effacer la signature',
+    toast_sig_required:'Signez le contrat pour continuer',
   },
   es:{
     default_title:'Check-in',
@@ -416,6 +431,9 @@ const T={
     toast_indica_arrivo:'Indica la fecha de llegada', toast_indica_partenza:'Indica la fecha de salida',
     toast_add_guest:'Añade al menos un huésped', toast_accept_privacy:'Debes aceptar la información para continuar',
     toast_send_failed:'Envío fallido: ', submit_status_invio:'Enviando…',
+    contratto_title:'Contrato de alquiler turístico', contratto_hint:'Lee el contrato y firma abajo para aceptarlo.',
+    sig_label:'Firma', sig_hint:'Firma aquí con el dedo o el ratón', sig_clear:'Borrar firma',
+    toast_sig_required:'Firma el contrato para continuar',
   },
 };
 let lang=localStorage.getItem('keyflow_lang')||null;
@@ -475,12 +493,16 @@ function applicaTraduzioniStatiche(){
 /* ===== struttura (nome mostrato in base a ?s=) ===== */
 const codice=new URLSearchParams(location.search).get('c')||'';
 const strutturaId=new URLSearchParams(location.search).get('s')||'';
+let contrattoCfg=null; // dati pubblici del contratto per questa struttura (null se non configurato)
 async function caricaNomeStruttura(){
   if(!strutturaId)return;
   try{
     const r=await fetch('/api/strutture'); const data=await r.json();
     const s=(data.strutture||[]).find(x=>x.id===strutturaId);
-    if(s){ document.title=s.nome+' · KeyFlow'; const h=$('#pageTitle'); if(h)h.textContent=s.nome+' — Check-in'; }
+    if(s){
+      document.title=s.nome+' · KeyFlow'; const h=$('#pageTitle'); if(h)h.textContent=s.nome+' — Check-in';
+      contrattoCfg=s.contratto||null;
+    }
   }catch(e){/* offline: resta il titolo generico, non blocca il check-in */}
 }
 
@@ -749,7 +771,65 @@ function renderAltro(root){
 function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1; mostraPasso('foto'); }
 
 /* ---- passo 4: riepilogo e invio ---- */
+/* ===== contratto di locazione turistica (solo se la struttura è configurata) ===== */
+let firmaDataUrl=null, firmaTracciata=false;
+function conTrattini(gg){ return (gg||'').replace(/\//g,'-'); }
+function dataOggiTrattini(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()}`; }
+function datiContratto(){
+  const validi=guests.filter(g=>g.cognome||g.nome);
+  const capo=validi[0]||{};
+  return {
+    conduttoreNome:[capo.cognome,capo.nome].filter(Boolean).join(' ')||'—',
+    conduttoreDoc:capo.numeroDoc||'',
+    arrivo:conTrattini(arrivo), partenza:conTrattini(partenza),
+    numOspiti:validi.length, dataFirma:dataOggiTrattini(),
+  };
+}
+function paragrafoContratto(cfg,d,titolo,lingua){
+  const indirizzo=lingua==='en'?(cfg.indirizzoViaEN||cfg.indirizzoVia):cfg.indirizzoVia;
+  if(lingua==='en'){
+    return `<b>${titolo}</b>\n\nMr./Ms. ${cfg.locatoreNome}, referred to as the Landlord\nTax Code ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nLeases to\n\nMr./Ms. ${d.conduttoreNome} referred to as the Tenant\nIdentity Document Number ${d.conduttoreDoc||'—'}\n\nWHO ACCEPTS\n\nThe real estate unit located at ${indirizzo}, consisting of ${cfg.vani} rooms, ${cfg.postiLetto} beds, and ${cfg.wc} bathroom(s). The furnished unit includes, in addition to the kitchen, the following accessory elements (${cfg.accessori}). Identified in the property registry of the Municipality of ${cfg.comune}, in Map Sheet ${cfg.foglio}, Parcel ${cfg.particella}, Subordinate ${cfg.subalterno}.\n\nThe lease shall be governed by the following terms:\n\n1. The contract is stipulated from ${d.arrivo} to ${d.partenza} and will terminate without any notice.\n2. The property must be used exclusively for tourist purposes, and including the tenant, a total of ${d.numOspiti} people will be accommodated.\n3. The tenant is NOT allowed to sublet or lend, in whole or in part, the property, under penalty of automatic termination of the contract.\n4. The rental fee is the amount already paid at the time of booking and is recorded in the transaction details on the platform used ${cfg.piattaforma}. This amount is considered accepted by both parties without the need for further confirmation.\n5. The tenant must inform the owner or their representative of any defects in the property and furniture within forty-eight hours of receiving the keys.\n6. The costs related to the provision of services, such as electricity, water, gas, and condominium fees, are borne by the landlord (owner).\n\nRead, approved, and signed in ${cfg.comune}, on ${d.dataFirma}`;
+  }
+  return `<b>${titolo}</b>\n\nIl/la Sig. ${cfg.locatoreNome} denominato Locatore\nCodice Fiscale ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nConcede in Locazione\n\nAlla/al Sig. ${d.conduttoreNome} denominato conduttore\nNumero Doc. Identità ${d.conduttoreDoc||'—'}\n\nCHE ACCETTA\n\nL'unità immobiliare posta in via ${indirizzo}. Locale composto di n. ${cfg.vani} vani, di n. ${cfg.postiLetto} posti letto, di n. ${cfg.wc} wc. Locale ammobiliato che include oltre alla cucina i seguenti elementi accessori (${cfg.accessori}). Identificata al catasto fabbricati del Comune di ${cfg.comune}, nel Foglio di mappa ${cfg.foglio} particella ${cfg.particella} subalterno ${cfg.subalterno}.\n\nLa locazione sarà regolata dalle seguenti pattuizioni:\n\n1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.\n2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore saranno ospitate un numero di ${d.numOspiti} persone.\n3. Il conduttore NON potrà sublocare o dare in comodato, in tutto o in parte, l'unità immobiliare, pena la risoluzione di diritto del contratto.\n4. Il canone di locazione è quello già corrisposto al momento della prenotazione e risulta dal dettaglio della transazione sulla piattaforma utilizzata ${cfg.piattaforma}. Tale importo è considerato accettato da entrambe le parti senza necessità di ulteriore conferma.\n5. Il conduttore dovrà avvisare il proprietario o chi ne fa le veci degli eventuali difetti dell'immobile e dei mobili entro quarantotto ore dalla consegna delle chiavi.\n6. Le spese inerenti all'erogazione di servizi, quali: luce; acqua; gas; spese condominiali; sono a carico del locatore (proprietario).\n\nLetto, approvato e sottoscritto ${cfg.comune}, li ${d.dataFirma}`;
+}
+function wireFirmaCanvas(){
+  const cv=$('#firmaCanvas'); if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const dpr=window.devicePixelRatio||1;
+  const rect=cv.getBoundingClientRect();
+  cv.width=rect.width*dpr; cv.height=rect.height*dpr;
+  ctx.scale(dpr,dpr);
+  ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#e8eef5';
+  let drawing=false, last=null;
+  const pos=e=>{ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  const start=e=>{ drawing=true; last=pos(e); firmaTracciata=true; cv.setPointerCapture(e.pointerId); };
+  const move=e=>{ if(!drawing)return; const p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; };
+  const end=()=>{ drawing=false; if(firmaTracciata)firmaDataUrl=cv.toDataURL('image/png'); };
+  cv.addEventListener('pointerdown',start);
+  cv.addEventListener('pointermove',move);
+  cv.addEventListener('pointerup',end);
+  cv.addEventListener('pointerleave',end);
+}
+function cancellaFirma(){
+  const cv=$('#firmaCanvas'); if(!cv)return;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+  firmaTracciata=false; firmaDataUrl=null;
+}
 function renderInvio(root){
+  const contrattoHtml = contrattoCfg ? (()=>{
+    const d=datiContratto();
+    const testo=paragrafoContratto(contrattoCfg,d,'CONTRATTO DI LOCAZIONE TURISTICA','it')+'\n\n\n'+paragrafoContratto(contrattoCfg,d,'TOURIST RENTAL AGREEMENT','en');
+    return `
+    <div class="card">
+      <div class="steplbl">${t('contratto_title')}</div>
+      <div class="muted" style="margin-bottom:8px">${t('contratto_hint')}</div>
+      <div class="contratto-box">${testo}</div>
+      <label style="display:block;margin-top:12px" class="muted">${t('sig_label')}</label>
+      <div class="sig-wrap"><canvas id="firmaCanvas"></canvas></div>
+      <div class="sig-hint">${t('sig_hint')}</div>
+      <button class="btn ghost sm" style="width:auto;margin-top:8px" onclick="cancellaFirma()">${t('sig_clear')}</button>
+    </div>`;
+  })() : '';
   root.innerHTML=`
     <div class="card">
       <div class="steplbl">${t('recap_title')}</div>
@@ -762,6 +842,7 @@ function renderInvio(root){
           </span>
         </div>`).join('')}
     </div>
+    ${contrattoHtml}
     <div class="card">
       <div class="steplbl">${t('privacy_title')}</div>
       <div class="hint" style="line-height:1.6">${t('privacy_html')}</div>
@@ -773,6 +854,7 @@ function renderInvio(root){
       <div class="muted" id="submitStatus" style="margin-top:8px"></div>
     </div>
     <button class="btn ghost" onclick="gIdx=${guests.length-1};mostraPasso('verifica')">${t('btn_back')}</button>`;
+  if(contrattoCfg){ firmaTracciata=false; firmaDataUrl=null; wireFirmaCanvas(); }
 }
 function rimuoviOspite(i){
   guests.splice(i,1);
@@ -796,6 +878,7 @@ async function inviaCheckin(){
   if(!(notti>0)){toast(t('notti_error'));return;}
   const validi=guests.filter(g=>g.cognome||g.nome);
   if(!validi.length){toast(t('toast_add_guest'));return;}
+  if(contrattoCfg&&!firmaDataUrl){toast(t('toast_sig_required'));return;}
   if(!consensoOk){toast(t('toast_accept_privacy'));return;}
 
   const btn=$('#submitBtn'); btn.disabled=true;
@@ -805,7 +888,7 @@ async function inviaCheckin(){
       cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
       incertezze:(g._warn||[]), immagini:g.imgs||[]
-    }))};
+    })), firma: (contrattoCfg?firmaDataUrl:undefined)};
     const r=await fetch('/api/checkin-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
