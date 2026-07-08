@@ -49,6 +49,21 @@
   .login-gate input[type=password]{width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
     border-radius:10px; padding:13px 14px; font-size:17px; font-family:inherit; text-align:center; letter-spacing:.08em}
   .login-gate .err{color:var(--err); font-size:13px; font-weight:600; margin-top:8px; min-height:16px}
+  .settings-btn{background:var(--surface2); border:1px solid var(--line); border-radius:999px; width:34px; height:34px;
+    font-size:16px; line-height:1; cursor:pointer; flex-shrink:0}
+  .settings-overlay{display:none; position:fixed; inset:0; z-index:500; background:rgba(5,12,20,.55)}
+  .settings-overlay.open{display:block}
+  .settings-panel{position:absolute; top:0; right:0; height:100%; width:min(340px,88vw); overflow-y:auto;
+    background:linear-gradient(165deg, var(--surface), var(--surface2) 140%); border-left:1px solid var(--line);
+    padding:16px; padding-top:calc(16px + env(safe-area-inset-top)); box-shadow:-14px 0 30px -10px rgba(0,0,0,.5)}
+  .settings-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px}
+  .settings-head h2{margin:0; font-size:16px}
+  .settings-close{background:var(--surface2); border:1px solid var(--line); color:var(--ink); border-radius:8px;
+    width:30px; height:30px; cursor:pointer; font-size:14px; flex-shrink:0}
+  .settings-section{border-top:1px solid var(--line); padding-top:14px; margin-top:14px}
+  .settings-section:first-of-type{border-top:none; margin-top:4px; padding-top:4px}
+  .settings-section h3{margin:0 0 4px; font-size:13.5px; display:flex; align-items:center; gap:6px}
+  .settings-info-row{display:flex; justify-content:space-between; gap:8px; padding:4px 0}
   .card{background:linear-gradient(165deg, var(--surface), var(--surface2) 140%); border:1px solid var(--line); border-radius:16px;
     padding:16px; margin-bottom:14px; box-shadow:0 8px 24px -12px rgba(0,0,0,.45)}
   .card h2{margin:0 0 12px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
@@ -187,11 +202,54 @@
       </span>
       <span class="brand-name">Key<span class="flow">Flow</span></span>
     </div>
-    <span class="brand-role">Gestionale host</span>
+    <div style="display:flex; align-items:center; gap:8px">
+      <span class="brand-role">Gestionale host</span>
+      <button class="settings-btn" id="settingsBtn" onclick="toggleSettings()" aria-label="Impostazioni">⚙️</button>
+    </div>
   </div>
   <h1>Registrazione ospiti</h1>
   <div class="sub" id="hsub"><span class="dot"></span><span id="hsubText">Alloggiati Web · Ross1000 · tabelle ufficiali caricate</span></div>
 </header>
+
+<div class="settings-overlay" id="settingsOverlay" onclick="closeSettings(event)">
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-head">
+      <h2>⚙️ Impostazioni</h2>
+      <button class="settings-close" onclick="closeSettings()" aria-label="Chiudi">✕</button>
+    </div>
+
+    <div class="settings-section" style="display:none">
+      <h3>🏠 Struttura predefinita</h3>
+      <div class="muted" style="font-size:12px;margin-bottom:6px">Quella già selezionata quando apri una nuova registrazione.</div>
+      <select id="settingsStrutturaSel"></select>
+    </div>
+
+    <div class="settings-section" id="settingsSecuritySection" style="display:none">
+      <h3>🔒 Codice d'accesso</h3>
+      <div class="muted" style="font-size:12px;margin-bottom:6px">Cambia il codice per entrare nel gestionale, senza passare da Vercel.</div>
+      <form id="changeCodeForm">
+        <label>Codice attuale</label>
+        <input type="password" id="codeAttuale" autocomplete="off" required>
+        <label>Nuovo codice (almeno 6 caratteri)</label>
+        <input type="password" id="codeNuovo" autocomplete="off" required minlength="6">
+        <label>Ripeti nuovo codice</label>
+        <input type="password" id="codeNuovoRip" autocomplete="off" required minlength="6">
+        <button type="submit" class="btn ghost sm" style="width:100%;margin-top:12px">Cambia codice</button>
+        <div id="changeCodeMsg" style="margin-top:8px;font-size:12.5px"></div>
+      </form>
+      <button class="btn ghost sm" style="width:100%;margin-top:14px" onclick="uscitaGestionale()">🚪 Esci dal gestionale</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>ℹ️ Stato configurazione</h3>
+      <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
+    </div>
+
+    <div class="settings-section">
+      <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
+    </div>
+  </div>
+</div>
 
 <div class="wrap">
 
@@ -210,20 +268,6 @@
         <button class="btn ghost sm" style="flex:1" onclick="mostraTab('registra')">📝 Nuova registrazione</button>
         <button class="btn ghost sm" style="flex:1" onclick="mostraTab('ospiti')">🔗 Link ospiti</button>
       </div>
-    </div>
-    <div class="card" id="adminCodeCard" style="display:none">
-      <h2><span class="n">🔒</span> Codice d'accesso gestionale</h2>
-      <div class="muted" style="font-size:12px;margin-top:2px">Cambia qui il codice per entrare nel gestionale, senza passare da Vercel.</div>
-      <form id="changeCodeForm" style="margin-top:6px">
-        <label>Codice attuale</label>
-        <input type="password" id="codeAttuale" autocomplete="off" required>
-        <label>Nuovo codice (almeno 6 caratteri)</label>
-        <input type="password" id="codeNuovo" autocomplete="off" required minlength="6">
-        <label>Ripeti nuovo codice</label>
-        <input type="password" id="codeNuovoRip" autocomplete="off" required minlength="6">
-        <button type="submit" class="btn ghost sm" style="margin-top:12px">Cambia codice</button>
-        <div id="changeCodeMsg" style="margin-top:8px;font-size:12.5px"></div>
-      </form>
     </div>
   </div><!-- /page-oggi -->
 
@@ -11771,8 +11815,10 @@ function aggiungiStorico(entry){
 async function syncStoricoFromServer(){
   try{
     const r=await fetch('/api/storico',{headers:adminHeaders()}); const data=await r.json();
+    window.STORICO_ONLINE=!!data.configurato;
     if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); }
   }catch(e){/* offline o archivio online non configurato: resta lo storico locale */}
+  renderSettingsInfo();
 }
 function rimuoviStorico(ts){
   if(!confirm('Eliminare questa voce dallo storico? Non tocca l\'invio o il file gia\' avvenuto: cancella solo il registro.'))return;
@@ -12198,6 +12244,8 @@ async function loadCheckinLink(){
   const w=$('#checkinLinkBox'); if(!w)return;
   try{
     const codeData=await (await fetch('/api/checkin-code',{headers:adminHeaders()})).json();
+    window.CHECKIN_ONLINE=!!codeData.configurato;
+    renderSettingsInfo();
     if(!codeData.configurato){
       w.innerHTML='<div class="hint">Self check-in non ancora attivo: manca la variabile <code>CHECKIN_CODE</code> su Vercel.</div>';
       return;
@@ -12441,15 +12489,24 @@ async function loadStrutture(){
     const list=(data.strutture||[]);
     struttureList=list;
     if(list.length>1){
-      const sel=$('#strutturaSel');
       const preferita=localStorage.getItem('strutturaPreferita')||'canazei';
-      sel.innerHTML=list.map(s=>`<option value="${s.id}" ${s.id===preferita?'selected':''}>${s.nome}</option>`).join('');
-      sel.onchange=()=>{localStorage.setItem('strutturaPreferita',sel.value); aggiornaRossUI();};
+      const opts=list.map(s=>`<option value="${s.id}" ${s.id===preferita?'selected':''}>${s.nome}</option>`).join('');
+      const sel=$('#strutturaSel');
+      sel.innerHTML=opts;
+      sel.onchange=()=>setStrutturaPreferita(sel.value);
       $('#strutturaWrap').style.display='';
+      const sel2=$('#settingsStrutturaSel');
+      if(sel2){ sel2.innerHTML=opts; sel2.onchange=()=>setStrutturaPreferita(sel2.value); sel2.closest('.settings-section').style.display=''; }
     }
     aggiornaRossUI();
     aggiornaOggi();
   }catch(e){/* offline: i pulsanti mostreranno l'errore al click */}
+}
+function setStrutturaPreferita(id){
+  localStorage.setItem('strutturaPreferita',id);
+  const sel=$('#strutturaSel'); if(sel)sel.value=id;
+  const sel2=$('#settingsStrutturaSel'); if(sel2)sel2.value=id;
+  aggiornaRossUI();
 }
 
 /* ===== Ross1000 (flussi ISTAT, es. Bologna/Emilia-Romagna) ===== */
@@ -12570,10 +12627,34 @@ function esportaStoricoCsv(){
 }
 
 
+/* ===== pannello impostazioni ===== */
+function toggleSettings(){
+  $('#settingsOverlay').classList.add('open');
+  renderSettingsInfo();
+}
+function closeSettings(e){
+  if(e&&e.target!==e.currentTarget)return; // click sull'overlay, non sul pannello
+  $('#settingsOverlay').classList.remove('open');
+}
+function uscitaGestionale(){
+  if(!confirm('Uscire dal gestionale? Dovrai reinserire il codice d\'accesso.'))return;
+  sessionStorage.removeItem('adminCode');
+  location.reload();
+}
+function renderSettingsInfo(){
+  const w=$('#settingsInfo'); if(!w)return;
+  const riga=(ok,label)=>`<div class="settings-info-row"><span>${label}</span><span class="pill ${ok?'ok':'wait'}">${ok?'attivo':'non attivo'}</span></div>`;
+  w.innerHTML=
+    riga(true,'Alloggiati Web')+
+    riga(struttureList.some(s=>s.ross),'Ross1000')+
+    riga(!!window.STORICO_ONLINE,'Storico condiviso')+
+    riga(!!window.CHECKIN_ONLINE,'Self check-in ospiti')+
+    riga(!!window.ADMIN_CONFIGURATO,'Login gestionale');
+}
 /* ===== cambio codice d'accesso gestionale, dall'app ===== */
 function wireChangeCodeForm(){
-  const card=$('#adminCodeCard'); if(!card)return;
-  card.style.display=window.ADMIN_CONFIGURATO?'':'none';
+  const sec=$('#settingsSecuritySection'); if(!sec)return;
+  sec.style.display=window.ADMIN_CONFIGURATO?'':'none';
   const form=$('#changeCodeForm'); if(!form)return;
   form.onsubmit=async e=>{
     e.preventDefault();
