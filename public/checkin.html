@@ -90,9 +90,12 @@
     background:var(--surface2); border:1px solid var(--line); color:var(--ink); border-radius:13px; padding:15px 16px;
     font-size:16px; font-weight:700; cursor:pointer; font-family:inherit; transition:border-color .12s, transform .12s}
   .lang-btn:active{border-color:var(--amber); transform:scale(.98)}
-  .lang-btn .flag{font-size:22px}
-  .lang-switch-btn{background:var(--surface2); border:1px solid var(--line); border-radius:999px; padding:5px 11px;
-    font-size:18px; cursor:pointer; line-height:1; flex-shrink:0}
+  .lang-btn .flag{display:inline-flex; flex-shrink:0}
+  .flag .flagsvg{width:30px; height:20px}
+  .flagsvg{display:block; border-radius:3px; box-shadow:0 0 0 1px rgba(255,255,255,.18); vertical-align:middle}
+  .lang-switch-btn{background:var(--surface2); border:1px solid var(--line); border-radius:999px; padding:6px 11px;
+    font-size:18px; cursor:pointer; line-height:1; flex-shrink:0; display:inline-flex; align-items:center}
+  .lang-switch-btn .flagsvg{width:24px; height:16px}
   .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:16px; padding:24px 14px; text-align:center;
     cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface)}
   .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
@@ -158,10 +161,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.5 3.7 5.5 3.7 8.6s-1.3 6.1-3.7 8.6c-2.4-2.5-3.7-5.5-3.7-8.6S9.6 5.9 12 3.4z"/></svg>
   </div>
   <div class="muted" style="margin-bottom:6px">Select your language · Scegli la lingua<br>Choisissez la langue · Elige el idioma</div>
-  <button class="lang-btn" onclick="sceglilingua('it')"><span class="flag">🇮🇹</span> Italiano</button>
-  <button class="lang-btn" onclick="sceglilingua('en')"><span class="flag">🇬🇧</span> English</button>
-  <button class="lang-btn" onclick="sceglilingua('fr')"><span class="flag">🇫🇷</span> Français</button>
-  <button class="lang-btn" onclick="sceglilingua('es')"><span class="flag">🇪🇸</span> Español</button>
+  <button class="lang-btn" onclick="sceglilingua('it')"><span class="flag" data-flag="it"></span> Italiano</button>
+  <button class="lang-btn" onclick="sceglilingua('en')"><span class="flag" data-flag="en"></span> English</button>
+  <button class="lang-btn" onclick="sceglilingua('fr')"><span class="flag" data-flag="fr"></span> Français</button>
+  <button class="lang-btn" onclick="sceglilingua('es')"><span class="flag" data-flag="es"></span> Español</button>
 </div>
 
 <div class="wrap ok-screen" id="welcomeWrap" style="display:none">
@@ -447,7 +450,14 @@ const T={
 };
 let lang=localStorage.getItem('keyflow_lang')||null;
 function t(key){ return (T[lang]||T.it)[key]; }
-const FLAGS={it:'🇮🇹',en:'🇬🇧',fr:'🇫🇷',es:'🇪🇸'};
+// bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
+// mostrerebbe le emoji-bandiera come sigle di due lettere (IT, GB, FR, ES).
+const FLAGS={
+  it:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#009246"/><rect x="2" width="1" height="2" fill="#ce2b37"/></svg>`,
+  en:`<svg class="flagsvg" viewBox="0 0 60 30" preserveAspectRatio="none"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30" stroke="#C8102E" stroke-width="2"/><path d="M60,0 L0,30" stroke="#C8102E" stroke-width="2"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></svg>`,
+  fr:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0055A4"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg>`,
+  es:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#AA151B"/><rect y="0.5" width="3" height="1" fill="#F1BF00"/></svg>`,
+};
 
 /* ===== schermate: solo una visibile alla volta (lang / form / ok / block) ===== */
 let onboardingFatto=false;
@@ -460,9 +470,14 @@ function mostraSolo(id){
 function iniziaCheckin(){ verificaAccesso(); }
 function aggiornaPulsanteLingua(){
   const b=$('#langSwitchBtn'); if(!b)return;
-  b.textContent=FLAGS[lang]||'🌐';
+  b.innerHTML=FLAGS[lang]||'🌐';
   b.style.display=onboardingFatto?'inline-flex':'none';
 }
+// riempie le bandierine SVG nei bottoni della schermata lingua
+function popolaBandiere(){
+  document.querySelectorAll('.flag[data-flag]').forEach(el=>{ el.innerHTML=FLAGS[el.dataset.flag]||''; });
+}
+popolaBandiere();
 function apriSelettoreLingua(){
   vistaPrimaDiLingua=vistaAttuale;
   ['welcomeWrap','formWrap','okWrap','blockWrap'].forEach(x=>{ const el=$('#'+x); if(el)el.style.display='none'; });

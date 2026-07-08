@@ -115,25 +115,30 @@ module.exports = async (req, res) => {
           });
           contrattoPdfBase64 = pdfBuffer.toString("base64");
           const nomeFilePdf = `contratto_${(dati.conduttoreNome || "ospite").replace(/\s+/g, "_")}.pdf`;
-          const esito = await inviaEmailConAllegato({
-            to: cfgContratto.email,
-            subject: `Contratto firmato · ${strutturaInfo ? strutturaInfo.nome : struttura} · ${dati.conduttoreNome}`,
-            testo: `In allegato il contratto di locazione turistica firmato da ${dati.conduttoreNome}, soggiorno dal ${arrivo} al ${partenza}.\n\nInviato automaticamente da KeyFlow: non è stato salvato altrove.`,
-            allegatoNome: nomeFilePdf,
-            allegatoBuffer: pdfBuffer,
-          });
-          contrattoInviato = esito.ok;
-          if (!esito.ok) contrattoErrore = esito.error || "invio email non riuscito";
-          // copia facoltativa all'ospite, se ha lasciato la sua email (best-effort, non blocca nulla)
-          if (emailOspite) {
+          const nomeStruttura = strutturaInfo ? strutturaInfo.nome : struttura;
+          // Host (obbligatoria) + eventuale copia all'ospite, IN PARALLELO ma ENTRAMBE attese:
+          // su Vercel un invio non atteso verrebbe interrotto quando la funzione risponde
+          // (era il motivo per cui all'ospite non arrivava nulla).
+          const [esitoHost] = await Promise.all([
             inviaEmailConAllegato({
-              to: emailOspite,
-              subject: `La tua copia del contratto · ${strutturaInfo ? strutturaInfo.nome : struttura}`,
-              testo: `In allegato la tua copia del contratto di locazione turistica firmato per il soggiorno dal ${arrivo} al ${partenza}.`,
+              to: cfgContratto.email,
+              subject: `Contratto firmato · ${nomeStruttura} · ${dati.conduttoreNome}`,
+              testo: `In allegato il contratto di locazione turistica firmato da ${dati.conduttoreNome}, soggiorno dal ${arrivo} al ${partenza}.\n\nInviato automaticamente da KeyFlow: non è stato salvato altrove.`,
               allegatoNome: nomeFilePdf,
               allegatoBuffer: pdfBuffer,
-            }).catch(() => {});
-          }
+            }),
+            emailOspite
+              ? inviaEmailConAllegato({
+                  to: emailOspite,
+                  subject: `La tua copia del contratto · ${nomeStruttura}`,
+                  testo: `In allegato la tua copia del contratto di locazione turistica firmato per il soggiorno dal ${arrivo} al ${partenza}.`,
+                  allegatoNome: nomeFilePdf,
+                  allegatoBuffer: pdfBuffer,
+                })
+              : Promise.resolve(null),
+          ]);
+          contrattoInviato = esitoHost.ok;
+          if (!esitoHost.ok) contrattoErrore = esitoHost.error || "invio email non riuscito";
         } catch (e) {
           // un contratto non generato/inviato non deve bloccare il check-in: l'host lo vede dal badge
           contrattoErrore = String(e.message || e);
