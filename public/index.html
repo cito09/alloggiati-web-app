@@ -334,7 +334,7 @@ window.ADMIN_CODE='';
 function adminHeaders(extra){return Object.assign({}, extra||{}, window.ADMIN_CODE?{'x-admin-code':window.ADMIN_CODE}:{});}
 async function verificaAdminCode(codice){
   try{
-    const r=await fetch('/api/admin-verify?c='+encodeURIComponent(codice));
+    const r=await fetch('/api/admin-code?c='+encodeURIComponent(codice));
     return await r.json();
   }catch(e){ return {ok:false, configurato:true}; } // offline: per prudenza resta bloccato
 }
@@ -12585,7 +12585,7 @@ function wireChangeCodeForm(){
     if(nuovo.length<6){ msg.textContent='Il nuovo codice deve avere almeno 6 caratteri.'; msg.style.color='var(--err)'; return; }
     msg.textContent='Aggiorno…'; msg.style.color='var(--muted)';
     try{
-      const r=await fetch('/api/admin-change-code',{method:'POST',headers:{'Content-Type':'application/json'},
+      const r=await fetch('/api/admin-code',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({codiceAttuale:attuale,codiceNuovo:nuovo})});
       const d=await r.json();
       if(!r.ok) throw new Error(d.error||'Errore');
