@@ -54,7 +54,7 @@
   .card h2{margin:0 0 12px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
   .card h2 .n{font-family:var(--mono); color:var(--amber); font-size:13px}
   label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
-  input[type=text], input[type=date], input[type=number], select{
+  input[type=text], input[type=date], input[type=number], input[type=password], select{
     width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
     border-radius:10px; padding:11px 12px; font-size:16px; font-family:inherit;}
   input:focus, select:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber)}
@@ -211,6 +211,20 @@
         <button class="btn ghost sm" style="flex:1" onclick="mostraTab('ospiti')">🔗 Link ospiti</button>
       </div>
     </div>
+    <div class="card" id="adminCodeCard" style="display:none">
+      <h2><span class="n">🔒</span> Codice d'accesso gestionale</h2>
+      <div class="muted" style="font-size:12px;margin-top:2px">Cambia qui il codice per entrare nel gestionale, senza passare da Vercel.</div>
+      <form id="changeCodeForm" style="margin-top:6px">
+        <label>Codice attuale</label>
+        <input type="password" id="codeAttuale" autocomplete="off" required>
+        <label>Nuovo codice (almeno 6 caratteri)</label>
+        <input type="password" id="codeNuovo" autocomplete="off" required minlength="6">
+        <label>Ripeti nuovo codice</label>
+        <input type="password" id="codeNuovoRip" autocomplete="off" required minlength="6">
+        <button type="submit" class="btn ghost sm" style="margin-top:12px">Cambia codice</button>
+        <div id="changeCodeMsg" style="margin-top:8px;font-size:12.5px"></div>
+      </form>
+    </div>
   </div><!-- /page-oggi -->
 
   <div class="page" id="page-registra">
@@ -324,15 +338,18 @@ async function verificaAdminCode(codice){
     return await r.json();
   }catch(e){ return {ok:false, configurato:true}; } // offline: per prudenza resta bloccato
 }
+window.ADMIN_CONFIGURATO=false;
 async function adminGate(){
   const salvato=sessionStorage.getItem('adminCode')||'';
   if(salvato){
     const d=await verificaAdminCode(salvato);
+    window.ADMIN_CONFIGURATO=!!d.configurato;
     if(d.ok){ window.ADMIN_CODE=salvato; return; }
     if(!d.configurato) return; // protezione non attiva lato server
     sessionStorage.removeItem('adminCode');
   }else{
     const d=await verificaAdminCode('');
+    window.ADMIN_CONFIGURATO=!!d.configurato;
     if(!d.configurato) return; // ADMIN_CODE non configurata: nessuna protezione attiva
   }
   return new Promise(resolve=>{
@@ -12553,6 +12570,34 @@ function esportaStoricoCsv(){
 }
 
 
+/* ===== cambio codice d'accesso gestionale, dall'app ===== */
+function wireChangeCodeForm(){
+  const card=$('#adminCodeCard'); if(!card)return;
+  card.style.display=window.ADMIN_CONFIGURATO?'':'none';
+  const form=$('#changeCodeForm'); if(!form)return;
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const attuale=$('#codeAttuale').value.trim();
+    const nuovo=$('#codeNuovo').value.trim();
+    const rip=$('#codeNuovoRip').value.trim();
+    const msg=$('#changeCodeMsg');
+    if(nuovo!==rip){ msg.textContent='I due codici nuovi non coincidono.'; msg.style.color='var(--err)'; return; }
+    if(nuovo.length<6){ msg.textContent='Il nuovo codice deve avere almeno 6 caratteri.'; msg.style.color='var(--err)'; return; }
+    msg.textContent='Aggiorno…'; msg.style.color='var(--muted)';
+    try{
+      const r=await fetch('/api/admin-change-code',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({codiceAttuale:attuale,codiceNuovo:nuovo})});
+      const d=await r.json();
+      if(!r.ok) throw new Error(d.error||'Errore');
+      sessionStorage.setItem('adminCode',nuovo);
+      window.ADMIN_CODE=nuovo;
+      msg.textContent='✓ Codice aggiornato.'; msg.style.color='var(--ok)';
+      form.reset();
+      toast('Codice d\'accesso aggiornato');
+    }catch(err){ msg.textContent=err.message; msg.style.color='var(--err)'; }
+  };
+}
+
 /* init */
 (async()=>{
   await adminGate();
@@ -12561,6 +12606,7 @@ function esportaStoricoCsv(){
   mostraTab(localStorage.getItem('tabAttiva')||'oggi');
   loadStrutture();
   wireDropzone();
+  wireChangeCodeForm();
   renderStorico();
   syncStoricoFromServer();
   loadCheckinLink();

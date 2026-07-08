@@ -3,7 +3,7 @@
 const { checkAdmin } = require("./_admin");
 
 module.exports = async (req, res) => {
-  if (!checkAdmin(req)) return res.status(401).json({ error: "Accesso non autorizzato" });
+  if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   const codice = process.env.CHECKIN_CODE || null;
   return res.status(200).json({ configurato: !!codice, codice });
 };

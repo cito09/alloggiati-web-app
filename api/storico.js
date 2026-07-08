@@ -12,7 +12,7 @@ const KEY = "storico_schedine";
 const MAX_VOCI = 500;
 
 module.exports = async (req, res) => {
-  if (!checkAdmin(req)) return res.status(401).json({ error: "Accesso non autorizzato" });
+  if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   const conn = upstash();
   if (!conn) return res.status(200).json({ configurato: false, storico: [] });
 

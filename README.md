@@ -81,6 +81,8 @@ Senza configurazione, chiunque conosca l'indirizzo dell'app admin (`/index.html`
 
 > Senza `ADMIN_CODE` configurata, l'app admin resta aperta a chiunque abbia il link, come sempre finora: è una protezione facoltativa che si attiva solo impostando la variabile.
 
+**Cambiare il codice più avanti**: se hai già collegato l'archivio online (Upstash, vedi sotto), una volta dentro il gestionale trovi nella scheda **Oggi** la card "🔒 Codice d'accesso gestionale": lì puoi cambiare il codice inserendo quello attuale e il nuovo, senza dover tornare su Vercel. Se l'archivio online non è collegato, l'unico modo per cambiarlo resta modificare `ADMIN_CODE` su Vercel.
+
 ### Self check-in ospiti (link fisso + notifica)
 
 Un link sempre uguale (`/checkin.html`) che puoi incollare in un messaggio automatico Airbnb/Booking: l'ospite carica il documento o compila a mano, e la sua richiesta finisce in una coda "Ospiti in attesa" nell'app admin. **Nessun invio automatico alla Questura**: tu la rivedi e la aggiungi alla prenotazione con un tap, poi Verifica/Invia come sempre.

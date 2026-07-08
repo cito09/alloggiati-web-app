@@ -7,7 +7,7 @@ const { checkAdmin } = require("./_admin");
 const KEY = "checkin_pending";
 
 module.exports = async (req, res) => {
-  if (!checkAdmin(req)) return res.status(401).json({ error: "Accesso non autorizzato" });
+  if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   const conn = upstash();
   if (!conn) return res.status(200).json({ configurato: false, coda: [] });
 

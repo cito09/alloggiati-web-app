@@ -5,7 +5,7 @@ const { checkAdmin } = require("./_admin");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  if (!checkAdmin(req)) return res.status(401).json({ error: "Accesso non autorizzato" });
+  if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   try {
     const { data, struttura } = req.body || {};
     const s = getStruttura(struttura);
