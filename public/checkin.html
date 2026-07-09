@@ -184,6 +184,15 @@
   <div class="sub" id="subHeader"></div>
 </header>
 
+<div class="wrap lang-screen" id="inAppScreen" style="display:none">
+  <div class="icon-badge">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.5v5l3 2"/></svg>
+  </div>
+  <div style="font-weight:800; font-size:19px; margin-bottom:8px">Apri nel browser · Open in browser<br>Ouvrir dans le navigateur · Abrir en el navegador</div>
+  <div class="muted" style="margin-bottom:20px">Per completare il check-in senza problemi, apri questa pagina nel browser del telefono (Chrome/Safari), non in quello di questa app.<br><br>To complete check-in smoothly, open this page in your phone's browser (Chrome/Safari), not this app's built-in one.</div>
+  <button class="btn primary" style="max-width:320px; margin:0 auto" onclick="apriInBrowserEsterno()">🌐 Apri nel browser / Open in browser</button>
+</div>
+
 <div class="wrap lang-screen" id="langWrap">
   <div class="icon-badge">
     <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.5 3.7 5.5 3.7 8.6s-1.3 6.1-3.7 8.6c-2.4-2.5-3.7-5.5-3.7-8.6S9.6 5.9 12 3.4z"/></svg>
@@ -263,18 +272,52 @@ const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
 
-/* ===== esce SUBITO dal browser integrato di un'altra app (es. Airbnb) su Android,
-   senza bisogno che l'ospite tocchi nulla: un link "intent://" viene delegato dal
-   sistema al browser vero (Chrome). Se per qualche motivo non dovesse bastare (raro),
-   resta comunque il pulsante manuale nella schermata di benvenuto come rete di sicurezza. */
-function inAppBrowserAndroid(){ return /Android/.test(navigator.userAgent) && /;\s*wv\)/.test(navigator.userAgent); }
+/* ===== rileva il browser integrato di un'altra app (Airbnb, Booking, Instagram, Facebook...)
+   ed esce verso il browser vero. Doppio tentativo: (1) reindirizzo automatico via link
+   "intent://" (funziona su alcuni browser-in-app, non su tutti — Airbnb pare non bastare),
+   (2) schermata dedicata con UN SOLO pulsante grande, mostrata subito, come rete di
+   sicurezza sempre visibile se il punto (1) non porta via l'ospite. */
+function inAppBrowserAndroid(){
+  const ua=navigator.userAgent||'';
+  if(!/Android/.test(ua)) return false;
+  return /;\s*wv\)/.test(ua)              // WebView "grezza" (marcatore standard di Chrome)
+    || /FBAN|FBAV/.test(ua)               // Facebook
+    || /Instagram/.test(ua)               // Instagram
+    || /Line\//.test(ua)                  // LINE
+    || /MicroMessenger/.test(ua)          // WeChat
+    || /TikTok|BytedanceWebview|musical_ly/.test(ua) // TikTok
+    || /LinkedInApp/.test(ua)             // LinkedIn
+    || /Twitter/.test(ua)                 // Twitter/X
+    || /Pinterest/.test(ua)               // Pinterest
+    || /Snapchat/.test(ua)                // Snapchat
+    || /Airbnb/i.test(ua)                 // Airbnb (se presente)
+    || /Booking/i.test(ua);               // Booking.com (se presente)
+}
 function apriInBrowserEsterno(){
   const url=location.href;
   const schema=location.protocol.replace(':','');
   const senzaSchema=url.replace(/^https?:\/\//,'');
   location.href=`intent://${senzaSchema}#Intent;scheme=${schema};end;`;
 }
-if(inAppBrowserAndroid()) apriInBrowserEsterno();
+if(inAppBrowserAndroid()){
+  apriInBrowserEsterno(); // tentativo automatico: se funziona, l'ospite non fa in tempo a vedere altro
+  document.addEventListener('DOMContentLoaded',()=>{
+    ['langWrap','welcomeWrap','formWrap','okWrap','blockWrap'].forEach(id=>{
+      const el=document.getElementById(id); if(el)el.style.display='none';
+    });
+    const el=document.getElementById('inAppScreen'); if(el)el.style.display='block';
+  });
+}
+
+// pagina diagnostica temporanea: apri lo stesso link con "&ua=1" in fondo per vedere
+// a schermo l'identificativo esatto del browser (serve per mettere a punto il
+// riconoscimento del browser di Airbnb/Booking). Nessun effetto per gli ospiti normali.
+if(new URLSearchParams(location.search).get('ua')==='1'){
+  document.body.innerHTML=`<div style="padding:24px;font-family:monospace;font-size:14px;color:#fff;background:#0d1b2a;min-height:100vh;word-break:break-all;line-height:1.6">
+    <b>User-Agent:</b><br>${navigator.userAgent}<br><br>
+    <b>inAppBrowserAndroid():</b> ${inAppBrowserAndroid()}
+  </div>`;
+}
 
 /* ===== traduzioni ===== */
 const DOC_TYPES=[
