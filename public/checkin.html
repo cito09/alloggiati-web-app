@@ -215,7 +215,6 @@
     <div class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg> <span id="trustFast"></span></div>
     <div class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="m15 10.5 2 2 3.5-4"/></svg> <span id="trustReviewed"></span></div>
   </div>
-  <div id="inAppBanner" style="display:none; max-width:440px; margin:0 auto 18px"></div>
   <button class="btn primary" id="welcomeBtn" style="max-width:320px; margin:0 auto" onclick="iniziaCheckin()"></button>
 </div>
 
@@ -299,8 +298,13 @@ function apriInBrowserEsterno(){
   const senzaSchema=url.replace(/^https?:\/\//,'');
   location.href=`intent://${senzaSchema}#Intent;scheme=${schema};end;`;
 }
+// NIENTE tentativo automatico "silenzioso" all'apertura: chiamare subito location.href
+// con uno schema non standard (intent://) durante il caricamento della pagina interferiva
+// con l'esecuzione del resto dello script (verificato: la pagina restava bloccata a metà,
+// mostrando l'interfaccia normale invece della schermata dedicata). Il pulsante manuale
+// (un vero tocco dell'utente) invece funziona, perché la pagina a quel punto è già
+// completamente caricata.
 if(inAppBrowserAndroid()){
-  apriInBrowserEsterno(); // tentativo automatico: se funziona, l'ospite non fa in tempo a vedere altro
   document.addEventListener('DOMContentLoaded',()=>{
     ['langWrap','welcomeWrap','formWrap','okWrap','blockWrap'].forEach(id=>{
       const el=document.getElementById(id); if(el)el.style.display='none';
@@ -638,14 +642,6 @@ function applicaTraduzioniStatiche(){
   $('#okText').textContent=t('ok_text');
   $('#blockTitle').textContent=t('block_title');
   $('#blockText').textContent=t('block_text');
-  const ib=$('#inAppBanner');
-  if(ib){
-    if(inAppBrowserAndroid()){
-      ib.style.display='block';
-      ib.innerHTML=`<div class="hint" style="text-align:left">${t('inapp_banner_text')}</div>
-        <button class="btn ghost" style="margin-top:10px" onclick="apriInBrowserEsterno()">${t('inapp_banner_btn')}</button>`;
-    } else ib.style.display='none';
-  }
   aggiornaNotti();
   render();
 }
