@@ -10,8 +10,22 @@ function downscale(dataURL,max=1600,q=0.82){return new Promise(res=>{const img=n
     res(c.toDataURL('image/jpeg',q));};
   img.onerror=()=>res(dataURL); img.src=dataURL;});}
 
+// stima dei byte di un data-URL base64 (per non superare il limite ~4.5MB di Vercel)
+function dataUrlBytes(d){ const i=String(d).indexOf(','); return Math.ceil((String(d).length-(i+1))*0.75); }
+
 async function apiExtract(images,kind,text){
-  const small=await Promise.all(images.map(d=>downscale(d)));
+  const n=images.length;
+  // con poche foto teniamo alta la qualità; con molte foto rimpiccioliamo per stare
+  // sotto il limite di dimensione della richiesta di Vercel (~4.5MB), altrimenti
+  // la connessione cade e il browser mostra "Failed to fetch".
+  let max=n<=2?1600:1400, q=n<=2?0.82:0.72;
+  let small=await Promise.all(images.map(d=>downscale(d,max,q)));
+  const LIMITE=3.8*1024*1024; // margine di sicurezza sotto i 4.5MB
+  // se è ancora troppo, riduciamo progressivamente finché ci sta (le foto restano leggibili)
+  for(let tent=0; tent<3 && small.reduce((s,d)=>s+dataUrlBytes(d),0)>LIMITE; tent++){
+    max=Math.round(max*0.8); q=Math.max(0.55,q-0.08);
+    small=await Promise.all(images.map(d=>downscale(d,max,q)));
+  }
   const resp=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({images:small,kind,text:text||''})});
   const data=await resp.json();
