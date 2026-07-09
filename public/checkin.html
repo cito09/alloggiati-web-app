@@ -153,7 +153,8 @@
   .datefield input[type=text]{flex:1; min-width:0}
   .datepick2{position:relative; display:inline-flex; align-items:center; justify-content:center;
     background:var(--surface2); border:1px solid var(--line); border-radius:10px; padding:0 13px; flex-shrink:0}
-  .datepick2 .db{font-size:18px; pointer-events:none; opacity:.9}
+  .datepick2 .db{pointer-events:none; opacity:.9; display:flex}
+  .datepick2 .db svg{width:19px; height:19px}
   .datepick2-input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:0; padding:0}
   .cam-overlay{display:none; position:fixed; inset:0; z-index:700; background:rgba(3,8,14,.9); align-items:center; justify-content:center; padding:16px}
   .cam-overlay.show{display:flex}
@@ -301,6 +302,7 @@ const T={
     cam_shot:'Scatta', cam_cancel:'Annulla', cam_error:'Fotocamera non disponibile: usa "Carica file"', cam_guide_hint:'Inquadra il documento nel riquadro, dritto e leggibile',
     step1_label_first:'1 · Documenti degli ospiti (obbligatori)',
     first_multi_hint:'Carica i documenti di tutti gli ospiti insieme (li separo io) o solo il tuo. Foto in alta qualità o PDF.',
+    inapp_hint:'📱 Stai usando il browser interno di un\'altra app. Se "Scatta foto" non apre subito la fotocamera, tocca ⋮ o ··· in alto e scegli "Apri nel browser" per un\'esperienza più fluida.',
     btn_camera:'Scatta una foto ora',
     toast_pdf_big:'PDF troppo grande (massimo 4 MB)',
     btn_extract_all:'✨ Riconosci i documenti',
@@ -360,6 +362,7 @@ const T={
     cam_shot:'Capture', cam_cancel:'Cancel', cam_error:'Camera not available: use "Upload file"', cam_guide_hint:'Frame the document inside the box, straight and readable',
     step1_label_first:"1 · Guests' ID documents (required)",
     first_multi_hint:"Upload all guests' documents together (I'll separate them) or just yours. High-quality photos or PDF.",
+    inapp_hint:'📱 You\'re using another app\'s built-in browser. If "Take photo" doesn\'t open the camera directly, tap ⋮ or ··· at the top and choose "Open in browser" for a smoother experience.',
     btn_camera:'Take a photo now',
     toast_pdf_big:'PDF too large (4 MB max)',
     btn_extract_all:'✨ Read the documents',
@@ -419,6 +422,7 @@ const T={
     cam_shot:'Photographier', cam_cancel:'Annuler', cam_error:'Caméra non disponible : utilisez « Charger fichier »', cam_guide_hint:'Cadrez le document dans le cadre, bien droit et lisible',
     step1_label_first:'1 · Documents des voyageurs (obligatoires)',
     first_multi_hint:'Chargez les documents de tous les voyageurs ensemble (je les sépare) ou seulement le vôtre. Photos de haute qualité ou PDF.',
+    inapp_hint:'📱 Vous utilisez le navigateur intégré d\'une autre application. Si « Prendre photo » n\'ouvre pas directement l\'appareil photo, appuyez sur ⋮ ou ··· en haut et choisissez « Ouvrir dans le navigateur ».',
     btn_camera:'Prendre une photo maintenant',
     toast_pdf_big:'PDF trop volumineux (4 Mo max)',
     btn_extract_all:'✨ Lire les documents',
@@ -478,6 +482,7 @@ const T={
     cam_shot:'Capturar', cam_cancel:'Cancelar', cam_error:'Cámara no disponible: usa "Subir archivo"', cam_guide_hint:'Encuadra el documento dentro del recuadro, recto y legible',
     step1_label_first:'1 · Documentos de los huéspedes (obligatorios)',
     first_multi_hint:'Sube los documentos de todos los huéspedes juntos (yo los separo) o solo el tuyo. Fotos de alta calidad o PDF.',
+    inapp_hint:'📱 Estás usando el navegador integrado de otra app. Si "Hacer foto" no abre directamente la cámara, toca ⋮ o ··· arriba y elige "Abrir en el navegador".',
     btn_camera:'Hacer una foto ahora',
     toast_pdf_big:'PDF demasiado grande (máx. 4 MB)',
     btn_extract_all:'✨ Leer los documentos',
@@ -607,7 +612,7 @@ function setDate(kind,iso){
 function campoData(idTxt, isoVal, txtVal, onIso, onTxt){
   return `<div class="datefield">
     <input id="${idTxt}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${txtVal||''}" ${onTxt?`oninput="${onTxt}"`:''}>
-    <span class="datepick2"><span class="db">📅</span><input class="datepick2-input" type="date" value="${isoVal||''}" onchange="${onIso}"></span>
+    <span class="datepick2"><span class="db"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span><input class="datepick2-input" type="date" value="${isoVal||''}" onchange="${onIso}"></span>
   </div>`;
 }
 function setDateTxt(kind,txt){ if(kind==='arrivo')arrivo=txt; else partenza=txt; aggiornaNotti(); }
@@ -636,6 +641,12 @@ function chiudiWebcam(){
   const v=$('#camVideo'); if(v)v.srcObject=null;
   const ov=$('#camOverlay'); if(ov)ov.classList.remove('show');
 }
+// rileva se la pagina è aperta dentro il browser integrato di un'altra app (es. Airbnb,
+// Instagram...) su Android: in quei casi la fotocamera a volte non si apre direttamente
+// e compare invece la scelta file di Android. ";wv)" è il marcatore standard di Chrome
+// per le WebView integrate in altre app.
+function inAppBrowserAndroid(){ return /Android/.test(navigator.userAgent) && /;\s*wv\)/.test(navigator.userAgent); }
+
 function scattaFoto(iCam, onFiles){
   const suTelefono = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   const webcamOk = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
@@ -839,6 +850,7 @@ function renderFoto(root){
       ${primo?'':`<div class="gname" style="font-size:16px">👤 ${t('guest_default_name')} ${gIdx+1}</div>`}
       <div class="steplbl" ${primo?'':'style="margin-top:10px"'}>${primo?t('step1_label_first'):t('step1_label')}</div>
       ${primo?`<div class="hint">${t('first_multi_hint')}</div>`:''}
+      ${primo&&inAppBrowserAndroid()?`<div class="hint">${t('inapp_hint')}</div>`:''}
       <div class="thumbs" id="gimg-${g.id}"></div>
       <div id="dz-${g.id}"></div>
       <button class="btn accent big" style="margin-top:14px" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> '+t('btn_extract_loading'):(primo?t('btn_extract_all'):t('btn_extract'))}</button>
