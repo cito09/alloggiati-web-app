@@ -149,10 +149,18 @@
   .prog-fill{height:100%; width:0%; background:linear-gradient(90deg,#ffd166,var(--amber)); border-radius:999px; transition:width .35s ease}
   .prog-pct{font-size:22px; font-weight:800; margin:14px 0 2px}
   .prog-text{font-size:13px; color:var(--muted); min-height:18px}
-  .datefield{position:relative; display:block}
-  .datefield input[type=text]{width:100%; padding-right:44px; cursor:pointer}
-  .datefield .db{position:absolute; right:13px; top:50%; transform:translateY(-50%); font-size:18px; pointer-events:none; opacity:.85}
+  .datefield{display:flex; gap:6px; align-items:stretch}
+  .datefield input[type=text]{flex:1; min-width:0}
+  .datepick2{position:relative; display:inline-flex; align-items:center; justify-content:center;
+    background:var(--surface2); border:1px solid var(--line); border-radius:10px; padding:0 13px; flex-shrink:0}
+  .datepick2 .db{font-size:18px; pointer-events:none; opacity:.9}
   .datepick2-input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:0; padding:0}
+  .cam-overlay{display:none; position:fixed; inset:0; z-index:700; background:rgba(3,8,14,.9); align-items:center; justify-content:center; padding:16px}
+  .cam-overlay.show{display:flex}
+  .cam-box{width:100%; max-width:520px; text-align:center}
+  .cam-box video{width:100%; border-radius:14px; background:#000; border:1px solid var(--line); max-height:70vh}
+  .cam-actions{display:flex; gap:10px; margin-top:12px}
+  .cam-actions .btn{flex:1}
 </style>
 </head>
 <body>
@@ -228,6 +236,16 @@
   </div>
 </div>
 
+<div class="cam-overlay" id="camOverlay">
+  <div class="cam-box">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="cam-actions">
+      <button class="btn ghost" onclick="chiudiWebcam()" id="camCancelBtn">Annulla</button>
+      <button class="btn primary" onclick="scattaWebcam()" id="camShotBtn">📸 Scatta</button>
+    </div>
+  </div>
+</div>
+
 <script src="shared.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -263,7 +281,7 @@ const T={
     toast_fill_name:'Inserisci almeno cognome e nome',
     recap_title:'Riepilogo ospiti', btn_edit:'Modifica',
     privacy_title:'Informativa privacy (GDPR)',
-    privacy_html:"<b>Titolare del trattamento:</b> il gestore della struttura ricettiva.<br><b>Finalità:</b> i dati anagrafici e la copia del documento d'identità sono raccolti esclusivamente per adempiere all'obbligo di legge di comunicazione alla Questura tramite il portale Alloggiati Web (art. 109 TULPS) — non per finalità commerciali o di marketing.<br><b>Conservazione:</b> per il tempo previsto dalla normativa (5 anni), poi cancellati.<br><b>Destinatari:</b> Polizia di Stato (Alloggiati Web); nessuna comunicazione a terzi per altre finalità.<br><b>Diritti:</b> puoi chiedere in qualsiasi momento accesso, rettifica o informazioni sui tuoi dati contattando la struttura.",
+    privacy_html:"<b>Titolare del trattamento:</b> il gestore della struttura ricettiva.<br><b>Responsabili del trattamento:</b> gli eventuali gestori, incaricati e consulenti che assistono la struttura negli adempimenti di legge (incluso il servizio tecnico KeyFlow), che trattano i dati esclusivamente per conto e su istruzione del Titolare.<br><b>Finalità:</b> i dati anagrafici e la copia del documento d'identità sono raccolti esclusivamente per adempiere all'obbligo di legge di comunicazione alla Questura tramite il portale Alloggiati Web (art. 109 TULPS) — non per finalità commerciali o di marketing.<br><b>Conservazione:</b> per il tempo previsto dalla normativa vigente, poi cancellati.<br><b>Destinatari:</b> Polizia di Stato (Alloggiati Web); nessuna comunicazione a terzi per altre finalità.<br><b>Diritti:</b> puoi chiedere in qualsiasi momento accesso, rettifica o informazioni sui tuoi dati contattando la struttura.",
     consent_label:"Ho letto l'informativa e acconsento al trattamento dei miei dati personali e del documento caricato per le finalità sopra indicate.",
     btn_submit:'Invia check-in',
     ok_title:'Check-in completato', ok_text:'Grazie! I tuoi dati sono stati inviati alla struttura per la verifica.',
@@ -272,6 +290,7 @@ const T={
     step2_hint:'Controlla che i dati siano stati letti correttamente dal documento e correggi quelli sbagliati o mancanti.',
     no_photo_msg:'📷 Carica prima la foto del documento per continuare.',
     cam_title:'Scatta foto', cam_sub:'con la fotocamera', up_title:'Carica file', up_sub:'foto o PDF', or_divider:'o', dz_hint:'…oppure trascina o incolla qui · anche più file insieme · dati ben leggibili',
+    cam_shot:'Scatta', cam_cancel:'Annulla', cam_error:'Fotocamera non disponibile: usa "Carica file"',
     step1_label_first:'1 · Documenti degli ospiti (obbligatori)',
     first_multi_hint:'Carica i documenti di tutti gli ospiti insieme (li separo io) o solo il tuo. Foto in alta qualità o PDF.',
     btn_camera:'Scatta una foto ora',
@@ -321,7 +340,7 @@ const T={
     toast_fill_name:'Please enter at least surname and first name',
     recap_title:'Guest summary', btn_edit:'Edit',
     privacy_title:'Privacy notice (GDPR)',
-    privacy_html:"<b>Data controller:</b> the accommodation manager.<br><b>Purpose:</b> your personal data and the copy of your ID document are collected solely to comply with the legal obligation to report guests to the local Police Headquarters via the Alloggiati Web portal (art. 109 TULPS) — not for commercial or marketing purposes.<br><b>Retention:</b> for the period required by law (5 years), then deleted.<br><b>Recipients:</b> Italian State Police (Alloggiati Web); no data shared with third parties for other purposes.<br><b>Your rights:</b> you may request access, correction or information about your data at any time by contacting the accommodation.",
+    privacy_html:"<b>Data controller:</b> the accommodation manager.<br><b>Data processors:</b> any managers, staff and consultants who assist the property with its legal obligations (including the KeyFlow technical service), processing the data solely on behalf of and under the instructions of the controller.<br><b>Purpose:</b> your personal data and the copy of your ID document are collected solely to comply with the legal obligation to report guests to the local Police Headquarters via the Alloggiati Web portal (art. 109 TULPS) — not for commercial or marketing purposes.<br><b>Retention:</b> for the period required by applicable law, then deleted.<br><b>Recipients:</b> Italian State Police (Alloggiati Web); no data shared with third parties for other purposes.<br><b>Your rights:</b> you may request access, correction or information about your data at any time by contacting the accommodation.",
     consent_label:'I have read the notice and consent to the processing of my personal data and the uploaded document for the purposes stated above.',
     btn_submit:'Submit check-in',
     ok_title:'Check-in completed', ok_text:'Thank you! Your details have been sent to the property for review.',
@@ -330,6 +349,7 @@ const T={
     step2_hint:'Check that the data was read correctly from the document and correct anything wrong or missing.',
     no_photo_msg:'📷 Upload the document photo first to continue.',
     cam_title:'Take photo', cam_sub:'use the camera', up_title:'Upload file', up_sub:'photo or PDF', or_divider:'or', dz_hint:'…or drag or paste here · multiple files ok · details clearly readable',
+    cam_shot:'Capture', cam_cancel:'Cancel', cam_error:'Camera not available: use "Upload file"',
     step1_label_first:"1 · Guests' ID documents (required)",
     first_multi_hint:"Upload all guests' documents together (I'll separate them) or just yours. High-quality photos or PDF.",
     btn_camera:'Take a photo now',
@@ -379,7 +399,7 @@ const T={
     toast_fill_name:'Saisissez au moins le nom et le prénom',
     recap_title:'Récapitulatif des voyageurs', btn_edit:'Modifier',
     privacy_title:"Note d'information (RGPD)",
-    privacy_html:"<b>Responsable du traitement :</b> le gestionnaire de la structure d'hébergement.<br><b>Finalité :</b> les données personnelles et la copie du document d'identité sont recueillies uniquement pour respecter l'obligation légale de déclaration à la Questure via le portail Alloggiati Web (art. 109 TULPS) — non à des fins commerciales ou de marketing.<br><b>Conservation :</b> pendant la durée prévue par la loi (5 ans), puis supprimées.<br><b>Destinataires :</b> Police d'État italienne (Alloggiati Web) ; aucune communication à des tiers à d'autres fins.<br><b>Vos droits :</b> vous pouvez demander à tout moment l'accès, la rectification ou des informations sur vos données en contactant la structure.",
+    privacy_html:"<b>Responsable du traitement :</b> le gestionnaire de la structure d'hébergement.<br><b>Sous-traitants :</b> les éventuels gestionnaires, préposés et consultants qui assistent la structure dans ses obligations légales (dont le service technique KeyFlow), qui traitent les données uniquement pour le compte et sur instruction du responsable.<br><b>Finalité :</b> les données personnelles et la copie du document d'identité sont recueillies uniquement pour respecter l'obligation légale de déclaration à la Questure via le portail Alloggiati Web (art. 109 TULPS) — non à des fins commerciales ou de marketing.<br><b>Conservation :</b> pendant la durée prévue par la législation en vigueur, puis supprimées.<br><b>Destinataires :</b> Police d'État italienne (Alloggiati Web) ; aucune communication à des tiers à d'autres fins.<br><b>Vos droits :</b> vous pouvez demander à tout moment l'accès, la rectification ou des informations sur vos données en contactant la structure.",
     consent_label:"J'ai lu la note d'information et je consens au traitement de mes données personnelles et du document téléchargé aux fins indiquées ci-dessus.",
     btn_submit:'Envoyer le check-in',
     ok_title:'Check-in terminé', ok_text:'Merci ! Vos données ont été envoyées à la structure pour vérification.',
@@ -388,6 +408,7 @@ const T={
     step2_hint:'Vérifiez que les données ont été lues correctement à partir du document et corrigez celles qui sont erronées ou manquantes.',
     no_photo_msg:"📷 Téléchargez d'abord la photo du document pour continuer.",
     cam_title:'Prendre photo', cam_sub:'avec la caméra', up_title:'Charger fichier', up_sub:'photo ou PDF', or_divider:'ou', dz_hint:'…ou glissez ou collez ici · plusieurs fichiers ok · données bien lisibles',
+    cam_shot:'Photographier', cam_cancel:'Annuler', cam_error:'Caméra non disponible : utilisez « Charger fichier »',
     step1_label_first:'1 · Documents des voyageurs (obligatoires)',
     first_multi_hint:'Chargez les documents de tous les voyageurs ensemble (je les sépare) ou seulement le vôtre. Photos de haute qualité ou PDF.',
     btn_camera:'Prendre une photo maintenant',
@@ -437,7 +458,7 @@ const T={
     toast_fill_name:'Introduce al menos apellido y nombre',
     recap_title:'Resumen de huéspedes', btn_edit:'Editar',
     privacy_title:'Información de privacidad (RGPD)',
-    privacy_html:'<b>Responsable del tratamiento:</b> el gestor del alojamiento.<br><b>Finalidad:</b> los datos personales y la copia del documento de identidad se recogen exclusivamente para cumplir con la obligación legal de comunicación a la Questura a través del portal Alloggiati Web (art. 109 TULPS) — no con fines comerciales ni de marketing.<br><b>Conservación:</b> durante el tiempo previsto por la normativa (5 años), después se eliminan.<br><b>Destinatarios:</b> Policía del Estado italiana (Alloggiati Web); no se comunican a terceros para otros fines.<br><b>Tus derechos:</b> puedes solicitar en cualquier momento el acceso, rectificación o información sobre tus datos contactando con el alojamiento.',
+    privacy_html:'<b>Responsable del tratamiento:</b> el gestor del alojamiento.<br><b>Encargados del tratamiento:</b> los posibles gestores, encargados y consultores que asisten al alojamiento en las obligaciones legales (incluido el servicio técnico KeyFlow), que tratan los datos únicamente por cuenta y bajo las instrucciones del responsable.<br><b>Finalidad:</b> los datos personales y la copia del documento de identidad se recogen exclusivamente para cumplir con la obligación legal de comunicación a la Questura a través del portal Alloggiati Web (art. 109 TULPS) — no con fines comerciales ni de marketing.<br><b>Conservación:</b> durante el tiempo previsto por la normativa vigente, después se eliminan.<br><b>Destinatarios:</b> Policía del Estado italiana (Alloggiati Web); no se comunican a terceros para otros fines.<br><b>Tus derechos:</b> puedes solicitar en cualquier momento el acceso, rectificación o información sobre tus datos contactando con el alojamiento.',
     consent_label:'He leído la información y consiento el tratamiento de mis datos personales y del documento cargado para las finalidades indicadas.',
     btn_submit:'Enviar check-in',
     ok_title:'Check-in completado', ok_text:'¡Gracias! Tus datos se han enviado al alojamiento para su verificación.',
@@ -446,6 +467,7 @@ const T={
     step2_hint:'Comprueba que los datos se hayan leído correctamente del documento y corrige lo que esté mal o falte.',
     no_photo_msg:'📷 Sube primero la foto del documento para continuar.',
     cam_title:'Hacer foto', cam_sub:'con la cámara', up_title:'Subir archivo', up_sub:'foto o PDF', or_divider:'o', dz_hint:'…o arrastra o pega aquí · varios archivos ok · datos bien legibles',
+    cam_shot:'Capturar', cam_cancel:'Cancelar', cam_error:'Cámara no disponible: usa "Subir archivo"',
     step1_label_first:'1 · Documentos de los huéspedes (obligatorios)',
     first_multi_hint:'Sube los documentos de todos los huéspedes juntos (yo los separo) o solo el tuyo. Fotos de alta calidad o PDF.',
     btn_camera:'Hacer una foto ahora',
@@ -572,14 +594,44 @@ function setDate(kind,iso){
   const el=document.getElementById(kind==='arrivo'?'arrivoInput':'partenzaInput'); if(el)el.value=it;
   aggiornaNotti();
 }
-// campo data che mostra SEMPRE gg/mm/aaaa (indipendente dalla lingua del browser),
-// con il calendario nativo sovrapposto per scegliere comodamente
-function campoData(idTxt, isoVal, txtVal, onIso){
+// campo data in gg/mm/aaaa (indipendente dalla lingua del browser): si può SCRIVERE a mano
+// nel campo di testo, oppure scegliere dal calendario col pulsantino a lato.
+function campoData(idTxt, isoVal, txtVal, onIso, onTxt){
   return `<div class="datefield">
-    <input id="${idTxt}" type="text" readonly placeholder="gg/mm/aaaa" value="${txtVal||''}">
-    <span class="db">📅</span>
-    <input class="datepick2-input" type="date" value="${isoVal||''}" onchange="${onIso}">
+    <input id="${idTxt}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${txtVal||''}" ${onTxt?`oninput="${onTxt}"`:''}>
+    <span class="datepick2"><span class="db">📅</span><input class="datepick2-input" type="date" value="${isoVal||''}" onchange="${onIso}"></span>
   </div>`;
+}
+function setDateTxt(kind,txt){ if(kind==='arrivo')arrivo=txt; else partenza=txt; aggiornaNotti(); }
+
+/* ===== fotocamera: su desktop apre la webcam nella pagina (il campo "capture" nativo
+   funziona solo sui telefoni); su telefono/tablet usa l'app fotocamera nativa ===== */
+let camStream=null;
+async function apriWebcam(onFiles, fallback){
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const v=$('#camVideo'); v.srcObject=camStream;
+    const ov=$('#camOverlay'); ov._onFiles=onFiles; ov.classList.add('show');
+    $('#camCancelBtn').textContent=t('cam_cancel'); $('#camShotBtn').textContent='📸 '+t('cam_shot');
+  }catch(e){ if(fallback){fallback();} else toast(t('cam_error')); }
+}
+function scattaWebcam(){
+  const v=$('#camVideo'); if(!v||!v.videoWidth){toast(t('cam_error'));return;}
+  const c=document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
+  c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+  const cb=$('#camOverlay')._onFiles;
+  c.toBlob(b=>{ chiudiWebcam(); if(b&&cb)cb([new File([b],'webcam_'+Date.now()+'.jpg',{type:'image/jpeg'})]); },'image/jpeg',0.92);
+}
+function chiudiWebcam(){
+  if(camStream){ camStream.getTracks().forEach(tr=>tr.stop()); camStream=null; }
+  const v=$('#camVideo'); if(v)v.srcObject=null;
+  const ov=$('#camOverlay'); if(ov)ov.classList.remove('show');
+}
+function scattaFoto(iCam, onFiles){
+  const suTelefono = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  const webcamOk = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+  if(suTelefono || !webcamOk) iCam.click();        // telefono: app fotocamera nativa
+  else apriWebcam(onFiles, ()=>iCam.click());       // desktop: webcam nella pagina, con fallback
 }
 function aggiornaNotti(){
   const info=$('#nottiInfo'); if(!info)return;
@@ -614,7 +666,7 @@ function bigDropzone(onFiles){
   cCam.innerHTML=`
     <svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5h2.8l1.6-2.2h7.2L17.2 8.5H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.4" r="3.1"/></svg>
     <div class="dz-t">${t('cam_title')}</div><div class="dz-s">${t('cam_sub')}</div>`;
-  cCam.onclick=()=>iCam.click();
+  cCam.onclick=()=>scattaFoto(iCam,onFiles);
   const cUp=document.createElement('div'); cUp.className='dz-card';
   cUp.innerHTML=`
     <div class="dz-icons">
@@ -752,8 +804,8 @@ function renderDate(root){
   root.innerHTML=`
     <div class="card">
       <div class="row">
-        <div><label>${t('label_arrivo')}</label>${campoData('arrivoInput',italianToIso(arrivo),arrivo,"setDate('arrivo',this.value)")}</div>
-        <div><label>${t('label_partenza')}</label>${campoData('partenzaInput',italianToIso(partenza),partenza,"setDate('partenza',this.value)")}</div>
+        <div><label>${t('label_arrivo')}</label>${campoData('arrivoInput',italianToIso(arrivo),arrivo,"setDate('arrivo',this.value)","setDateTxt('arrivo',this.value)")}</div>
+        <div><label>${t('label_partenza')}</label>${campoData('partenzaInput',italianToIso(partenza),partenza,"setDate('partenza',this.value)","setDateTxt('partenza',this.value)")}</div>
       </div>
       <div class="muted" id="nottiInfo" style="margin-top:8px"></div>
     </div>
@@ -810,7 +862,7 @@ function renderVerifica(root){
       <div><label>${t('label_nome')}${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
       <div class="row">
         <div><label>${t('label_sesso')}${warnBadge(g,'sesso')}</label><select id="sesso-${g.id}" class="${fw(g,'sesso')}" onchange="setG('${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
-        <div><label>${t('label_data_nascita')}${warnBadge(g,'dataNascita')}</label>${campoData('nasc-'+g.id,italianToIso(g.dataNascita),g.dataNascita,"setG('"+g.id+"','dataNascita',dateToItalian(this.value))")}</div>
+        <div><label>${t('label_data_nascita')}${warnBadge(g,'dataNascita')}</label>${campoData('nasc-'+g.id,italianToIso(g.dataNascita),g.dataNascita,"setG('"+g.id+"','dataNascita',dateToItalian(this.value))","setG('"+g.id+"','dataNascita',this.value)")}</div>
       </div>
       <label>${t('label_stato_nascita')}${warnBadge(g,'statoNascita')}</label>
       <input id="stato-${g.id}" type="text" placeholder="${t('placeholder_es')}" class="${fw(g,'statoNascita')}" value="${g.statoNascita||''}" oninput="setStatoNascita('${g.id}',this.value)">
