@@ -13,19 +13,24 @@ function downscale(dataURL,max=1600,q=0.82){return new Promise(res=>{const img=n
 // stima dei byte di un data-URL base64 (per non superare il limite ~4.5MB di Vercel)
 function dataUrlBytes(d){ const i=String(d).indexOf(','); return Math.ceil((String(d).length-(i+1))*0.75); }
 
+// comprime un gruppo di immagini finché il totale sta sotto il limite indicato (i PDF non
+// vengono toccati: downscale() li lascia intatti). Usata sia per mandare le foto all'AI
+// (apiExtract) sia per l'invio finale del check-in: senza questo, con più foto/documenti
+// pesanti si supera il limite di dimensione delle richieste di Vercel (~4.5MB) e l'invio
+// fallisce (a volte come "Failed to fetch", a volte con errori diversi a seconda del browser).
+async function comprimiPerLimite(images,{max=1600,q=0.82,limiteBytes=3.8*1024*1024,tentativi=4}={}){
+  let out=await Promise.all(images.map(d=>downscale(d,max,q)));
+  for(let t=0; t<tentativi && out.reduce((s,d)=>s+dataUrlBytes(d),0)>limiteBytes; t++){
+    max=Math.round(max*0.8); q=Math.max(0.5,q-0.08);
+    out=await Promise.all(images.map(d=>downscale(d,max,q)));
+  }
+  return out;
+}
+
 async function apiExtract(images,kind,text){
   const n=images.length;
-  // con poche foto teniamo alta la qualità; con molte foto rimpiccioliamo per stare
-  // sotto il limite di dimensione della richiesta di Vercel (~4.5MB), altrimenti
-  // la connessione cade e il browser mostra "Failed to fetch".
-  let max=n<=2?1600:1400, q=n<=2?0.82:0.72;
-  let small=await Promise.all(images.map(d=>downscale(d,max,q)));
-  const LIMITE=3.8*1024*1024; // margine di sicurezza sotto i 4.5MB
-  // se è ancora troppo, riduciamo progressivamente finché ci sta (le foto restano leggibili)
-  for(let tent=0; tent<3 && small.reduce((s,d)=>s+dataUrlBytes(d),0)>LIMITE; tent++){
-    max=Math.round(max*0.8); q=Math.max(0.55,q-0.08);
-    small=await Promise.all(images.map(d=>downscale(d,max,q)));
-  }
+  // con poche foto teniamo alta la qualità; con molte foto rimpiccioliamo per stare sotto il limite
+  const small=await comprimiPerLimite(images,{max:n<=2?1600:1400, q:n<=2?0.82:0.72, tentativi:3});
   const resp=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({images:small,kind,text:text||''})});
   const data=await resp.json();

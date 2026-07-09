@@ -1051,14 +1051,33 @@ async function inviaCheckin(){
   const btn=$('#submitBtn'); btn.disabled=true;
   $('#submitStatus').innerHTML=`<span class="spin"></span> ${t('submit_status_invio')}`;
   try{
-    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, lang, ospiti: validi.map(g=>({
+    // le foto vengono mandate ORA nella dimensione originale (a volte diversi MB a testa):
+    // le comprimiamo prima dell'invio finale, altrimenti con più documenti si supera il
+    // limite di dimensione delle richieste e l'invio fallisce.
+    let immaginiPerOspite;
+    try{
+      const conteggi=validi.map(g=>(g.imgs||[]).length);
+      const tutte=validi.flatMap(g=>g.imgs||[]);
+      const compresse=tutte.length?await comprimiPerLimite(tutte,{max:1500,q:0.78,limiteBytes:3.5*1024*1024,tentativi:4}):[];
+      let idx=0; immaginiPerOspite=conteggi.map(c=>compresse.slice(idx,idx+=c));
+    }catch(e){ throw new Error('preparazione foto: '+(e&&e.message||e)); }
+
+    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, lang, ospiti: validi.map((g,i)=>({
       cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
-      incertezze:(g._warn||[]), immagini:g.imgs||[]
+      incertezze:(g._warn||[]), immagini:immaginiPerOspite[i]
     })), firma: (contrattoCfg?firmaDataUrl:undefined), emailOspite: (contrattoCfg?(emailOspiteVal||'').trim():undefined)};
-    const r=await fetch('/api/checkin-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const data=await r.json();
-    if(!r.ok) throw new Error(data.error||'Errore');
+
+    let r;
+    try{
+      r=await fetch('/api/checkin-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    }catch(e){ throw new Error('connessione: '+(e&&e.message||e)); }
+
+    let data;
+    try{ data=await r.json(); }
+    catch(e){ throw new Error('risposta del server: '+(e&&e.message||e)); }
+
+    if(!r.ok) throw new Error(data.error||'Errore server (HTTP '+r.status+')');
     // da qui in poi il check-in è GIA' SALVATO sul server: qualunque problema nel resto
     // (nome file, pulsante download) non deve più far sembrare fallito l'invio.
     mostraSolo('okWrap');
