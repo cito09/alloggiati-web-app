@@ -75,12 +75,26 @@ module.exports = async (req, res) => {
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 2000, messages: [{ role: "user", content }] }),
+      // max_tokens alto: con più documenti/ospiti in una volta la risposta JSON è lunga;
+      // se il limite è troppo basso viene troncata a metà e non è più leggibile
+      // (dava "Unexpected end of JSON input").
+      body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 8000, messages: [{ role: "user", content }] }),
     });
     const data = await r.json();
     if (!r.ok) return res.status(502).json({ error: data?.error?.message || "Errore API" });
     const replyText = (data.content || []).filter((i) => i.type === "text").map((i) => i.text).join("\n");
-    const json = JSON.parse(replyText.replace(/```json|```/g, "").trim());
+    let json;
+    try {
+      json = JSON.parse(replyText.replace(/```json|```/g, "").trim());
+    } catch (e) {
+      // risposta non parsabile: quasi sempre perché troncata (troppi documenti in una volta)
+      const troncata = data.stop_reason === "max_tokens";
+      return res.status(500).json({
+        error: troncata
+          ? "Troppi documenti in un colpo solo: prova a caricarne un po' meno per volta."
+          : "Risposta non leggibile, riprova con foto più nitide.",
+      });
+    }
     return res.status(200).json(json);
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
