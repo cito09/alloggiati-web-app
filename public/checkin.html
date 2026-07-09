@@ -139,6 +139,19 @@
   .sig-wrap{margin-top:12px; border:2px dashed var(--line); border-radius:14px; background:#ffffff; overflow:hidden}
   .sig-wrap canvas{width:100%; height:150px; display:block; touch-action:none; cursor:crosshair}
   .sig-hint{font-size:11.5px; color:var(--muted); text-align:center; padding:8px 0 0}
+  .prog-overlay{display:none; position:fixed; inset:0; z-index:600; background:rgba(5,12,20,.74); align-items:center; justify-content:center; padding:24px}
+  .prog-overlay.show{display:flex}
+  .prog-card{background:linear-gradient(165deg,var(--surface),var(--surface2) 140%); border:1px solid var(--line); border-radius:18px;
+    padding:26px 22px; width:100%; max-width:360px; text-align:center; box-shadow:0 20px 50px -12px rgba(0,0,0,.6)}
+  .prog-title{font-weight:800; font-size:16px; margin-bottom:16px}
+  .prog-bar{height:12px; background:var(--surface2); border:1px solid var(--line); border-radius:999px; overflow:hidden}
+  .prog-fill{height:100%; width:0%; background:linear-gradient(90deg,#ffd166,var(--amber)); border-radius:999px; transition:width .35s ease}
+  .prog-pct{font-size:22px; font-weight:800; margin:14px 0 2px}
+  .prog-text{font-size:13px; color:var(--muted); min-height:18px}
+  .datefield{position:relative; display:block}
+  .datefield input[type=text]{width:100%; padding-right:44px; cursor:pointer}
+  .datefield .db{position:absolute; right:13px; top:50%; transform:translateY(-50%); font-size:18px; pointer-events:none; opacity:.85}
+  .datepick2-input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:0; padding:0}
 </style>
 </head>
 <body>
@@ -205,6 +218,15 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="prog-overlay" id="progressOverlay">
+  <div class="prog-card">
+    <div class="prog-title" id="progTitle"></div>
+    <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    <div class="prog-pct" id="progPct">0%</div>
+    <div class="prog-text" id="progText"></div>
+  </div>
+</div>
+
 <script src="shared.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -266,6 +288,7 @@ const T={
     guest_default_name:'Ospite', warn_badge:'⚠ verifica',
     toast_add_photo_first:'Aggiungi prima una foto del documento',
     toast_data_read:'Dati letti dal documento, controllali qui sotto',
+    progress_title:'Riconoscimento documenti', progress_reading_doc:'Leggo il documento', progress_of:'di', progress_done:'Fatto!',
     toast_extract_failed:'Estrazione non riuscita: ',
     toast_indica_arrivo:'Indica la data di arrivo', toast_indica_partenza:'Indica la data di partenza',
     toast_add_guest:'Aggiungi almeno un ospite', toast_accept_privacy:"Devi accettare l'informativa per procedere",
@@ -323,6 +346,7 @@ const T={
     guest_default_name:'Guest', warn_badge:'⚠ check',
     toast_add_photo_first:'Please add a document photo first',
     toast_data_read:'Data read from the document — please check it below',
+    progress_title:'Reading documents', progress_reading_doc:'Reading document', progress_of:'of', progress_done:'Done!',
     toast_extract_failed:'Extraction failed: ',
     toast_indica_arrivo:'Please enter the arrival date', toast_indica_partenza:'Please enter the departure date',
     toast_add_guest:'Please add at least one guest', toast_accept_privacy:'You must accept the notice to proceed',
@@ -380,6 +404,7 @@ const T={
     guest_default_name:'Voyageur', warn_badge:'⚠ à vérifier',
     toast_add_photo_first:"Ajoutez d'abord une photo du document",
     toast_data_read:'Données lues depuis le document, vérifiez-les ci-dessous',
+    progress_title:'Lecture des documents', progress_reading_doc:'Lecture du document', progress_of:'sur', progress_done:'Terminé !',
     toast_extract_failed:"Échec de l'extraction : ",
     toast_indica_arrivo:"Indiquez la date d'arrivée", toast_indica_partenza:'Indiquez la date de départ',
     toast_add_guest:'Ajoutez au moins un voyageur', toast_accept_privacy:'Vous devez accepter la note d\'information pour continuer',
@@ -437,6 +462,7 @@ const T={
     guest_default_name:'Huésped', warn_badge:'⚠ revisar',
     toast_add_photo_first:'Añade primero una foto del documento',
     toast_data_read:'Datos leídos del documento, revísalos abajo',
+    progress_title:'Leyendo documentos', progress_reading_doc:'Leyendo documento', progress_of:'de', progress_done:'¡Listo!',
     toast_extract_failed:'Extracción fallida: ',
     toast_indica_arrivo:'Indica la fecha de llegada', toast_indica_partenza:'Indica la fecha de salida',
     toast_add_guest:'Añade al menos un huésped', toast_accept_privacy:'Debes aceptar la información para continuar',
@@ -540,8 +566,19 @@ let consensoOk=false;
 function mostraPasso(p){ passo=p; render(); window.scrollTo(0,0); }
 
 function setDate(kind,iso){
-  if(kind==='arrivo')arrivo=dateToItalian(iso); else partenza=dateToItalian(iso);
+  const it=dateToItalian(iso);
+  if(kind==='arrivo')arrivo=it; else partenza=it;
+  const el=document.getElementById(kind==='arrivo'?'arrivoInput':'partenzaInput'); if(el)el.value=it;
   aggiornaNotti();
+}
+// campo data che mostra SEMPRE gg/mm/aaaa (indipendente dalla lingua del browser),
+// con il calendario nativo sovrapposto per scegliere comodamente
+function campoData(idTxt, isoVal, txtVal, onIso){
+  return `<div class="datefield">
+    <input id="${idTxt}" type="text" readonly placeholder="gg/mm/aaaa" value="${txtVal||''}">
+    <span class="db">📅</span>
+    <input class="datepick2-input" type="date" value="${isoVal||''}" onchange="${onIso}">
+  </div>`;
 }
 function aggiornaNotti(){
   const info=$('#nottiInfo'); if(!info)return;
@@ -617,25 +654,47 @@ function applicaEstratto(g,j){
     luogoRilascio:j.luogo_rilascio||g.luogoRilascio});
   g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
 }
+/* ===== barra di avanzamento durante la lettura dei documenti ===== */
+function mostraProgresso(){ const o=$('#progressOverlay'); if(!o)return; $('#progTitle').textContent=t('progress_title'); aggiornaProgresso(0,''); o.classList.add('show'); }
+function aggiornaProgresso(pct,testo){ const p=Math.max(0,Math.min(100,Math.round(pct)));
+  const f=$('#progFill'); if(f)f.style.width=p+'%'; const pc=$('#progPct'); if(pc)pc.textContent=p+'%'; const tx=$('#progText'); if(tx)tx.textContent=testo||''; }
+function nascondiProgresso(){ const o=$('#progressOverlay'); if(o)o.classList.remove('show'); }
+
+const CAMPI_AI=['cognome','nome','sesso','data_nascita','comune_nascita','stato_nascita','cittadinanza','tipo_documento','numero_documento','luogo_rilascio'];
+function unisciOspite(dst,src){ CAMPI_AI.forEach(k=>{ if(!dst[k]&&src[k])dst[k]=src[k]; }); dst.incertezze=[...new Set([...(dst.incertezze||[]),...(src.incertezze||[])])]; }
+
 async function estraiDati(id){
   const g=getG(id); if(!g.imgs.length){toast(t('toast_add_photo_first'));return;}
   g._busy=true; render();
   try{
     if(guests.indexOf(g)===0){
-      // primo ospite: le foto possono contenere i documenti di TUTTO il gruppo,
-      // l'AI li separa e creiamo un ospite per ciascun documento riconosciuto
-      const j=await apiExtract(g.imgs,'auto');
-      const os=(j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome));
-      if(!os.length) throw new Error(t('toast_no_doc'));
-      applicaEstratto(g,os[0]);
-      guests=guests.filter((x,i)=>i===0||x.cognome||x.nome||(x.imgs||[]).length); // via eventuali ospiti vuoti residui
-      for(let k=1;k<os.length;k++){
-        const ng=nuovoOspite();
-        applicaEstratto(ng,os[k]);
-        guests.push(ng); // le foto restano sul primo ospite: l'host le vede comunque tutte insieme
+      // primo ospite: le foto possono contenere i documenti di TUTTO il gruppo.
+      // Le leggiamo UNA ALLA VOLTA (richieste piccole e affidabili, niente timeout con tanti
+      // documenti) mostrando l'avanzamento; poi uniamo fronte/retro dello stesso ospite.
+      const imgs=g.imgs.slice();
+      mostraProgresso();
+      const raccolti=[]; const perChiave={};
+      const norm=s=>String(s||'').trim().toUpperCase().replace(/\s+/g,' ');
+      for(let i=0;i<imgs.length;i++){
+        aggiornaProgresso(i/imgs.length*100, `${t('progress_reading_doc')} ${i+1} ${t('progress_of')} ${imgs.length}`);
+        try{
+          const j=await apiExtract([imgs[i]],'auto');
+          (j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome)).forEach(o=>{
+            const key=norm(o.cognome)+'|'+norm(o.nome);
+            if(perChiave[key]) unisciOspite(perChiave[key],o);
+            else { perChiave[key]=o; raccolti.push(o); }
+          });
+        }catch(e){/* un documento illeggibile non blocca gli altri */}
       }
+      aggiornaProgresso(100,t('progress_done'));
+      await new Promise(r=>setTimeout(r,350));
+      nascondiProgresso();
+      if(!raccolti.length){ g._busy=false; toast(t('toast_no_doc')); render(); return; }
+      applicaEstratto(g,raccolti[0]);
+      guests=guests.filter((x,i)=>i===0||x.cognome||x.nome||(x.imgs||[]).length);
+      for(let k=1;k<raccolti.length;k++){ const ng=nuovoOspite(); applicaEstratto(ng,raccolti[k]); guests.push(ng); }
       g._busy=false;
-      toast(os.length>1 ? os.length+' '+t('toast_multi_read') : t('toast_data_read'));
+      toast(raccolti.length>1 ? raccolti.length+' '+t('toast_multi_read') : t('toast_data_read'));
       gIdx=0; mostraPasso('verifica');
       return;
     }
@@ -645,7 +704,7 @@ async function estraiDati(id){
     toast(t('toast_data_read'));
     mostraPasso('verifica');
     return;
-  }catch(e){ toast(t('toast_extract_failed')+e.message); }
+  }catch(e){ nascondiProgresso(); toast(t('toast_extract_failed')+e.message); }
   g._busy=false; render();
 }
 
@@ -690,8 +749,8 @@ function renderDate(root){
   root.innerHTML=`
     <div class="card">
       <div class="row">
-        <div><label>${t('label_arrivo')}</label><div class="datepick"><input id="arrivoInput" type="date" value="${italianToIso(arrivo)}" onchange="setDate('arrivo',this.value)"></div></div>
-        <div><label>${t('label_partenza')}</label><div class="datepick"><input id="partenzaInput" type="date" value="${italianToIso(partenza)}" onchange="setDate('partenza',this.value)"></div></div>
+        <div><label>${t('label_arrivo')}</label>${campoData('arrivoInput',italianToIso(arrivo),arrivo,"setDate('arrivo',this.value)")}</div>
+        <div><label>${t('label_partenza')}</label>${campoData('partenzaInput',italianToIso(partenza),partenza,"setDate('partenza',this.value)")}</div>
       </div>
       <div class="muted" id="nottiInfo" style="margin-top:8px"></div>
     </div>
@@ -748,7 +807,7 @@ function renderVerifica(root){
       <div><label>${t('label_nome')}${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fw(g,'nome')}" value="${g.nome||''}" oninput="setG('${g.id}','nome',this.value)"></div>
       <div class="row">
         <div><label>${t('label_sesso')}${warnBadge(g,'sesso')}</label><select id="sesso-${g.id}" class="${fw(g,'sesso')}" onchange="setG('${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
-        <div><label>${t('label_data_nascita')}${warnBadge(g,'dataNascita')}</label><div class="datepick"><input id="nasc-${g.id}" type="date" class="${fw(g,'dataNascita')}" value="${italianToIso(g.dataNascita)}" onchange="setG('${g.id}','dataNascita',dateToItalian(this.value))"></div></div>
+        <div><label>${t('label_data_nascita')}${warnBadge(g,'dataNascita')}</label>${campoData('nasc-'+g.id,italianToIso(g.dataNascita),g.dataNascita,"setG('"+g.id+"','dataNascita',dateToItalian(this.value))")}</div>
       </div>
       <label>${t('label_comune_nascita')}${warnBadge(g,'comuneNascita')} <span class="muted">${t('comune_nascita_hint')}</span></label>
       <input id="comune-${g.id}" type="text" class="${fw(g,'comuneNascita')}" value="${g.comuneNascita||''}" oninput="setG('${g.id}','comuneNascita',this.value)">
