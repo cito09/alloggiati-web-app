@@ -11798,6 +11798,23 @@ function lookupComune(name){if(!name)return null;return comuniByName.get(normKey
 /* ===== modello ===== */
 let bookings=[];
 
+/* ===== prenotazioni "in corso, non ancora inviate": sincronizzate col server (Upstash) a
+   ogni modifica (con un piccolo ritardo), così il promemoria automatico (cron giornaliero)
+   può avvisare anche se il browser è chiuso quando si avvicina la scadenza. Una prenotazione
+   con _inviata=true (dopo l'invio ufficiale o il download .txt) non viene più mandata. ===== */
+let bookingsSyncTimer=null;
+function scheduleSyncPrenotazioniPendenti(){
+  clearTimeout(bookingsSyncTimer);
+  bookingsSyncTimer=setTimeout(sincronizzaPrenotazioniPendenti,1500);
+}
+function sincronizzaPrenotazioniPendenti(){
+  const lista=bookings.filter(b=>!b._inviata&&/^\d{2}\/\d{2}\/\d{4}$/.test(b.arrivo||'')&&b.guests.some(g=>g.cognome||g.nome))
+    .map(b=>({id:b.id, arrivo:b.arrivo, strutturaNome:currentStrutturaNome(),
+      ospiti:b.guests.filter(g=>g.cognome||g.nome).map(g=>`${g.cognome||''} ${g.nome||''}`.trim())}));
+  fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({lista})})
+    .catch(()=>{/* offline: si riprova al prossimo cambiamento */});
+}
+
 /* ===== storico (solo invii ufficiali riusciti e download .txt, salvato in questo browser) ===== */
 let storico=[];
 try{ storico=JSON.parse(localStorage.getItem('storico_schedine')||'[]'); }catch(e){ storico=[]; }
@@ -12031,6 +12048,7 @@ function render(){
   });
   const lbl=$('#step2lbl'); if(lbl)lbl.style.display=bookings.some(b=>b.guests.length)?'':'none';
   renderPreview();
+  scheduleSyncPrenotazioniPendenti();
   if(activeId){
     const el=document.getElementById(activeId);
     if(el&&typeof el.focus==='function'){
@@ -12462,6 +12480,7 @@ function downloadTxt(){
   toast(recs.length+' schedine esportate');
   const snap=snapshotOspiti();
   aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recs});
+  if(bookings[0]){ bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti(); }
 }
 
 /* ===== invio Alloggiati ===== */
@@ -12499,6 +12518,7 @@ async function invia(){
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     const snap=snapshotOspiti();
     aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
+    if(bookings[0]){ bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti(); }
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
   }
 }

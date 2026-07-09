@@ -161,7 +161,12 @@ Note: la residenza degli ospiti (campo obbligatorio del tracciato, non presente 
 
 ### Promemoria automatici (facoltativi)
 
-Un cron giornaliero di Vercel (`vercel.json` → `/api/promemoria`, ore 8 UTC) manda una notifica ntfy se ci sono check-in ospiti fermi da più di 24 ore, e il giorno 3 del mese ricorda la scadenza Ross1000 (se configurato). Richiede solo `NTFY_TOPIC`. Consigliato: aggiungi anche una variabile `CRON_SECRET` (stringa casuale) — Vercel la usa da solo per firmare le chiamate del cron, ed evita che estranei possano far scattare notifiche chiamando l'endpoint.
+Un cron giornaliero di Vercel (`vercel.json` → `/api/promemoria`, ore 8 UTC) manda una notifica ntfy se:
+- ci sono check-in ospiti fermi da più di 24 ore (non ancora accettati nella prenotazione);
+- ci sono **prenotazioni già accettate ma non ancora inviate ufficialmente**, con la scadenza (il giorno dopo l'arrivo) che scade oggi o è già passata — il gestionale tiene aggiornato l'elenco da solo, ogni volta che modifichi una prenotazione, così l'avviso funziona anche se poi chiudi il browser prima di inviarla;
+- è il giorno 3 del mese, ricorda la scadenza Ross1000 (se configurato).
+
+Richiede solo `NTFY_TOPIC`. Consigliato: aggiungi anche una variabile `CRON_SECRET` (stringa casuale) — Vercel la usa da solo per firmare le chiamate del cron, ed evita che estranei possano far scattare notifiche chiamando l'endpoint.
 
 ### App sul telefono (PWA)
 
