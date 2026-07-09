@@ -41,6 +41,7 @@
     width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
     border-radius:10px; padding:12px 12px; font-size:16px; font-family:inherit; transition:border-color .15s, box-shadow .15s;}
   input:focus, select:focus{outline:none; border-color:var(--amber); box-shadow:0 0 0 3px rgba(255,183,3,.2)}
+  input:disabled{opacity:.45; cursor:not-allowed; background:var(--surface)}
   .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .btn{appearance:none; border:none; border-radius:13px; font-size:15px; font-weight:700; padding:14px 16px; cursor:pointer;
     font-family:inherit; width:100%; transition:transform .12s ease, filter .12s ease, box-shadow .12s ease}
@@ -280,7 +281,7 @@ const T={
     toast_no_doc:'Nessun documento riconosciuto nelle foto',
     btn_extract:'✨ Estrai dati dal documento', btn_extract_loading:'Lettura…',
     label_cognome:'Cognome', label_nome:'Nome', label_sesso:'Sesso', label_data_nascita:'Data di nascita',
-    label_comune_nascita:'Comune di nascita', comune_nascita_hint:'(solo se nato in Italia)',
+    label_comune_nascita:'Comune di nascita', comune_nascita_hint:'(solo se nato in Italia)', comune_locked_hint:'🔒 Si sblocca se lo Stato di nascita è ITALIA',
     label_stato_nascita:'Stato di nascita', placeholder_es:'es. ITALIA',
     label_cittadinanza:'Cittadinanza', label_tipo_doc:'Tipo documento',
     doc_ci:"CARTA DI IDENTITA'", doc_cie:"CARTA IDENTITA' ELETTRONICA", doc_pass:'PASSAPORTO ORDINARIO', doc_patente:'PATENTE DI GUIDA',
@@ -338,7 +339,7 @@ const T={
     toast_no_doc:'No document recognised in the photos',
     btn_extract:'✨ Extract data from document', btn_extract_loading:'Reading…',
     label_cognome:'Surname', label_nome:'First name', label_sesso:'Sex', label_data_nascita:'Date of birth',
-    label_comune_nascita:'Town of birth', comune_nascita_hint:'(only if born in Italy)',
+    label_comune_nascita:'Town of birth', comune_nascita_hint:'(only if born in Italy)', comune_locked_hint:'🔒 Unlocks if Country of birth is ITALIA',
     label_stato_nascita:'Country of birth', placeholder_es:'e.g. ITALIA',
     label_cittadinanza:'Nationality', label_tipo_doc:'Document type',
     doc_ci:'ID card', doc_cie:'Electronic ID card (CIE)', doc_pass:'Passport', doc_patente:'Driving licence',
@@ -396,7 +397,7 @@ const T={
     toast_no_doc:'Aucun document reconnu sur les photos',
     btn_extract:'✨ Extraire les données du document', btn_extract_loading:'Lecture…',
     label_cognome:'Nom', label_nome:'Prénom', label_sesso:'Sexe', label_data_nascita:'Date de naissance',
-    label_comune_nascita:'Commune de naissance', comune_nascita_hint:'(seulement si né en Italie)',
+    label_comune_nascita:'Commune de naissance', comune_nascita_hint:'(seulement si né en Italie)', comune_locked_hint:'🔒 Se débloque si le Pays de naissance est ITALIA',
     label_stato_nascita:'Pays de naissance', placeholder_es:'p.ex. ITALIA',
     label_cittadinanza:'Nationalité', label_tipo_doc:'Type de document',
     doc_ci:"Carte d'identité", doc_cie:"Carte d'identité électronique (CIE)", doc_pass:'Passeport', doc_patente:'Permis de conduire',
@@ -454,7 +455,7 @@ const T={
     toast_no_doc:'Ningún documento reconocido en las fotos',
     btn_extract:'✨ Extraer datos del documento', btn_extract_loading:'Leyendo…',
     label_cognome:'Apellido', label_nome:'Nombre', label_sesso:'Sexo', label_data_nascita:'Fecha de nacimiento',
-    label_comune_nascita:'Municipio de nacimiento', comune_nascita_hint:'(solo si nació en Italia)',
+    label_comune_nascita:'Municipio de nacimiento', comune_nascita_hint:'(solo si nació en Italia)', comune_locked_hint:'🔒 Se desbloquea si el País de nacimiento es ITALIA',
     label_stato_nascita:'País de nacimiento', placeholder_es:'ej. ITALIA',
     label_cittadinanza:'Nacionalidad', label_tipo_doc:'Tipo de documento',
     doc_ci:'Documento de identidad', doc_cie:'Documento de identidad electrónico (CIE)', doc_pass:'Pasaporte', doc_patente:'Carné de conducir',
@@ -710,6 +711,8 @@ async function estraiDati(id){
 
 function warnBadge(g,k){ return (g._warn||[]).includes(k) ? ` <span class="warn-badge">${t('warn_badge')}</span>` : ''; }
 function fw(g,k){ return (g._warn||[]).includes(k) ? 'field-warn' : ''; }
+function natoInItalia(g){ return String(g.statoNascita||'').trim().toUpperCase()==='ITALIA'; }
+function setStatoNascita(id,val){ const g=getG(id); g.statoNascita=val; if(!natoInItalia(g)) g.comuneNascita=''; render(); }
 
 function stepIndex(){ return passo==='date'?0 : passo==='foto'?1 : (passo==='verifica'||passo==='altro')?2 : 3; }
 
@@ -809,10 +812,10 @@ function renderVerifica(root){
         <div><label>${t('label_sesso')}${warnBadge(g,'sesso')}</label><select id="sesso-${g.id}" class="${fw(g,'sesso')}" onchange="setG('${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
         <div><label>${t('label_data_nascita')}${warnBadge(g,'dataNascita')}</label>${campoData('nasc-'+g.id,italianToIso(g.dataNascita),g.dataNascita,"setG('"+g.id+"','dataNascita',dateToItalian(this.value))")}</div>
       </div>
-      <label>${t('label_comune_nascita')}${warnBadge(g,'comuneNascita')} <span class="muted">${t('comune_nascita_hint')}</span></label>
-      <input id="comune-${g.id}" type="text" class="${fw(g,'comuneNascita')}" value="${g.comuneNascita||''}" oninput="setG('${g.id}','comuneNascita',this.value)">
       <label>${t('label_stato_nascita')}${warnBadge(g,'statoNascita')}</label>
-      <input id="stato-${g.id}" type="text" placeholder="${t('placeholder_es')}" class="${fw(g,'statoNascita')}" value="${g.statoNascita||''}" oninput="setG('${g.id}','statoNascita',this.value)">
+      <input id="stato-${g.id}" type="text" placeholder="${t('placeholder_es')}" class="${fw(g,'statoNascita')}" value="${g.statoNascita||''}" oninput="setStatoNascita('${g.id}',this.value)">
+      <label>${t('label_comune_nascita')}${warnBadge(g,'comuneNascita')} <span class="muted">${natoInItalia(g)?t('comune_nascita_hint'):t('comune_locked_hint')}</span></label>
+      <input id="comune-${g.id}" type="text" ${natoInItalia(g)?'':'disabled'} class="${fw(g,'comuneNascita')}" value="${g.comuneNascita||''}" oninput="setG('${g.id}','comuneNascita',this.value)">
       <label>${t('label_cittadinanza')}${warnBadge(g,'cittadinanza')}</label>
       <input id="citt-${g.id}" type="text" placeholder="${t('placeholder_es')}" class="${fw(g,'cittadinanza')}" value="${g.cittadinanza||''}" oninput="setG('${g.id}','cittadinanza',this.value)">
       <label>${t('label_tipo_doc')}${warnBadge(g,'tipoDoc')}</label>

@@ -73,6 +73,7 @@
     width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
     border-radius:10px; padding:11px 12px; font-size:16px; font-family:inherit;}
   input:focus, select:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:var(--amber)}
+  input:disabled{opacity:.45; cursor:not-allowed; background:var(--surface)}
   .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
   .datefield{display:flex; gap:6px; align-items:stretch}
@@ -12043,12 +12044,12 @@ function wireThumbsDrop(el,onFiles){
 }
 
 function warnBadge(warn){return warn?` <span class="warn-badge" title="L'AI non è sicura di aver letto bene questo dato: controlla sul documento">⚠ verifica</span>`:'';}
-function taField(label,g,nameKey,codeKey,kind,bad,extra,warn){
+function taField(label,g,nameKey,codeKey,kind,bad,extra,warn,disabled){
   const id='ta-'+g.id+'-'+nameKey;
   const code=g[codeKey]||resolveCodeFor(g,nameKey,kind);
   const badge=g[nameKey]?(code?`<span class="code-badge">${code}</span>`:`<span class="code-badge miss">?</span>`):'';
   return `<label>${label}${badge}${warnBadge(warn)}</label>
-    <div class="ta-wrap"><input id="${id}" type="text" class="${bad?'field-bad':(warn?'field-warn':'')}" value="${(g[nameKey]||'').replace(/"/g,'&quot;')}"
+    <div class="ta-wrap"><input id="${id}" type="text" ${disabled?'disabled':''} class="${bad?'field-bad':(warn?'field-warn':'')}" value="${(g[nameKey]||'').replace(/"/g,'&quot;')}"
       autocomplete="off"
       oninput="onTAInput('${g._bid}','${g.id}','${nameKey}','${codeKey}',this.value)"
       onfocus="startTA(this,'${kind}','${g._bid}','${g.id}','${nameKey}','${codeKey}')"></div>${extra||''}`;
@@ -12098,6 +12099,9 @@ function renderGuest(b,g,idx){
       <label>Numero documento${warnBadge(warn.includes('numeroDoc'))}</label><input id="numdoc-${g.id}" type="text" class="${fb('numeroDoc')||fw('numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${b.id}','${g.id}','numeroDoc',this.value)">
       ${taField('Luogo rilascio (stato o comune)',g,'luogoRilascio','luogoRilascioCode','luogo',bad.includes('luogoRilascio'),null,warn.includes('luogoRilascio'))}
     ` : '<div class="muted" style="margin-top:8px">Componente gruppo/famiglia: documento non richiesto (34 spazi).</div>';
+    // il comune di nascita ha senso solo se nato in Italia: se lo stato non è ITALIA lo azzeriamo e il campo resta bloccato
+    const inItalia = String(g.statoNascita||'').trim().toUpperCase()==='ITALIA';
+    if(!inItalia && (g.comuneNascita||g.comuneNascitaCode)){ g.comuneNascita=''; g.comuneNascitaCode=null; g.provinciaNascita=''; }
     f.innerHTML=`
       ${warn.length?'<div class="hint" style="margin-top:10px">⚠ L\'AI non era sicura di alcuni campi qui sotto (segnati in arancione): ricontrollali a occhio sul documento.</div>':''}
       <div style="margin-top:10px"><label>Cognome${warnBadge(warn.includes('cognome'))}</label><input id="cogn-${g.id}" type="text" class="${fb('cognome')||fw('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
@@ -12108,8 +12112,8 @@ function renderGuest(b,g,idx){
           <input id="nasc-${g.id}" type="text" inputmode="numeric" class="${fb('nascita')||fw('dataNascita')}" placeholder="gg/mm/aaaa" value="${g.dataNascita||''}" oninput="setG('${b.id}','${g.id}','dataNascita',this.value)">
           ${datePickerBtn(g.dataNascita, `setG('${b.id}','${g.id}','dataNascita',dateToItalian(this.value))`)}
         </div></div></div>
-      ${taField('Comune nascita (solo se nato in Italia)',g,'comuneNascita','comuneNascitaCode','comune',false,null,warn.includes('comuneNascita'))}
       ${taField('Stato nascita',g,'statoNascita','statoNascitaCode','stato',bad.includes('statoNascita'),null,warn.includes('statoNascita'))}
+      ${taField(inItalia?'Comune nascita':'Comune nascita 🔒 (si sblocca se lo Stato è ITALIA)',g,'comuneNascita','comuneNascitaCode','comune',false,null,warn.includes('comuneNascita'),!inItalia)}
       ${taField('Cittadinanza',g,'cittadinanza','cittadinanzaCode','stato',bad.includes('cittadinanza'),null,warn.includes('cittadinanza'))}
       ${doc}
       ${built?recLine(built):''}`;
