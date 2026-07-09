@@ -681,11 +681,23 @@ function setDate(kind,iso){
   const el=document.getElementById(kind==='arrivo'?'arrivoInput':'partenzaInput'); if(el)el.value=it;
   aggiornaNotti();
 }
+// inserisce da sola le barre "/" mentre l'ospite scrive la data (gg/mm/aaaa),
+// mantenendo la posizione del cursore
+function autoSlashData(el){
+  const posPrima=el.selectionStart, lunPrima=el.value.length;
+  const cifre=el.value.replace(/\D/g,'').slice(0,8);
+  let out=cifre;
+  if(cifre.length>4) out=cifre.slice(0,2)+'/'+cifre.slice(2,4)+'/'+cifre.slice(4);
+  else if(cifre.length>2) out=cifre.slice(0,2)+'/'+cifre.slice(2);
+  el.value=out;
+  const nuovaPos=Math.max(0,(posPrima==null?out.length:posPrima)+(out.length-lunPrima));
+  try{ el.setSelectionRange(nuovaPos,nuovaPos); }catch(e){/* alcuni browser non supportano setSelectionRange su questo input */}
+}
 // campo data in gg/mm/aaaa (indipendente dalla lingua del browser): si può SCRIVERE a mano
 // nel campo di testo, oppure scegliere dal calendario col pulsantino a lato.
 function campoData(idTxt, isoVal, txtVal, onIso, onTxt){
   return `<div class="datefield">
-    <input id="${idTxt}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${txtVal||''}" ${onTxt?`oninput="${onTxt}"`:''}>
+    <input id="${idTxt}" type="text" inputmode="numeric" maxlength="10" placeholder="gg/mm/aaaa" value="${txtVal||''}" ${onTxt?`oninput="autoSlashData(this); ${onTxt}"`:''}>
     <span class="datepick2"><span class="db"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span><input class="datepick2-input" type="date" value="${isoVal||''}" onchange="${onIso}"></span>
   </div>`;
 }
