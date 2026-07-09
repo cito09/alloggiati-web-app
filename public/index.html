@@ -63,6 +63,12 @@
   .settings-section{border-top:1px solid var(--line); padding-top:14px; margin-top:14px}
   .settings-section:first-of-type{border-top:none; margin-top:4px; padding-top:4px}
   .settings-section h3{margin:0 0 4px; font-size:13.5px; display:flex; align-items:center; gap:6px}
+  details.settings-section summary{margin:0; font-size:13.5px; font-weight:700; display:flex; align-items:center; gap:6px;
+    cursor:pointer; list-style:none; -webkit-tap-highlight-color:transparent}
+  details.settings-section summary::-webkit-details-marker{display:none}
+  details.settings-section summary::after{content:'▾'; margin-left:auto; color:var(--muted); font-size:12px; transition:transform .15s}
+  details.settings-section[open] summary::after{transform:rotate(180deg)}
+  details.settings-section .settings-body{padding-top:10px}
   .settings-info-row{display:flex; justify-content:space-between; gap:8px; padding:4px 0}
   .card{background:linear-gradient(165deg, var(--surface), var(--surface2) 140%); border:1px solid var(--line); border-radius:16px;
     padding:16px; margin-bottom:14px; box-shadow:0 8px 24px -12px rgba(0,0,0,.45)}
@@ -220,32 +226,38 @@
       <button class="settings-close" onclick="closeSettings()" aria-label="Chiudi">✕</button>
     </div>
 
-    <div class="settings-section" style="display:none">
-      <h3>🏠 Struttura predefinita</h3>
-      <div class="muted" style="font-size:12px;margin-bottom:6px">Quella già selezionata quando apri una nuova registrazione.</div>
-      <select id="settingsStrutturaSel"></select>
-    </div>
+    <details class="settings-section" style="display:none">
+      <summary><span class="n">🏠</span> Struttura predefinita</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px;margin-bottom:6px">Quella già selezionata quando apri una nuova registrazione.</div>
+        <select id="settingsStrutturaSel"></select>
+      </div>
+    </details>
 
-    <div class="settings-section" id="settingsSecuritySection" style="display:none">
-      <h3>🔒 Codice d'accesso</h3>
-      <div class="muted" style="font-size:12px;margin-bottom:6px">Cambia il codice per entrare nel gestionale, senza passare da Vercel.</div>
-      <form id="changeCodeForm">
-        <label>Codice attuale</label>
-        <input type="password" id="codeAttuale" autocomplete="off" required>
-        <label>Nuovo codice (almeno 6 caratteri)</label>
-        <input type="password" id="codeNuovo" autocomplete="off" required minlength="6">
-        <label>Ripeti nuovo codice</label>
-        <input type="password" id="codeNuovoRip" autocomplete="off" required minlength="6">
-        <button type="submit" class="btn ghost sm" style="width:100%;margin-top:12px">Cambia codice</button>
-        <div id="changeCodeMsg" style="margin-top:8px;font-size:12.5px"></div>
-      </form>
-      <button class="btn ghost sm" style="width:100%;margin-top:14px" onclick="uscitaGestionale()">🚪 Esci dal gestionale</button>
-    </div>
+    <details class="settings-section" id="settingsSecuritySection" style="display:none">
+      <summary><span class="n">🔒</span> Codice d'accesso</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px;margin-bottom:6px">Cambia il codice per entrare nel gestionale, senza passare da Vercel.</div>
+        <form id="changeCodeForm">
+          <label>Codice attuale</label>
+          <input type="password" id="codeAttuale" autocomplete="off" required>
+          <label>Nuovo codice (almeno 6 caratteri)</label>
+          <input type="password" id="codeNuovo" autocomplete="off" required minlength="6">
+          <label>Ripeti nuovo codice</label>
+          <input type="password" id="codeNuovoRip" autocomplete="off" required minlength="6">
+          <button type="submit" class="btn ghost sm" style="width:100%;margin-top:12px">Cambia codice</button>
+          <div id="changeCodeMsg" style="margin-top:8px;font-size:12.5px"></div>
+        </form>
+        <button class="btn ghost sm" style="width:100%;margin-top:14px" onclick="uscitaGestionale()">🚪 Esci dal gestionale</button>
+      </div>
+    </details>
 
-    <div class="settings-section">
-      <h3>ℹ️ Stato configurazione</h3>
-      <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
-    </div>
+    <details class="settings-section">
+      <summary><span class="n">ℹ️</span> Stato configurazione</summary>
+      <div class="settings-body">
+        <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
+      </div>
+    </details>
 
     <div class="settings-section">
       <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
