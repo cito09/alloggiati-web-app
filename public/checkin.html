@@ -37,6 +37,7 @@
   .card{background:linear-gradient(165deg, var(--surface), var(--surface2) 140%); border:1px solid var(--line); border-radius:16px;
     padding:18px; margin-bottom:14px; box-shadow:0 8px 24px -12px rgba(0,0,0,.45)}
   label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
+  .row label{min-height:36px}
   input[type=text], input[type=date], select{
     width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
     border-radius:10px; padding:12px 12px; font-size:16px; font-family:inherit; transition:border-color .15s, box-shadow .15s;}
@@ -205,6 +206,7 @@
     <div class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg> <span id="trustFast"></span></div>
     <div class="trust-chip"><svg viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"/><path d="M3.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="m15 10.5 2 2 3.5-4"/></svg> <span id="trustReviewed"></span></div>
   </div>
+  <div id="inAppBanner" style="display:none; max-width:440px; margin:0 auto 18px"></div>
   <button class="btn primary" id="welcomeBtn" style="max-width:320px; margin:0 auto" onclick="iniziaCheckin()"></button>
 </div>
 
@@ -302,7 +304,9 @@ const T={
     cam_shot:'Scatta', cam_cancel:'Annulla', cam_error:'Fotocamera non disponibile: usa "Carica file"', cam_guide_hint:'Inquadra il documento nel riquadro, dritto e leggibile',
     step1_label_first:'1 · Documenti degli ospiti (obbligatori)',
     first_multi_hint:'Carica i documenti di tutti gli ospiti insieme (li separo io) o solo il tuo. Foto in alta qualità o PDF.',
-    inapp_hint:'📱 Stai usando il browser interno di un\'altra app. Se "Scatta foto" non apre subito la fotocamera, tocca ⋮ o ··· in alto e scegli "Apri nel browser" per un\'esperienza più fluida.',
+    inapp_hint:'📱 Se "Scatta foto" non apre subito la fotocamera, torna alla schermata iniziale e tocca "Apri nel browser", oppure usa "Carica file" per scegliere la foto dalla galleria.',
+    inapp_banner_text:'Per usare la fotocamera senza problemi, apri questa pagina nel tuo browser (Chrome).',
+    inapp_banner_btn:'🌐 Apri nel browser',
     btn_camera:'Scatta una foto ora',
     toast_pdf_big:'PDF troppo grande (massimo 4 MB)',
     btn_extract_all:'✨ Riconosci i documenti',
@@ -362,7 +366,9 @@ const T={
     cam_shot:'Capture', cam_cancel:'Cancel', cam_error:'Camera not available: use "Upload file"', cam_guide_hint:'Frame the document inside the box, straight and readable',
     step1_label_first:"1 · Guests' ID documents (required)",
     first_multi_hint:"Upload all guests' documents together (I'll separate them) or just yours. High-quality photos or PDF.",
-    inapp_hint:'📱 You\'re using another app\'s built-in browser. If "Take photo" doesn\'t open the camera directly, tap ⋮ or ··· at the top and choose "Open in browser" for a smoother experience.',
+    inapp_hint:'📱 If "Take photo" doesn\'t open the camera directly, go back to the start screen and tap "Open in browser", or use "Upload file" to pick the photo from your gallery.',
+    inapp_banner_text:'To use the camera without issues, open this page in your browser (Chrome).',
+    inapp_banner_btn:'🌐 Open in browser',
     btn_camera:'Take a photo now',
     toast_pdf_big:'PDF too large (4 MB max)',
     btn_extract_all:'✨ Read the documents',
@@ -422,7 +428,9 @@ const T={
     cam_shot:'Photographier', cam_cancel:'Annuler', cam_error:'Caméra non disponible : utilisez « Charger fichier »', cam_guide_hint:'Cadrez le document dans le cadre, bien droit et lisible',
     step1_label_first:'1 · Documents des voyageurs (obligatoires)',
     first_multi_hint:'Chargez les documents de tous les voyageurs ensemble (je les sépare) ou seulement le vôtre. Photos de haute qualité ou PDF.',
-    inapp_hint:'📱 Vous utilisez le navigateur intégré d\'une autre application. Si « Prendre photo » n\'ouvre pas directement l\'appareil photo, appuyez sur ⋮ ou ··· en haut et choisissez « Ouvrir dans le navigateur ».',
+    inapp_hint:'📱 Si « Prendre photo » n\'ouvre pas directement l\'appareil photo, revenez à l\'écran d\'accueil et appuyez sur « Ouvrir dans le navigateur », ou utilisez « Charger fichier » pour choisir la photo dans votre galerie.',
+    inapp_banner_text:'Pour utiliser l\'appareil photo sans problème, ouvrez cette page dans votre navigateur (Chrome).',
+    inapp_banner_btn:'🌐 Ouvrir dans le navigateur',
     btn_camera:'Prendre une photo maintenant',
     toast_pdf_big:'PDF trop volumineux (4 Mo max)',
     btn_extract_all:'✨ Lire les documents',
@@ -482,7 +490,9 @@ const T={
     cam_shot:'Capturar', cam_cancel:'Cancelar', cam_error:'Cámara no disponible: usa "Subir archivo"', cam_guide_hint:'Encuadra el documento dentro del recuadro, recto y legible',
     step1_label_first:'1 · Documentos de los huéspedes (obligatorios)',
     first_multi_hint:'Sube los documentos de todos los huéspedes juntos (yo los separo) o solo el tuyo. Fotos de alta calidad o PDF.',
-    inapp_hint:'📱 Estás usando el navegador integrado de otra app. Si "Hacer foto" no abre directamente la cámara, toca ⋮ o ··· arriba y elige "Abrir en el navegador".',
+    inapp_hint:'📱 Si "Hacer foto" no abre directamente la cámara, vuelve a la pantalla inicial y toca "Abrir en el navegador", o usa "Subir archivo" para elegir la foto de tu galería.',
+    inapp_banner_text:'Para usar la cámara sin problemas, abre esta página en tu navegador (Chrome).',
+    inapp_banner_btn:'🌐 Abrir en el navegador',
     btn_camera:'Hacer una foto ahora',
     toast_pdf_big:'PDF demasiado grande (máx. 4 MB)',
     btn_extract_all:'✨ Leer los documentos',
@@ -572,6 +582,14 @@ function applicaTraduzioniStatiche(){
   $('#okText').textContent=t('ok_text');
   $('#blockTitle').textContent=t('block_title');
   $('#blockText').textContent=t('block_text');
+  const ib=$('#inAppBanner');
+  if(ib){
+    if(inAppBrowserAndroid()){
+      ib.style.display='block';
+      ib.innerHTML=`<div class="hint" style="text-align:left">${t('inapp_banner_text')}</div>
+        <button class="btn ghost" style="margin-top:10px" onclick="apriInBrowserEsterno()">${t('inapp_banner_btn')}</button>`;
+    } else ib.style.display='none';
+  }
   aggiornaNotti();
   render();
 }
@@ -646,6 +664,15 @@ function chiudiWebcam(){
 // e compare invece la scelta file di Android. ";wv)" è il marcatore standard di Chrome
 // per le WebView integrate in altre app.
 function inAppBrowserAndroid(){ return /Android/.test(navigator.userAgent) && /;\s*wv\)/.test(navigator.userAgent); }
+// forza l'apertura in Chrome/browser di sistema: sulle WebView integrate in altre app,
+// un link "intent://" viene delegato dal sistema Android al browser vero, bypassando
+// il contenitore limitato dell'app (qui non c'è un menu "apri nel browser" da toccare).
+function apriInBrowserEsterno(){
+  const url=location.href;
+  const schema=location.protocol.replace(':','');
+  const senzaSchema=url.replace(/^https?:\/\//,'');
+  location.href=`intent://${senzaSchema}#Intent;scheme=${schema};end;`;
+}
 
 function scattaFoto(iCam, onFiles){
   const suTelefono = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
