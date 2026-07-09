@@ -108,14 +108,15 @@ module.exports = async (req, res) => {
     }
 
     // contratto di locazione turistica: solo se la struttura ha una config (CONTRATTI_STRUTTURE)
-    // e l'ospite ha effettivamente firmato. Il PDF viene generato e mandato via email all'host
-    // (Resend), MAI salvato sul sito: niente accumulo di file.
+    // e l'ospite ha effettivamente firmato. Il PDF viene generato, mandato via email e
+    // salvato su Blob insieme alle foto, così resta consultabile nell'archivio della prenotazione.
     const cfgContratto = getContrattoStruttura(struttura);
     const firma = (req.body || {}).firma;
     const emailOspite = String((req.body || {}).emailOspite || "").trim();
     let contrattoInviato = false;
     let contrattoErrore = "";
     let contrattoPdfBase64 = ""; // restituito al browser per il pulsante "Scarica PDF" dell'ospite
+    let contrattoUrl = ""; // URL su Blob, per rivedere il contratto dall'archivio admin
     if (cfgContratto) {
       if (!firma) {
         contrattoErrore = "firma mancante (l'ospite non ha firmato)";
@@ -140,6 +141,16 @@ module.exports = async (req, res) => {
           contrattoPdfBase64 = pdfBuffer.toString("base64");
           const nomeOspiteFile = (dati.conduttoreNome || "ospite").trim().replace(/\s+/g, "_").replace(/[^\p{L}\p{N}_-]/gu, "");
           const nomeFilePdf = `contratto_${dati.arrivo}_${nomeOspiteFile}.pdf`;
+          // salva il contratto su Blob, così resta nell'archivio della prenotazione (non solo via email)
+          try {
+            const blobPdf = await put(`contratti/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeFilePdf}`, pdfBuffer, {
+              access: "public",
+              contentType: "application/pdf",
+            });
+            contrattoUrl = blobPdf.url;
+          } catch (e) {
+            /* salvataggio non riuscito: il contratto parte comunque via email, non blocca il check-in */
+          }
           const nomeStruttura = strutturaInfo ? strutturaInfo.nome : struttura;
           const testiOspite = emailOspiteTesti(lang, { nomeStruttura, arrivo, partenza });
           // Host (obbligatoria, sempre in italiano) + eventuale copia all'ospite (nella SUA lingua),
@@ -184,6 +195,7 @@ module.exports = async (req, res) => {
       contrattoRichiesto: !!cfgContratto,
       contrattoInviato,
       contrattoErrore,
+      contrattoUrl,
     };
 
     let raw;

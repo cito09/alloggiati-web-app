@@ -166,6 +166,7 @@
   .storico-head{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px}
   .storico-meta{font-size:12px; color:var(--muted); margin-top:2px}
   .storico-ospiti{font-size:12px; margin-top:2px}
+  .storico-sub{font-size:11.5px; color:var(--muted); font-weight:600; margin-top:10px}
   .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:14px; padding:26px 16px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface2)}
   .dropzone.drag{border-color:var(--amber); background:rgba(245,180,40,.07)}
   .dropzone .dz-big{font-size:30px; line-height:1}
@@ -11792,9 +11793,13 @@ function salvaStorico(){
 }
 function snapshotOspiti(){
   const b=bookings[0];
-  if(!b) return {arrivo:'',ospiti:[]};
-  const ospiti=b.guests.filter(g=>g.cognome||g.nome).map(g=>`${g.cognome||''} ${g.nome||''}`.trim());
-  return {arrivo:b.arrivo||'', ospiti};
+  if(!b) return {arrivo:'',ospiti:[],foto:[],contratti:[]};
+  const validi=b.guests.filter(g=>g.cognome||g.nome);
+  const ospiti=validi.map(g=>`${g.cognome||''} ${g.nome||''}`.trim());
+  // solo foto già online (Blob, arrivate dal check-in): le foto caricate a mano sono
+  // dati base64 non persistenti, non le salviamo nell'archivio per non appesantirlo
+  const foto=validi.flatMap(g=>(g.imgs||[]).filter(u=>/^https?:\/\//.test(u)));
+  return {arrivo:b.arrivo||'', ospiti, foto, contratti:(b._contratti||[])};
 }
 function currentStrutturaNome(){
   const sel=$('#strutturaSel');
@@ -11861,11 +11866,19 @@ function renderStorico(){
         </details>
       </div>`).join(''):''}
     `:'';
+    const foto=(e.foto||[]);
+    const contratti=(e.contratti||[]);
+    const allegati=`
+      ${foto.length?`<div class="storico-sub">📎 Documenti inviati (${foto.length})</div>
+        <div class="thumbs" style="margin-top:6px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<a href="${u}" target="_blank" rel="noopener"><img src="${u}"></a>`}</div>`).join('')}</div>`:''}
+      ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" href="${u}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
+    `;
     return `<div class="storico-item">
       <div class="storico-head"><span>${escText(quando)}</span>
         <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rimuoviStorico(${e.ts})">🗑</button></span></div>
       <div class="storico-meta">${meta}</div>
       ${e.ospiti&&e.ospiti.length?`<div class="storico-ospiti">${escText(e.ospiti.join(', '))}</div>`:''}
+      ${allegati}
       ${dettaglio}
     </div>`;
   }).join('');
@@ -12308,6 +12321,7 @@ function renderCheckinPending(){
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
       ${foto.length?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img src="${u}">`}</div>`).join('')}</div>`:''}
+      ${v.contrattoUrl?`<div style="margin-top:8px"><a class="btn ghost sm btn-link" href="${v.contrattoUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn primary sm" style="flex:1" onclick="accettaCheckin('${v.id}')">✓ Aggiungi alla prenotazione</button>
         <button class="btn ghost sm" onclick="scartaCheckin('${v.id}')">Scarta</button>
@@ -12344,6 +12358,7 @@ function accettaCheckin(id){
     if(g.comuneNascita){const e=lookupComune(g.comuneNascita); if(e)g.provinciaNascita=e.p;}
     return g;
   });
+  if(v.contrattoUrl){ b._contratti=(b._contratti||[]).concat(v.contrattoUrl); }
   b.guests.push(...nuovi);
   b.soggiorno=inferSoggiorno(b.guests);
   rimuoviCheckinPendingLocal(id);
@@ -12430,7 +12445,7 @@ function downloadTxt(){
   a.href=url;a.download=`schedine_${st}.txt`;a.click();URL.revokeObjectURL(url);
   toast(recs.length+' schedine esportate');
   const snap=snapshotOspiti();
-  aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, records:recs});
+  aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recs});
 }
 
 /* ===== invio Alloggiati ===== */
@@ -12467,7 +12482,7 @@ async function invia(){
     showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ultima ricevuta PDF disponibile</button>`);
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     const snap=snapshotOspiti();
-    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, records:recordsInviati});
+    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
   }
 }
