@@ -263,6 +263,19 @@ const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2600);}
 
+/* ===== esce SUBITO dal browser integrato di un'altra app (es. Airbnb) su Android,
+   senza bisogno che l'ospite tocchi nulla: un link "intent://" viene delegato dal
+   sistema al browser vero (Chrome). Se per qualche motivo non dovesse bastare (raro),
+   resta comunque il pulsante manuale nella schermata di benvenuto come rete di sicurezza. */
+function inAppBrowserAndroid(){ return /Android/.test(navigator.userAgent) && /;\s*wv\)/.test(navigator.userAgent); }
+function apriInBrowserEsterno(){
+  const url=location.href;
+  const schema=location.protocol.replace(':','');
+  const senzaSchema=url.replace(/^https?:\/\//,'');
+  location.href=`intent://${senzaSchema}#Intent;scheme=${schema};end;`;
+}
+if(inAppBrowserAndroid()) apriInBrowserEsterno();
+
 /* ===== traduzioni ===== */
 const DOC_TYPES=[
   {value:"CARTA DI IDENTITA'", key:'doc_ci'},
@@ -659,21 +672,6 @@ function chiudiWebcam(){
   const v=$('#camVideo'); if(v)v.srcObject=null;
   const ov=$('#camOverlay'); if(ov)ov.classList.remove('show');
 }
-// rileva se la pagina è aperta dentro il browser integrato di un'altra app (es. Airbnb,
-// Instagram...) su Android: in quei casi la fotocamera a volte non si apre direttamente
-// e compare invece la scelta file di Android. ";wv)" è il marcatore standard di Chrome
-// per le WebView integrate in altre app.
-function inAppBrowserAndroid(){ return /Android/.test(navigator.userAgent) && /;\s*wv\)/.test(navigator.userAgent); }
-// forza l'apertura in Chrome/browser di sistema: sulle WebView integrate in altre app,
-// un link "intent://" viene delegato dal sistema Android al browser vero, bypassando
-// il contenitore limitato dell'app (qui non c'è un menu "apri nel browser" da toccare).
-function apriInBrowserEsterno(){
-  const url=location.href;
-  const schema=location.protocol.replace(':','');
-  const senzaSchema=url.replace(/^https?:\/\//,'');
-  location.href=`intent://${senzaSchema}#Intent;scheme=${schema};end;`;
-}
-
 function scattaFoto(iCam, onFiles){
   const suTelefono = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   const webcamOk = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
