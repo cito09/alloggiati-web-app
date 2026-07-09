@@ -32,6 +32,30 @@ function clientIp(req) {
   return (fwd ? fwd.split(",")[0].trim() : req.socket && req.socket.remoteAddress) || "";
 }
 
+// testo della mail INVIATA ALL'OSPITE, nella lingua in cui ha fatto il check-in.
+// (La mail all'host resta sempre in italiano.)
+function emailOspiteTesti(lang, { nomeStruttura, arrivo, partenza }) {
+  const M = {
+    it: {
+      subject: `La tua copia del contratto · ${nomeStruttura}`,
+      testo: `In allegato la tua copia del contratto di locazione turistica firmato per il soggiorno dal ${arrivo} al ${partenza}.`,
+    },
+    en: {
+      subject: `Your copy of the agreement · ${nomeStruttura}`,
+      testo: `Attached is your copy of the signed tourist rental agreement for your stay from ${arrivo} to ${partenza}.`,
+    },
+    fr: {
+      subject: `Votre copie du contrat · ${nomeStruttura}`,
+      testo: `Vous trouverez en pièce jointe votre copie du contrat de location touristique signé pour votre séjour du ${arrivo} au ${partenza}.`,
+    },
+    es: {
+      subject: `Tu copia del contrato · ${nomeStruttura}`,
+      testo: `Adjunto encontrarás tu copia del contrato de alquiler turístico firmado para tu estancia del ${arrivo} al ${partenza}.`,
+    },
+  };
+  return M[lang] || M.it;
+}
+
 async function notificaHost(testo) {
   const topic = process.env.NTFY_TOPIC;
   if (!topic) return;
@@ -58,7 +82,7 @@ module.exports = async (req, res) => {
   if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
 
   try {
-    const { arrivo, partenza, notti, struttura, ospiti = [] } = req.body || {};
+    const { arrivo, partenza, notti, struttura, lang = "it", ospiti = [] } = req.body || {};
     const validi = ospiti.filter((o) => o && (o.cognome || o.nome));
     if (!validi.length) return res.status(400).json({ error: "Nessun ospite compilato" });
 
@@ -114,11 +138,13 @@ module.exports = async (req, res) => {
             ip: clientIp(req),
           });
           contrattoPdfBase64 = pdfBuffer.toString("base64");
-          const nomeFilePdf = `contratto_${(dati.conduttoreNome || "ospite").replace(/\s+/g, "_")}.pdf`;
+          const nomeOspiteFile = (dati.conduttoreNome || "ospite").trim().replace(/\s+/g, "_").replace(/[^\p{L}\p{N}_-]/gu, "");
+          const nomeFilePdf = `contratto_${dati.arrivo}_${nomeOspiteFile}.pdf`;
           const nomeStruttura = strutturaInfo ? strutturaInfo.nome : struttura;
-          // Host (obbligatoria) + eventuale copia all'ospite, IN PARALLELO ma ENTRAMBE attese:
-          // su Vercel un invio non atteso verrebbe interrotto quando la funzione risponde
-          // (era il motivo per cui all'ospite non arrivava nulla).
+          const testiOspite = emailOspiteTesti(lang, { nomeStruttura, arrivo, partenza });
+          // Host (obbligatoria, sempre in italiano) + eventuale copia all'ospite (nella SUA lingua),
+          // IN PARALLELO ma ENTRAMBE attese: su Vercel un invio non atteso verrebbe interrotto
+          // quando la funzione risponde (era il motivo per cui all'ospite non arrivava nulla).
           const [esitoHost] = await Promise.all([
             inviaEmailConAllegato({
               to: cfgContratto.email,
@@ -130,8 +156,8 @@ module.exports = async (req, res) => {
             emailOspite
               ? inviaEmailConAllegato({
                   to: emailOspite,
-                  subject: `La tua copia del contratto · ${nomeStruttura}`,
-                  testo: `In allegato la tua copia del contratto di locazione turistica firmato per il soggiorno dal ${arrivo} al ${partenza}.`,
+                  subject: testiOspite.subject,
+                  testo: testiOspite.testo,
                   allegatoNome: nomeFilePdf,
                   allegatoBuffer: pdfBuffer,
                 })

@@ -274,7 +274,7 @@ const T={
     sig_label:'Firma', sig_hint:'Firma qui col dito o col mouse', sig_clear:'Cancella firma',
     toast_sig_required:'Firma il contratto per continuare',
     email_copia_label:'Vuoi una copia del contratto via email? (facoltativo)', email_copia_ph:'La tua email',
-    btn_download_contract:'⬇ Scarica il contratto (PDF)', ok_contract_hint:'Puoi scaricare la tua copia del contratto qui sotto.',
+    btn_download_contract:'Scarica il contratto (PDF)', ok_contract_hint:'Puoi scaricare la tua copia del contratto qui sotto.',
   },
   en:{
     default_title:'Check-in',
@@ -331,7 +331,7 @@ const T={
     sig_label:'Signature', sig_hint:'Sign here with your finger or mouse', sig_clear:'Clear signature',
     toast_sig_required:'Please sign the agreement to continue',
     email_copia_label:'Want a copy of the agreement by email? (optional)', email_copia_ph:'Your email',
-    btn_download_contract:'⬇ Download the agreement (PDF)', ok_contract_hint:'You can download your copy of the agreement below.',
+    btn_download_contract:'Download the agreement (PDF)', ok_contract_hint:'You can download your copy of the agreement below.',
   },
   fr:{
     default_title:'Check-in',
@@ -388,7 +388,7 @@ const T={
     sig_label:'Signature', sig_hint:'Signez ici avec le doigt ou la souris', sig_clear:'Effacer la signature',
     toast_sig_required:'Signez le contrat pour continuer',
     email_copia_label:'Vous voulez une copie du contrat par email ? (facultatif)', email_copia_ph:'Votre email',
-    btn_download_contract:'⬇ Télécharger le contrat (PDF)', ok_contract_hint:'Vous pouvez télécharger votre copie du contrat ci-dessous.',
+    btn_download_contract:'Télécharger le contrat (PDF)', ok_contract_hint:'Vous pouvez télécharger votre copie du contrat ci-dessous.',
   },
   es:{
     default_title:'Check-in',
@@ -445,7 +445,7 @@ const T={
     sig_label:'Firma', sig_hint:'Firma aquí con el dedo o el ratón', sig_clear:'Borrar firma',
     toast_sig_required:'Firma el contrato para continuar',
     email_copia_label:'¿Quieres una copia del contrato por email? (opcional)', email_copia_ph:'Tu email',
-    btn_download_contract:'⬇ Descargar el contrato (PDF)', ok_contract_hint:'Puedes descargar tu copia del contrato abajo.',
+    btn_download_contract:'Descargar el contrato (PDF)', ok_contract_hint:'Puedes descargar tu copia del contrato abajo.',
   },
 };
 let lang=localStorage.getItem('keyflow_lang')||null;
@@ -799,12 +799,19 @@ function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1
 let firmaDataUrl=null, firmaTracciata=false;
 let emailOspiteVal='';           // email facoltativa dell'ospite per ricevere una copia del contratto
 let contrattoPdfBase64=null;     // PDF restituito dal server, per il pulsante "Scarica"
+let contrattoNomeFile='contratto.pdf';
+// nome file del download: contratto + data di arrivo + nome ospite (es. contratto_05-08-2026_SITTA_DANIEL.pdf)
+function nomeFileContratto(){
+  const d=datiContratto();
+  const nome=(d.conduttoreNome||'ospite').trim().replace(/\s+/g,'_').replace(/[^\p{L}\p{N}_\-]/gu,'');
+  return `contratto_${d.arrivo}_${nome}.pdf`;
+}
 function scaricaContrattoPdf(){
   if(!contrattoPdfBase64)return;
   const bin=atob(contrattoPdfBase64); const arr=new Uint8Array(bin.length);
   for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
   const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
-  const a=document.createElement('a'); a.href=url; a.download='contratto.pdf'; a.click(); URL.revokeObjectURL(url);
+  const a=document.createElement('a'); a.href=url; a.download=contrattoNomeFile||'contratto.pdf'; a.click(); URL.revokeObjectURL(url);
 }
 function conTrattini(gg){ return (gg||'').replace(/\//g,'-'); }
 function dataOggiTrattini(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}-${p(d.getMonth()+1)}-${d.getFullYear()}`; }
@@ -919,7 +926,7 @@ async function inviaCheckin(){
   const btn=$('#submitBtn'); btn.disabled=true;
   $('#submitStatus').innerHTML=`<span class="spin"></span> ${t('submit_status_invio')}`;
   try{
-    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, ospiti: validi.map(g=>({
+    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, lang, ospiti: validi.map(g=>({
       cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
       incertezze:(g._warn||[]), immagini:g.imgs||[]
@@ -928,10 +935,12 @@ async function inviaCheckin(){
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
     contrattoPdfBase64=data.contrattoPdfBase64||null;
+    contrattoNomeFile=nomeFileContratto();
     mostraSolo('okWrap');
     const okd=$('#okDownload');
+    const iconaDl=`<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M4.5 21h15"/></svg>`;
     if(okd) okd.innerHTML = contrattoPdfBase64
-      ? `<div class="muted" style="margin-bottom:10px">${t('ok_contract_hint')}</div><button class="btn ghost" style="max-width:320px;margin:0 auto" onclick="scaricaContrattoPdf()">${t('btn_download_contract')}</button>`
+      ? `<div class="muted" style="margin-bottom:12px">${t('ok_contract_hint')}</div><button class="btn primary" style="max-width:340px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:9px" onclick="scaricaContrattoPdf()">${iconaDl}${t('btn_download_contract')}</button>`
       : '';
   }catch(e){
     toast(t('toast_send_failed')+e.message);
