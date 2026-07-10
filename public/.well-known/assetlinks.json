@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.keyflow.gestionale",
+    "sha256_cert_fingerprints": ["28:70:28:79:C4:8D:7E:D1:92:CD:3D:66:32:45:B3:4F:24:8E:14:63:98:49:C1:B6:3D:10:B1:96:B5:B2:A9:0C"]
+  }
+}]
