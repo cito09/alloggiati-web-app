@@ -311,6 +311,101 @@ function testoRO(cfg, d) {
   ];
 }
 
+function testoPT(cfg, d) {
+  return [
+    { t: "titolo", v: "CONTRATO DE LOCAÇÃO TURÍSTICA" },
+    { t: "p", v: `O/A Sr./Sra. ${cfg.locatoreNome}, denominado/a Locador` },
+    { t: "p", v: `Código fiscal ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-mail ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Dá em locação" },
+    { t: "sep" },
+    { t: "p", v: `Ao/À Sr./Sra. ${d.conduttoreNome}, denominado/a Locatário` },
+    { t: "p", v: `Número do documento de identidade ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "QUE ACEITA" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `A unidade imobiliária situada em ${cfg.indirizzoVia}, composta por ${cfg.vani ? `${cfg.vani} divisões, ` : ""}${cfg.postiLetto} camas e ${cfg.wc} casa(s) de banho. ${cfg.accessori ? `Imóvel mobilado que inclui, além da cozinha, os seguintes elementos acessórios (${cfg.accessori})` : "Imóvel mobilado com cozinha"}. Identificada no cadastro de edifícios do Município de ${cfg.comune}, folha ${cfg.foglio}, parcela ${cfg.particella}, subalterno ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "A locação será regida pelas seguintes cláusulas:" },
+    { t: "sep" },
+    { t: "p", v: `1. O contrato é estipulado de ${d.arrivo} a ${d.partenza} e cessará sem necessidade de qualquer aviso.` },
+    {
+      t: "p",
+      v: `2. O imóvel deverá ser destinado exclusivamente a fins turísticos e, incluindo o locatário, ${d.numOspiti === 1 ? "será alojada 1 pessoa" : `serão alojadas ${d.numOspiti} pessoas`}.`,
+    },
+    {
+      t: "p",
+      v: "3. O locatário NÃO poderá sublocar nem emprestar, no todo ou em parte, a unidade imobiliária, sob pena de resolução de pleno direito do contrato.",
+    },
+    {
+      t: "p",
+      v: `4. O valor da locação é o já pago no momento da reserva e consta nos detalhes da transação na plataforma utilizada ${cfg.piattaforma}. Este valor considera-se aceite por ambas as partes sem necessidade de confirmação adicional.`,
+    },
+    {
+      t: "p",
+      v: "5. O locatário deverá avisar o proprietário, ou quem o represente, sobre eventuais defeitos do imóvel e do mobiliário no prazo de quarenta e oito horas após a entrega das chaves.",
+    },
+    {
+      t: "p",
+      v: "6. As despesas relativas ao fornecimento de serviços como luz, água, gás e despesas de condomínio ficam a cargo do locador (proprietário).",
+    },
+    { t: "sep" },
+    { t: "p", v: `Lido, aprovado e assinado em ${cfg.comune}, em ${d.dataFirma}` },
+  ];
+}
+
+function testoPL(cfg, d) {
+  const persone = d.numOspiti === 1 ? "zakwaterowana będzie 1 osoba" : d.numOspiti < 5 ? `zakwaterowane będą ${d.numOspiti} osoby` : `zakwaterowanych będzie ${d.numOspiti} osób`;
+  return [
+    { t: "titolo", v: "UMOWA NAJMU TURYSTYCZNEGO" },
+    { t: "p", v: `Pan/Pani ${cfg.locatoreNome}, zwany/a dalej Wynajmującym` },
+    { t: "p", v: `Kod podatkowy ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-mail ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Oddaje w najem" },
+    { t: "sep" },
+    { t: "p", v: `Panu/Pani ${d.conduttoreNome}, zwanemu/ej dalej Najemcą` },
+    { t: "p", v: `Numer dokumentu tożsamości ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "KTÓRY/A AKCEPTUJE" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `Lokal położony w ${cfg.indirizzoVia}, składający się z ${cfg.vani ? `${cfg.vani} pokoi, ` : ""}${cfg.postiLetto} miejsc do spania i ${cfg.wc} łazienki/łazienek. ${cfg.accessori ? `Lokal umeblowany, obejmujący oprócz kuchni następujące pomieszczenia dodatkowe (${cfg.accessori})` : "Lokal umeblowany z kuchnią"}. Ujęty w katastrze budynków Gminy ${cfg.comune}, arkusz ${cfg.foglio}, działka ${cfg.particella}, jednostka ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "Najem podlega następującym postanowieniom:" },
+    { t: "sep" },
+    { t: "p", v: `1. Umowa zostaje zawarta od ${d.arrivo} do ${d.partenza} i wygasa bez konieczności wypowiedzenia.` },
+    {
+      t: "p",
+      v: `2. Nieruchomość może być wykorzystywana wyłącznie w celach turystycznych; łącznie z najemcą ${persone}.`,
+    },
+    {
+      t: "p",
+      v: "3. Najemca NIE może podnajmować ani użyczać, w całości ani w części, lokalu, pod rygorem rozwiązania umowy z mocy prawa.",
+    },
+    {
+      t: "p",
+      v: `4. Czynsz najmu został już zapłacony w momencie rezerwacji i wynika ze szczegółów transakcji na wykorzystanej platformie ${cfg.piattaforma}. Kwota ta uznawana jest za zaakceptowaną przez obie strony bez potrzeby dodatkowego potwierdzenia.`,
+    },
+    {
+      t: "p",
+      v: "5. Najemca powinien powiadomić właściciela lub jego przedstawiciela o ewentualnych wadach lokalu i wyposażenia w ciągu czterdziestu ośmiu godzin od przekazania kluczy.",
+    },
+    {
+      t: "p",
+      v: "6. Koszty dostawy mediów, takich jak prąd, woda, gaz oraz opłaty wspólnotowe, ponosi wynajmujący (właściciel).",
+    },
+    { t: "sep" },
+    { t: "p", v: `Przeczytano, zatwierdzono i podpisano w ${cfg.comune}, dnia ${d.dataFirma}` },
+  ];
+}
+
 // etichetta della riga firma nel PDF, per lingua
 const FIRMA_LABEL = {
   it: "Firma del conduttore:",
@@ -319,11 +414,13 @@ const FIRMA_LABEL = {
   es: "Firma del arrendatario:",
   de: "Unterschrift des Mieters:",
   ro: "Semnătura chiriașului:",
+  pt: "Assinatura do locatário:",
+  pl: "Podpis najemcy:",
 };
 
 // restituisce i blocchi del contratto nella lingua chiesta (default italiano)
 function testoContratto(cfg, d, lang) {
-  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES, de: testoDE, ro: testoRO }[lang] || testoIT;
+  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES, de: testoDE, ro: testoRO, pt: testoPT, pl: testoPL }[lang] || testoIT;
   return fn(cfg, d);
 }
 function firmaLabel(lang) {
