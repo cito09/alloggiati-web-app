@@ -1038,12 +1038,23 @@ function datiContratto(){
     numOspiti:validi.length, dataFirma:dataOggiTrattini(),
   };
 }
-function paragrafoContratto(cfg,d,titolo,lingua){
-  const indirizzo=lingua==='en'?(cfg.indirizzoViaEN||cfg.indirizzoVia):cfg.indirizzoVia;
+// testo del contratto nella lingua dell'ospite (stesso contenuto usato dal server per il PDF):
+// l'ospite legge e firma SOLO nella propria lingua; la copia italiana viene aggiunta dal
+// server nel PDF finale, come seconda pagina, se ha firmato in un'altra lingua.
+function paragrafoContratto(cfg,d,lingua){
+  const ind=cfg.indirizzoVia;
+  const descIT=`L'unità immobiliare posta in via ${ind}. Locale composto di ${cfg.vani?`n. ${cfg.vani} vani, di `:''}n. ${cfg.postiLetto} posti letto, di n. ${cfg.wc} wc. Locale ammobiliato ${cfg.accessori?`che include oltre alla cucina i seguenti elementi accessori (${cfg.accessori})`:'dotato di cucina'}. Identificata al catasto fabbricati del Comune di ${cfg.comune}, nel Foglio di mappa ${cfg.foglio} particella ${cfg.particella} subalterno ${cfg.subalterno}.`;
   if(lingua==='en'){
-    return `<b>${titolo}</b>\n\nMr./Ms. ${cfg.locatoreNome}, referred to as the Landlord\nTax Code ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nLeases to\n\nMr./Ms. ${d.conduttoreNome} referred to as the Tenant\nIdentity Document Number ${d.conduttoreDoc||'—'}\n\nWHO ACCEPTS\n\nThe real estate unit located at ${indirizzo}, consisting of ${cfg.vani?`${cfg.vani} rooms, `:''}${cfg.postiLetto} beds, and ${cfg.wc} bathroom(s). ${cfg.accessori?`The furnished unit includes, in addition to the kitchen, the following accessory elements (${cfg.accessori})`:'Furnished unit with kitchen'}. Identified in the property registry of the Municipality of ${cfg.comune}, in Map Sheet ${cfg.foglio}, Parcel ${cfg.particella}, Subordinate ${cfg.subalterno}.\n\nThe lease shall be governed by the following terms:\n\n1. The contract is stipulated from ${d.arrivo} to ${d.partenza} and will terminate without any notice.\n2. The property must be used exclusively for tourist purposes, and including the tenant, a total of ${d.numOspiti} ${d.numOspiti===1?'person':'people'} will be accommodated.\n3. The tenant is NOT allowed to sublet or lend, in whole or in part, the property, under penalty of automatic termination of the contract.\n4. The rental fee is the amount already paid at the time of booking and is recorded in the transaction details on the platform used ${cfg.piattaforma}. This amount is considered accepted by both parties without the need for further confirmation.\n5. The tenant must inform the owner or their representative of any defects in the property and furniture within forty-eight hours of receiving the keys.\n6. The costs related to the provision of services, such as electricity, water, gas, and condominium fees, are borne by the landlord (owner).\n\nRead, approved, and signed in ${cfg.comune}, on ${d.dataFirma}`;
+    const indEN=cfg.indirizzoViaEN||ind;
+    return `<b>TOURIST RENTAL AGREEMENT</b>\n\nMr./Ms. ${cfg.locatoreNome}, referred to as the Landlord\nTax Code ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nLeases to\n\nMr./Ms. ${d.conduttoreNome} referred to as the Tenant\nIdentity Document Number ${d.conduttoreDoc||'—'}\n\nWHO ACCEPTS\n\nThe real estate unit located at ${indEN}, consisting of ${cfg.vani?`${cfg.vani} rooms, `:''}${cfg.postiLetto} beds, and ${cfg.wc} bathroom(s). ${cfg.accessori?`The furnished unit includes, in addition to the kitchen, the following accessory elements (${cfg.accessori})`:'Furnished unit with kitchen'}. Identified in the property registry of the Municipality of ${cfg.comune}, in Map Sheet ${cfg.foglio}, Parcel ${cfg.particella}, Subordinate ${cfg.subalterno}.\n\nThe lease shall be governed by the following terms:\n\n1. The contract is stipulated from ${d.arrivo} to ${d.partenza} and will terminate without any notice.\n2. The property must be used exclusively for tourist purposes, and including the tenant, a total of ${d.numOspiti} ${d.numOspiti===1?'person':'people'} will be accommodated.\n3. The tenant is NOT allowed to sublet or lend, in whole or in part, the property, under penalty of automatic termination of the contract.\n4. The rental fee is the amount already paid at the time of booking and is recorded in the transaction details on the platform used ${cfg.piattaforma}. This amount is considered accepted by both parties without the need for further confirmation.\n5. The tenant must inform the owner or their representative of any defects in the property and furniture within forty-eight hours of receiving the keys.\n6. The costs related to the provision of services, such as electricity, water, gas, and condominium fees, are borne by the landlord (owner).\n\nRead, approved, and signed in ${cfg.comune}, on ${d.dataFirma}`;
   }
-  return `<b>${titolo}</b>\n\nIl/la Sig. ${cfg.locatoreNome} denominato Locatore\nCodice Fiscale ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nConcede in Locazione\n\nAlla/al Sig. ${d.conduttoreNome} denominato conduttore\nNumero Doc. Identità ${d.conduttoreDoc||'—'}\n\nCHE ACCETTA\n\nL'unità immobiliare posta in via ${indirizzo}. Locale composto di ${cfg.vani?`n. ${cfg.vani} vani, di `:''}n. ${cfg.postiLetto} posti letto, di n. ${cfg.wc} wc. Locale ammobiliato ${cfg.accessori?`che include oltre alla cucina i seguenti elementi accessori (${cfg.accessori})`:'dotato di cucina'}. Identificata al catasto fabbricati del Comune di ${cfg.comune}, nel Foglio di mappa ${cfg.foglio} particella ${cfg.particella} subalterno ${cfg.subalterno}.\n\nLa locazione sarà regolata dalle seguenti pattuizioni:\n\n1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.\n2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore ${d.numOspiti===1?'sarà ospitato un numero di 1 persona':`saranno ospitate un numero di ${d.numOspiti} persone`}.\n3. Il conduttore NON potrà sublocare o dare in comodato, in tutto o in parte, l'unità immobiliare, pena la risoluzione di diritto del contratto.\n4. Il canone di locazione è quello già corrisposto al momento della prenotazione e risulta dal dettaglio della transazione sulla piattaforma utilizzata ${cfg.piattaforma}. Tale importo è considerato accettato da entrambe le parti senza necessità di ulteriore conferma.\n5. Il conduttore dovrà avvisare il proprietario o chi ne fa le veci degli eventuali difetti dell'immobile e dei mobili entro quarantotto ore dalla consegna delle chiavi.\n6. Le spese inerenti all'erogazione di servizi, quali: luce; acqua; gas; spese condominiali; sono a carico del locatore (proprietario).\n\nLetto, approvato e sottoscritto ${cfg.comune}, li ${d.dataFirma}`;
+  if(lingua==='fr'){
+    return `<b>CONTRAT DE LOCATION TOURISTIQUE</b>\n\nM./Mme ${cfg.locatoreNome}, dénommé(e) le Bailleur\nCode fiscal ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nDonne en location\n\nÀ M./Mme ${d.conduttoreNome}, dénommé(e) le Locataire\nNuméro de pièce d'identité ${d.conduttoreDoc||'—'}\n\nQUI ACCEPTE\n\nL'unité immobilière située à ${ind}, composée de ${cfg.vani?`${cfg.vani} pièces, `:''}${cfg.postiLetto} couchages et ${cfg.wc} salle(s) de bain. ${cfg.accessori?`Local meublé comprenant, outre la cuisine, les éléments accessoires suivants (${cfg.accessori})`:'Local meublé avec cuisine'}. Identifiée au cadastre des bâtiments de la Commune de ${cfg.comune}, feuille ${cfg.foglio}, parcelle ${cfg.particella}, subalterne ${cfg.subalterno}.\n\nLa location sera régie par les clauses suivantes :\n\n1. Le contrat est stipulé du ${d.arrivo} au ${d.partenza} et prendra fin sans aucun préavis.\n2. L'immeuble devra être destiné exclusivement à des fins touristiques et, locataire inclus, ${d.numOspiti===1?'1 personne sera hébergée':`${d.numOspiti} personnes seront hébergées`}.\n3. Le locataire NE pourra PAS sous-louer ni prêter, en tout ou en partie, l'unité immobilière, sous peine de résolution de plein droit du contrat.\n4. Le loyer est celui déjà versé au moment de la réservation et résulte du détail de la transaction sur la plateforme utilisée ${cfg.piattaforma}. Ce montant est considéré comme accepté par les deux parties sans qu'aucune confirmation supplémentaire ne soit nécessaire.\n5. Le locataire devra signaler au propriétaire, ou à son représentant, les éventuels défauts de l'immeuble et du mobilier dans les quarante-huit heures suivant la remise des clés.\n6. Les frais liés à la fourniture des services (électricité, eau, gaz, charges de copropriété) sont à la charge du bailleur (propriétaire).\n\nLu, approuvé et signé à ${cfg.comune}, le ${d.dataFirma}`;
+  }
+  if(lingua==='es'){
+    return `<b>CONTRATO DE ALQUILER TURÍSTICO</b>\n\nEl/La Sr./Sra. ${cfg.locatoreNome}, denominado/a Arrendador\nCódigo fiscal ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nCede en alquiler\n\nAl/A la Sr./Sra. ${d.conduttoreNome}, denominado/a Arrendatario\nNúmero de documento de identidad ${d.conduttoreDoc||'—'}\n\nQUE ACEPTA\n\nLa unidad inmobiliaria situada en ${ind}, compuesta por ${cfg.vani?`${cfg.vani} habitaciones, `:''}${cfg.postiLetto} plazas y ${cfg.wc} baño(s). ${cfg.accessori?`Local amueblado que incluye, además de la cocina, los siguientes elementos accesorios (${cfg.accessori})`:'Local amueblado con cocina'}. Identificada en el catastro de edificios del Municipio de ${cfg.comune}, hoja ${cfg.foglio}, parcela ${cfg.particella}, subalterno ${cfg.subalterno}.\n\nEl alquiler se regirá por los siguientes pactos:\n\n1. El contrato se estipula desde el ${d.arrivo} hasta el ${d.partenza} y cesará sin necesidad de aviso alguno.\n2. El inmueble deberá destinarse exclusivamente a fines turísticos y, incluido el arrendatario, se alojará ${d.numOspiti===1?'1 persona':`un total de ${d.numOspiti} personas`}.\n3. El arrendatario NO podrá subarrendar ni ceder en comodato, total o parcialmente, la unidad inmobiliaria, bajo pena de resolución de pleno derecho del contrato.\n4. La renta es la ya abonada en el momento de la reserva y consta en el detalle de la transacción de la plataforma utilizada ${cfg.piattaforma}. Dicho importe se considera aceptado por ambas partes sin necesidad de confirmación adicional.\n5. El arrendatario deberá avisar al propietario, o a quien lo represente, de los posibles defectos del inmueble y del mobiliario dentro de las cuarenta y ocho horas siguientes a la entrega de las llaves.\n6. Los gastos relativos al suministro de servicios (luz, agua, gas, gastos de comunidad) corren a cargo del arrendador (propietario).\n\nLeído, aprobado y firmado en ${cfg.comune}, el ${d.dataFirma}`;
+  }
+  return `<b>CONTRATTO DI LOCAZIONE TURISTICA</b>\n\nIl/la Sig. ${cfg.locatoreNome} denominato Locatore\nCodice Fiscale ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nConcede in Locazione\n\nAlla/al Sig. ${d.conduttoreNome} denominato conduttore\nNumero Doc. Identità ${d.conduttoreDoc||'—'}\n\nCHE ACCETTA\n\n${descIT}\n\nLa locazione sarà regolata dalle seguenti pattuizioni:\n\n1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.\n2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore ${d.numOspiti===1?'sarà ospitato un numero di 1 persona':`saranno ospitate un numero di ${d.numOspiti} persone`}.\n3. Il conduttore NON potrà sublocare o dare in comodato, in tutto o in parte, l'unità immobiliare, pena la risoluzione di diritto del contratto.\n4. Il canone di locazione è quello già corrisposto al momento della prenotazione e risulta dal dettaglio della transazione sulla piattaforma utilizzata ${cfg.piattaforma}. Tale importo è considerato accettato da entrambe le parti senza necessità di ulteriore conferma.\n5. Il conduttore dovrà avvisare il proprietario o chi ne fa le veci degli eventuali difetti dell'immobile e dei mobili entro quarantotto ore dalla consegna delle chiavi.\n6. Le spese inerenti all'erogazione di servizi, quali: luce; acqua; gas; spese condominiali; sono a carico del locatore (proprietario).\n\nLetto, approvato e sottoscritto ${cfg.comune}, li ${d.dataFirma}`;
 }
 function wireFirmaCanvas(){
   const cv=$('#firmaCanvas'); if(!cv)return;
@@ -1053,15 +1064,21 @@ function wireFirmaCanvas(){
   cv.width=rect.width*dpr; cv.height=rect.height*dpr;
   ctx.scale(dpr,dpr);
   ctx.lineWidth=2.4; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#111111';
-  let drawing=false, last=null;
-  const pos=e=>{ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
-  const start=e=>{ drawing=true; last=pos(e); firmaTracciata=true; cv.setPointerCapture(e.pointerId); };
-  const move=e=>{ if(!drawing)return; const p=pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; };
-  const end=()=>{ drawing=false; if(firmaTracciata)firmaDataUrl=cv.toDataURL('image/png'); };
-  cv.addEventListener('pointerdown',start);
-  cv.addEventListener('pointermove',move);
-  cv.addEventListener('pointerup',end);
-  cv.addEventListener('pointerleave',end);
+  let drawing=false, last=null, usaPointer=false;
+  const posXY=(x,y)=>{ const r=cv.getBoundingClientRect(); return {x:x-r.left, y:y-r.top}; };
+  const salva=()=>{ try{ firmaDataUrl=cv.toDataURL('image/png'); }catch(e){/* canvas non esportabile: resta il recupero al submit */} };
+  const inizia=(x,y)=>{ drawing=true; last=posXY(x,y); firmaTracciata=true; };
+  const muovi=(x,y)=>{ if(!drawing)return; const p=posXY(x,y); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; };
+  const fine=()=>{ if(!drawing)return; drawing=false; salva(); };
+  cv.addEventListener('pointerdown',e=>{ usaPointer=true; e.preventDefault(); try{cv.setPointerCapture(e.pointerId);}catch(err){/* capture non supportata: si disegna lo stesso */} inizia(e.clientX,e.clientY); });
+  cv.addEventListener('pointermove',e=>{ if(!drawing)return; e.preventDefault(); muovi(e.clientX,e.clientY); });
+  cv.addEventListener('pointerup',fine);
+  cv.addEventListener('pointercancel',fine); // es. il sistema interrompe il gesto: salviamo comunque il tratto fatto
+  cv.addEventListener('pointerleave',fine);
+  // ripiego touch per i (rari) browser/webview dove i pointer events sul canvas non arrivano
+  cv.addEventListener('touchstart',e=>{ if(usaPointer)return; e.preventDefault(); const t0=e.touches[0]; inizia(t0.clientX,t0.clientY); },{passive:false});
+  cv.addEventListener('touchmove',e=>{ if(usaPointer)return; e.preventDefault(); const t0=e.touches[0]; muovi(t0.clientX,t0.clientY); },{passive:false});
+  cv.addEventListener('touchend',e=>{ if(usaPointer)return; e.preventDefault(); fine(); },{passive:false});
 }
 function cancellaFirma(){
   const cv=$('#firmaCanvas'); if(!cv)return;
@@ -1071,14 +1088,14 @@ function cancellaFirma(){
 function renderInvio(root){
   const contrattoHtml = contrattoCfg ? (()=>{
     const d=datiContratto();
-    const testo=paragrafoContratto(contrattoCfg,d,'CONTRATTO DI LOCAZIONE TURISTICA','it')+'\n\n\n'+paragrafoContratto(contrattoCfg,d,'TOURIST RENTAL AGREEMENT','en');
+    const testo=paragrafoContratto(contrattoCfg,d,lang);
     return `
     <div class="card">
       <div class="steplbl">${t('contratto_title')}</div>
       <div class="muted" style="margin-bottom:8px">${t('contratto_hint')}</div>
       <div class="contratto-box">${testo}</div>
       <label style="display:block;margin-top:12px" class="muted">${t('sig_label')}</label>
-      <div class="sig-wrap"><canvas id="firmaCanvas"></canvas></div>
+      <div class="sig-wrap"><canvas id="firmaCanvas" style="touch-action:none"></canvas></div>
       <div class="sig-hint">${t('sig_hint')}</div>
       <button class="btn ghost sm" style="width:auto;margin-top:8px" onclick="cancellaFirma()">${t('sig_clear')}</button>
       <label style="display:block;margin-top:14px" class="muted">${t('email_copia_label')}</label>
@@ -1133,6 +1150,12 @@ async function inviaCheckin(){
   if(!(notti>0)){toast(t('notti_error'));return;}
   const validi=guests.filter(g=>g.cognome||g.nome);
   if(!validi.length){toast(t('toast_add_guest'));return;}
+  // se il tratto c'è ma il salvataggio automatico non è avvenuto (gesto interrotto,
+  // browser particolare), recuperiamo la firma direttamente dal riquadro adesso
+  if(contrattoCfg&&!firmaDataUrl&&firmaTracciata){
+    const cvF=$('#firmaCanvas');
+    if(cvF){ try{ firmaDataUrl=cvF.toDataURL('image/png'); }catch(e){/* niente: resta il messaggio di firma richiesta */} }
+  }
   if(contrattoCfg&&!firmaDataUrl){toast(t('toast_sig_required'));return;}
   if(!consensoOk){toast(t('toast_accept_privacy'));return;}
 

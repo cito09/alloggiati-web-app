@@ -24,7 +24,9 @@ function wrapLines(text, size, font) {
   return lines;
 }
 
-async function generaContrattoPdf({ blocchiIT, blocchiEN, firmaPngBuffer, dataFirma, ip }) {
+// "pagine" è un array di { blocchi, firmaLabel }: la prima nella lingua dell'ospite,
+// l'eventuale seconda in italiano (omessa se l'ospite ha già firmato in italiano).
+async function generaContrattoPdf({ pagine, firmaPngBuffer, dataFirma, ip }) {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -60,13 +62,12 @@ async function generaContrattoPdf({ blocchiIT, blocchiEN, firmaPngBuffer, dataFi
     }
   }
 
-  // la firma va disegnata in fondo a ENTRAMBE le versioni (italiana e inglese), come
-  // nel contratto originale che aveva la riga della firma su tutte e due le pagine.
+  // la firma va disegnata in fondo a OGNI versione linguistica del contratto
   const firmaImg = firmaPngBuffer ? await pdf.embedPng(firmaPngBuffer) : null;
-  function disegnaFirma() {
+  function disegnaFirma(label) {
     assicuraSpazio(140);
     y -= 12;
-    page.drawText("Firma del conduttore / Tenant's signature:", { x: MARGIN, y, size: 11, font: fontBold });
+    page.drawText(label || "Firma del conduttore:", { x: MARGIN, y, size: 11, font: fontBold });
     y -= 10;
     if (firmaImg) {
       const scale = Math.min(220 / firmaImg.width, 90 / firmaImg.height);
@@ -76,7 +77,7 @@ async function generaContrattoPdf({ blocchiIT, blocchiEN, firmaPngBuffer, dataFi
       page.drawImage(firmaImg, { x: MARGIN, y: y - h, width: w, height: h });
       y -= h + 8;
     }
-    page.drawText(`Firmato elettronicamente il ${dataFirma}${ip ? " · IP " + ip : ""}`, {
+    page.drawText(`Firmato elettronicamente · Electronically signed — ${dataFirma}${ip ? " · IP " + ip : ""}`, {
       x: MARGIN,
       y,
       size: 8.5,
@@ -85,11 +86,11 @@ async function generaContrattoPdf({ blocchiIT, blocchiEN, firmaPngBuffer, dataFi
     });
   }
 
-  scriviBlocchi(blocchiIT);
-  disegnaFirma();
-  nuovaPagina();
-  scriviBlocchi(blocchiEN);
-  disegnaFirma();
+  pagine.forEach((p, i) => {
+    if (i > 0) nuovaPagina();
+    scriviBlocchi(p.blocchi);
+    disegnaFirma(p.firmaLabel);
+  });
 
   return Buffer.from(await pdf.save());
 }

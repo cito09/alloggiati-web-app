@@ -9,7 +9,7 @@
 const { put } = require("@vercel/blob");
 const { upstash, redisCmd } = require("./_kv");
 const { getStrutture } = require("./_alloggiati");
-const { getContrattoStruttura, testoIT, testoEN } = require("./_contratto");
+const { getContrattoStruttura, testoContratto, firmaLabel } = require("./_contratto");
 const { generaContrattoPdf } = require("./_pdf");
 const { inviaEmailConAllegato } = require("./_email");
 
@@ -131,9 +131,12 @@ module.exports = async (req, res) => {
             numOspiti: validi.length,
             dataFirma: dataOggiTrattini(),
           };
+          // prima pagina nella lingua in cui l'ospite ha letto e firmato; se non è
+          // l'italiano, segue una seconda pagina in italiano (copia per il locatore)
+          const pagine = [{ blocchi: testoContratto(cfgContratto, dati, lang), firmaLabel: firmaLabel(lang) }];
+          if (lang !== "it") pagine.push({ blocchi: testoContratto(cfgContratto, dati, "it"), firmaLabel: firmaLabel("it") });
           const pdfBuffer = await generaContrattoPdf({
-            blocchiIT: testoIT(cfgContratto, dati),
-            blocchiEN: testoEN(cfgContratto, dati),
+            pagine,
             firmaPngBuffer: toBuffer(firma),
             dataFirma: dati.dataFirma,
             ip: clientIp(req),
