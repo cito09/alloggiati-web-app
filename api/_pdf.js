@@ -1,6 +1,12 @@
-// api/_pdf.js — genera il PDF del contratto firmato (testo IT + EN + immagine della firma).
-// Usa pdf-lib (libreria pura JS, nessun binario nativo: va bene su Vercel serverless).
-const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+// api/_pdf.js — genera il PDF del contratto firmato (pagine per lingua + immagine della firma).
+// Usa pdf-lib (libreria pura JS, nessun binario nativo: va bene su Vercel serverless) con il
+// font DejaVu Sans incorporato: il font standard dei PDF (Helvetica/WinAnsi) non copre le
+// lettere del romeno (ș, ț, ă) e avrebbe fatto fallire la generazione. subset:true tiene
+// il PDF piccolo (incorpora solo i caratteri usati davvero).
+const { PDFDocument, rgb } = require("pdf-lib");
+const fontkit = require("@pdf-lib/fontkit");
+const fs = require("fs");
+const path = require("path");
 
 const PAGE_W = 595.28; // A4
 const PAGE_H = 841.89;
@@ -28,8 +34,9 @@ function wrapLines(text, size, font) {
 // l'eventuale seconda in italiano (omessa se l'ospite ha già firmato in italiano).
 async function generaContrattoPdf({ pagine, firmaPngBuffer, dataFirma, ip }) {
   const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  pdf.registerFontkit(fontkit);
+  const font = await pdf.embedFont(fs.readFileSync(path.join(__dirname, "_fonts", "DejaVuSans.ttf")), { subset: true });
+  const fontBold = await pdf.embedFont(fs.readFileSync(path.join(__dirname, "_fonts", "DejaVuSans-Bold.ttf")), { subset: true });
 
   let page = pdf.addPage([PAGE_W, PAGE_H]);
   let y = PAGE_H - MARGIN;

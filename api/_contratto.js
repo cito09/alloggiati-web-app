@@ -217,17 +217,113 @@ function testoES(cfg, d) {
   ];
 }
 
+function testoDE(cfg, d) {
+  return [
+    { t: "titolo", v: "TOURISTISCHER MIETVERTRAG" },
+    { t: "p", v: `Herr/Frau ${cfg.locatoreNome}, im Folgenden „Vermieter" genannt` },
+    { t: "p", v: `Steuernummer ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-Mail ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Vermietet an" },
+    { t: "sep" },
+    { t: "p", v: `Herrn/Frau ${d.conduttoreNome}, im Folgenden „Mieter" genannt` },
+    { t: "p", v: `Ausweisnummer ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "DER/DIE ANNIMMT" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `Die Immobilieneinheit in ${cfg.indirizzoVia}, bestehend aus ${cfg.vani ? `${cfg.vani} Zimmern, ` : ""}${cfg.postiLetto} Schlafplätzen und ${cfg.wc} Badezimmer(n). ${cfg.accessori ? `Möblierte Einheit, die neben der Küche folgende Nebenräume umfasst (${cfg.accessori})` : "Möblierte Einheit mit Küche"}. Eingetragen im Gebäudekataster der Gemeinde ${cfg.comune}, Blatt ${cfg.foglio}, Parzelle ${cfg.particella}, Untereinheit ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "Für die Vermietung gelten die folgenden Vereinbarungen:" },
+    { t: "sep" },
+    { t: "p", v: `1. Der Vertrag wird vom ${d.arrivo} bis zum ${d.partenza} geschlossen und endet ohne jegliche Kündigung.` },
+    {
+      t: "p",
+      v: `2. Die Immobilie darf ausschließlich zu touristischen Zwecken genutzt werden; einschließlich des Mieters ${d.numOspiti === 1 ? "wird 1 Person untergebracht" : `werden ${d.numOspiti} Personen untergebracht`}.`,
+    },
+    {
+      t: "p",
+      v: "3. Der Mieter darf die Immobilieneinheit weder ganz noch teilweise untervermieten oder unentgeltlich überlassen; andernfalls wird der Vertrag von Rechts wegen aufgelöst.",
+    },
+    {
+      t: "p",
+      v: `4. Der Mietpreis ist der bereits bei der Buchung gezahlte Betrag und ergibt sich aus den Transaktionsdetails der genutzten Plattform ${cfg.piattaforma}. Dieser Betrag gilt als von beiden Parteien akzeptiert, ohne dass eine weitere Bestätigung erforderlich ist.`,
+    },
+    {
+      t: "p",
+      v: "5. Der Mieter muss den Eigentümer oder dessen Vertreter innerhalb von achtundvierzig Stunden nach Schlüsselübergabe über etwaige Mängel der Immobilie und des Mobiliars informieren.",
+    },
+    {
+      t: "p",
+      v: "6. Die Kosten für Versorgungsleistungen wie Strom, Wasser, Gas und Nebenkosten trägt der Vermieter (Eigentümer).",
+    },
+    { t: "sep" },
+    { t: "p", v: `Gelesen, genehmigt und unterzeichnet in ${cfg.comune}, am ${d.dataFirma}` },
+  ];
+}
+
+function testoRO(cfg, d) {
+  return [
+    { t: "titolo", v: "CONTRACT DE ÎNCHIRIERE TURISTICĂ" },
+    { t: "p", v: `Dl./Dna. ${cfg.locatoreNome}, denumit(ă) Locator` },
+    { t: "p", v: `Cod fiscal ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-mail ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Închiriază către" },
+    { t: "sep" },
+    { t: "p", v: `Dl./Dna. ${d.conduttoreNome}, denumit(ă) Chiriaș` },
+    { t: "p", v: `Număr document de identitate ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "CARE ACCEPTĂ" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `Unitatea imobiliară situată în ${cfg.indirizzoVia}, compusă din ${cfg.vani ? `${cfg.vani} camere, ` : ""}${cfg.postiLetto} locuri de dormit și ${cfg.wc} băi. ${cfg.accessori ? `Spațiu mobilat care include, pe lângă bucătărie, următoarele elemente accesorii (${cfg.accessori})` : "Spațiu mobilat cu bucătărie"}. Identificată în cadastrul clădirilor al Municipiului ${cfg.comune}, foaia ${cfg.foglio}, parcela ${cfg.particella}, subalternul ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "Închirierea va fi guvernată de următoarele clauze:" },
+    { t: "sep" },
+    { t: "p", v: `1. Contractul este încheiat de la ${d.arrivo} până la ${d.partenza} și va înceta fără niciun preaviz.` },
+    {
+      t: "p",
+      v: `2. Imobilul va fi destinat exclusiv scopurilor turistice și, inclusiv chiriașul, ${d.numOspiti === 1 ? "va fi găzduită 1 persoană" : `vor fi găzduite ${d.numOspiti} persoane`}.`,
+    },
+    {
+      t: "p",
+      v: "3. Chiriașul NU poate subînchiria sau împrumuta, în tot sau în parte, unitatea imobiliară, sub sancțiunea rezilierii de drept a contractului.",
+    },
+    {
+      t: "p",
+      v: `4. Chiria este cea deja achitată la momentul rezervării și rezultă din detaliile tranzacției de pe platforma utilizată ${cfg.piattaforma}. Această sumă se consideră acceptată de ambele părți fără a fi necesară o confirmare suplimentară.`,
+    },
+    {
+      t: "p",
+      v: "5. Chiriașul trebuie să informeze proprietarul sau reprezentantul acestuia despre eventualele defecte ale imobilului și ale mobilierului în termen de patruzeci și opt de ore de la predarea cheilor.",
+    },
+    {
+      t: "p",
+      v: "6. Costurile aferente furnizării serviciilor precum electricitate, apă, gaz și cheltuieli de întreținere sunt suportate de locator (proprietar).",
+    },
+    { t: "sep" },
+    { t: "p", v: `Citit, aprobat și semnat la ${cfg.comune}, la data de ${d.dataFirma}` },
+  ];
+}
+
 // etichetta della riga firma nel PDF, per lingua
 const FIRMA_LABEL = {
   it: "Firma del conduttore:",
   en: "Tenant's signature:",
   fr: "Signature du locataire :",
   es: "Firma del arrendatario:",
+  de: "Unterschrift des Mieters:",
+  ro: "Semnătura chiriașului:",
 };
 
 // restituisce i blocchi del contratto nella lingua chiesta (default italiano)
 function testoContratto(cfg, d, lang) {
-  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES }[lang] || testoIT;
+  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES, de: testoDE, ro: testoRO }[lang] || testoIT;
   return fn(cfg, d);
 }
 function firmaLabel(lang) {

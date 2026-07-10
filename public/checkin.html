@@ -197,11 +197,13 @@
   <div class="icon-badge">
     <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.6"/><path d="M3.4 12h17.2M12 3.4c2.4 2.5 3.7 5.5 3.7 8.6s-1.3 6.1-3.7 8.6c-2.4-2.5-3.7-5.5-3.7-8.6S9.6 5.9 12 3.4z"/></svg>
   </div>
-  <div class="muted" style="margin-bottom:6px">Select your language · Scegli la lingua<br>Choisissez la langue · Elige el idioma</div>
+  <div class="muted" style="margin-bottom:6px">Select your language · Scegli la lingua<br>Choisissez la langue · Elige el idioma<br>Wählen Sie Ihre Sprache · Alegeți limba</div>
   <button class="lang-btn" onclick="sceglilingua('it')"><span class="flag" data-flag="it"></span> Italiano</button>
   <button class="lang-btn" onclick="sceglilingua('en')"><span class="flag" data-flag="en"></span> English</button>
   <button class="lang-btn" onclick="sceglilingua('fr')"><span class="flag" data-flag="fr"></span> Français</button>
   <button class="lang-btn" onclick="sceglilingua('es')"><span class="flag" data-flag="es"></span> Español</button>
+  <button class="lang-btn" onclick="sceglilingua('de')"><span class="flag" data-flag="de"></span> Deutsch</button>
+  <button class="lang-btn" onclick="sceglilingua('ro')"><span class="flag" data-flag="ro"></span> Română</button>
 </div>
 
 <div class="wrap ok-screen" id="welcomeWrap" style="display:none">
@@ -579,6 +581,130 @@ const T={
     email_copia_label:'¿Quieres una copia del contrato por email? (opcional)', email_copia_ph:'Tu email',
     btn_download_contract:'Descargar el contrato (PDF)', ok_contract_hint:'Puedes descargar tu copia del contrato abajo.',
   },
+  de:{
+    default_title:'Check-in',
+    sub_header:'Willkommen! Schließen Sie den Check-in für Ihren Aufenthalt ab.',
+    label_arrivo:'Ankunftsdatum (Check-in)', label_partenza:'Abreisedatum (Check-out)',
+    notte_s:'Nacht', notte_p:'Nächte', notti_error:'Das Abreisedatum muss nach dem Ankunftsdatum liegen',
+    btn_add_guest:'+ Weiteren Gast hinzufügen',
+    welcome_title:'Check-in abschließen',
+    welcome_text:'Es dauert nur 2 Minuten: Laden Sie den Ausweis jedes Gastes hoch und bestätigen Sie die Daten.',
+    welcome_btn:'Weiter',
+    trust_secure:'Daten geschützt', trust_fast:'Nur 2 Minuten', trust_reviewed:'Vom Gastgeber geprüft, nie automatisch',
+    prog_date:'Daten', prog_doc:'Dokument', prog_check:'Prüfung', prog_send:'Senden',
+    btn_next:'Weiter', btn_back:'‹ Zurück',
+    manual_link:'oder Daten von Hand eingeben',
+    btn_confirm_data:'Daten bestätigen ✓',
+    guest_added:'Gast gespeichert!',
+    add_more_q:'Weitere Gäste zu registrieren?',
+    btn_no_continue:'Nein, weiter',
+    warn_alert:'Einige Felder wurden möglicherweise nicht richtig gelesen: Bitte prüfen Sie die gelb markierten.',
+    toast_fill_name:'Bitte mindestens Nach- und Vornamen eingeben',
+    recap_title:'Gästeübersicht', btn_edit:'Bearbeiten',
+    privacy_title:'Datenschutzerklärung (DSGVO)',
+    privacy_html:'<b>Verantwortlicher:</b> der Betreiber der Unterkunft.<br><b>Auftragsverarbeiter:</b> etwaige Verwalter, Beauftragte und Berater, die die Unterkunft bei den gesetzlichen Pflichten unterstützen (einschließlich des technischen Dienstes KeyFlow) und die Daten ausschließlich im Auftrag und nach Weisung des Verantwortlichen verarbeiten.<br><b>Zweck:</b> Ihre persönlichen Daten und die Kopie Ihres Ausweises werden ausschließlich erhoben, um der gesetzlichen Meldepflicht bei der Questura über das Portal Alloggiati Web (Art. 109 TULPS) nachzukommen — nicht zu Werbe- oder Marketingzwecken.<br><b>Aufbewahrung:</b> für die gesetzlich vorgesehene Dauer, danach gelöscht.<br><b>Empfänger:</b> italienische Staatspolizei (Alloggiati Web); keine Weitergabe an Dritte zu anderen Zwecken.<br><b>Ihre Rechte:</b> Sie können jederzeit Auskunft, Berichtigung oder Informationen zu Ihren Daten verlangen, indem Sie die Unterkunft kontaktieren.',
+    consent_label:'Ich habe die Erklärung gelesen und stimme der Verarbeitung meiner persönlichen Daten und des hochgeladenen Dokuments zu den oben genannten Zwecken zu.',
+    btn_submit:'Check-in absenden',
+    ok_title:'Check-in abgeschlossen', ok_text:'Danke! Ihre Daten wurden zur Prüfung an die Unterkunft gesendet.',
+    block_title:'Ungültiger Link', block_text:'Dieser Check-in-Link ist falsch oder abgelaufen. Bitte kontaktieren Sie die Unterkunft für den richtigen Link.',
+    step1_label:'1 · Foto des Ausweises (erforderlich)', step2_label:'2 · Prüfen Sie Ihre Daten',
+    step2_hint:'Prüfen Sie, ob die Daten korrekt aus dem Dokument gelesen wurden, und korrigieren Sie Fehlendes oder Falsches.',
+    no_photo_msg:'📷 Laden Sie zuerst das Foto des Dokuments hoch, um fortzufahren.',
+    cam_title:'Dokument fotografieren', cam_sub:'mit der Kamera', up_title:'Datei hochladen', up_sub:'Foto oder PDF', or_divider:'oder', dz_hint:'…oder hierher ziehen bzw. einfügen · mehrere Dateien möglich · Daten gut lesbar',
+    cam_shot:'Aufnehmen', cam_cancel:'Abbrechen', cam_error:'Kamera nicht verfügbar: nutzen Sie "Datei hochladen"', cam_guide_hint:'Halten Sie das Dokument in den Rahmen, gerade und gut lesbar',
+    step1_label_first:'1 · Ausweise der Gäste (erforderlich)',
+    first_multi_hint:'Laden Sie die Dokumente aller Gäste zusammen hoch (ich trenne sie) oder nur Ihres. Hochwertige Fotos oder PDF.',
+    inapp_hint:'📱 Wenn "Dokument fotografieren" die Kamera nicht direkt öffnet, gehen Sie zurück zum Startbildschirm und tippen Sie auf "Im Browser öffnen", oder nutzen Sie "Datei hochladen".',
+    inapp_banner_text:'Um die Kamera problemlos zu nutzen, öffnen Sie diese Seite in Ihrem Browser (Chrome).',
+    inapp_banner_btn:'🌐 Im Browser öffnen',
+    btn_camera:'Jetzt ein Foto aufnehmen',
+    toast_pdf_big:'PDF zu groß (max. 4 MB)',
+    btn_extract_all:'✨ Dokumente lesen',
+    toast_multi_read:'Gäste erkannt: Prüfen Sie die Daten aller',
+    toast_no_doc:'Kein Dokument auf den Fotos erkannt',
+    btn_extract:'✨ Daten aus dem Dokument lesen', btn_extract_loading:'Lese…',
+    label_cognome:'Nachname', label_nome:'Vorname', label_sesso:'Geschlecht', label_data_nascita:'Geburtsdatum',
+    label_comune_nascita:'Geburtsort (Gemeinde)', comune_nascita_hint:'(nur wenn in Italien geboren)', comune_locked_hint:'🔒 Wird freigeschaltet, wenn das Geburtsland ITALIA ist',
+    label_stato_nascita:'Geburtsland', placeholder_es:'z.B. ITALIA',
+    label_cittadinanza:'Staatsangehörigkeit', label_tipo_doc:'Dokumenttyp',
+    doc_ci:'Personalausweis', doc_cie:'Elektronischer Personalausweis (CIE)', doc_pass:'Reisepass', doc_patente:'Führerschein',
+    label_numero_doc:'Dokumentnummer', label_luogo_rilascio:'Ausstellungsort', luogo_rilascio_hint:'(Gemeinde oder Staat)',
+    guest_default_name:'Gast', warn_badge:'⚠ prüfen',
+    toast_add_photo_first:'Bitte zuerst ein Foto des Dokuments hinzufügen',
+    toast_data_read:'Daten aus dem Dokument gelesen — bitte unten prüfen',
+    progress_title:'Dokumente werden gelesen', progress_reading_doc:'Lese Dokument', progress_of:'von', progress_done:'Fertig!',
+    toast_extract_failed:'Lesen fehlgeschlagen: ',
+    toast_indica_arrivo:'Bitte das Ankunftsdatum angeben', toast_indica_partenza:'Bitte das Abreisedatum angeben',
+    toast_add_guest:'Bitte mindestens einen Gast hinzufügen', toast_accept_privacy:'Sie müssen die Erklärung akzeptieren, um fortzufahren',
+    toast_send_failed:'Senden fehlgeschlagen: ', submit_status_invio:'Wird gesendet…',
+    contratto_title:'Touristischer Mietvertrag', contratto_hint:'Lesen Sie den Vertrag und unterschreiben Sie unten, um ihn anzunehmen.',
+    sig_label:'Unterschrift', sig_hint:'Hier mit dem Finger oder der Maus unterschreiben', sig_clear:'Unterschrift löschen',
+    toast_sig_required:'Bitte unterschreiben Sie den Vertrag, um fortzufahren',
+    email_copia_label:'Möchten Sie eine Vertragskopie per E-Mail? (optional)', email_copia_ph:'Ihre E-Mail',
+    btn_download_contract:'Vertrag herunterladen (PDF)', ok_contract_hint:'Unten können Sie Ihre Vertragskopie herunterladen.',
+  },
+  ro:{
+    default_title:'Check-in',
+    sub_header:'Bine ați venit! Completați check-in-ul pentru sejurul dumneavoastră.',
+    label_arrivo:'Data sosirii (check-in)', label_partenza:'Data plecării (check-out)',
+    notte_s:'noapte', notte_p:'nopți', notti_error:'Data plecării trebuie să fie după data sosirii',
+    btn_add_guest:'+ Adaugă alt oaspete',
+    welcome_title:'Completați check-in-ul',
+    welcome_text:'Durează doar 2 minute: încărcați documentul fiecărui oaspete și confirmați datele.',
+    welcome_btn:'Continuă',
+    trust_secure:'Date protejate', trust_fast:'Doar 2 minute', trust_reviewed:'Verificat de gazdă, niciodată automat',
+    prog_date:'Date', prog_doc:'Document', prog_check:'Verificare', prog_send:'Trimitere',
+    btn_next:'Înainte', btn_back:'‹ Înapoi',
+    manual_link:'sau introduceți datele manual',
+    btn_confirm_data:'Confirmă datele ✓',
+    guest_added:'Oaspete înregistrat!',
+    add_more_q:'Mai sunt oaspeți de înregistrat?',
+    btn_no_continue:'Nu, continuă',
+    warn_alert:'Unele câmpuri s-ar putea să nu fi fost citite corect: verificați-le pe cele evidențiate cu galben.',
+    toast_fill_name:'Introduceți cel puțin numele și prenumele',
+    recap_title:'Rezumatul oaspeților', btn_edit:'Modifică',
+    privacy_title:'Notă de informare privind confidențialitatea (GDPR)',
+    privacy_html:'<b>Operator de date:</b> administratorul structurii de cazare.<br><b>Persoane împuternicite:</b> eventualii administratori, angajați și consultanți care asistă structura în îndeplinirea obligațiilor legale (inclusiv serviciul tehnic KeyFlow), care prelucrează datele exclusiv în numele și conform instrucțiunilor operatorului.<br><b>Scop:</b> datele personale și copia documentului de identitate sunt colectate exclusiv pentru îndeplinirea obligației legale de comunicare către Chestura de Poliție prin portalul Alloggiati Web (art. 109 TULPS) — nu în scopuri comerciale sau de marketing.<br><b>Păstrare:</b> pe durata prevăzută de legislația în vigoare, apoi șterse.<br><b>Destinatari:</b> Poliția de Stat italiană (Alloggiati Web); nicio comunicare către terți în alte scopuri.<br><b>Drepturile dumneavoastră:</b> puteți solicita oricând accesul, rectificarea sau informații despre datele dumneavoastră contactând structura.',
+    consent_label:'Am citit nota de informare și sunt de acord cu prelucrarea datelor mele personale și a documentului încărcat în scopurile indicate mai sus.',
+    btn_submit:'Trimite check-in',
+    ok_title:'Check-in finalizat', ok_text:'Mulțumim! Datele dumneavoastră au fost trimise structurii pentru verificare.',
+    block_title:'Link invalid', block_text:'Acest link de check-in este greșit sau a expirat. Contactați structura pentru linkul corect.',
+    step1_label:'1 · Fotografia documentului (obligatorie)', step2_label:'2 · Verificați datele',
+    step2_hint:'Verificați dacă datele au fost citite corect din document și corectați ce este greșit sau lipsește.',
+    no_photo_msg:'📷 Încărcați mai întâi fotografia documentului pentru a continua.',
+    cam_title:'Fotografiază documentul', cam_sub:'cu camera', up_title:'Încarcă fișier', up_sub:'foto sau PDF', or_divider:'sau', dz_hint:'…sau trageți ori lipiți aici · mai multe fișiere împreună · date bine lizibile',
+    cam_shot:'Fotografiază', cam_cancel:'Anulează', cam_error:'Camera nu este disponibilă: folosiți "Încarcă fișier"', cam_guide_hint:'Încadrați documentul în chenar, drept și lizibil',
+    step1_label_first:'1 · Documentele oaspeților (obligatorii)',
+    first_multi_hint:'Încărcați documentele tuturor oaspeților împreună (le separ eu) sau doar pe al dumneavoastră. Fotografii de calitate sau PDF.',
+    inapp_hint:'📱 Dacă "Fotografiază documentul" nu deschide direct camera, reveniți la ecranul inițial și apăsați "Deschide în browser", sau folosiți "Încarcă fișier".',
+    inapp_banner_text:'Pentru a folosi camera fără probleme, deschideți această pagină în browserul telefonului (Chrome).',
+    inapp_banner_btn:'🌐 Deschide în browser',
+    btn_camera:'Fă o fotografie acum',
+    toast_pdf_big:'PDF prea mare (max. 4 MB)',
+    btn_extract_all:'✨ Citește documentele',
+    toast_multi_read:'oaspeți recunoscuți: verificați datele fiecăruia',
+    toast_no_doc:'Niciun document recunoscut în fotografii',
+    btn_extract:'✨ Extrage datele din document', btn_extract_loading:'Citesc…',
+    label_cognome:'Nume', label_nome:'Prenume', label_sesso:'Sex', label_data_nascita:'Data nașterii',
+    label_comune_nascita:'Localitatea nașterii', comune_nascita_hint:'(doar dacă v-ați născut în Italia)', comune_locked_hint:'🔒 Se deblochează dacă Țara nașterii este ITALIA',
+    label_stato_nascita:'Țara nașterii', placeholder_es:'ex. ITALIA',
+    label_cittadinanza:'Cetățenia', label_tipo_doc:'Tipul documentului',
+    doc_ci:'Carte de identitate', doc_cie:'Carte de identitate electronică (CIE)', doc_pass:'Pașaport', doc_patente:'Permis de conducere',
+    label_numero_doc:'Numărul documentului', label_luogo_rilascio:'Locul eliberării', luogo_rilascio_hint:'(localitate sau țară)',
+    guest_default_name:'Oaspete', warn_badge:'⚠ verificați',
+    toast_add_photo_first:'Adăugați mai întâi o fotografie a documentului',
+    toast_data_read:'Date citite din document — verificați-le mai jos',
+    progress_title:'Citesc documentele', progress_reading_doc:'Citesc documentul', progress_of:'din', progress_done:'Gata!',
+    toast_extract_failed:'Citirea a eșuat: ',
+    toast_indica_arrivo:'Indicați data sosirii', toast_indica_partenza:'Indicați data plecării',
+    toast_add_guest:'Adăugați cel puțin un oaspete', toast_accept_privacy:'Trebuie să acceptați nota de informare pentru a continua',
+    toast_send_failed:'Trimiterea a eșuat: ', submit_status_invio:'Se trimite…',
+    contratto_title:'Contract de închiriere turistică', contratto_hint:'Citiți contractul și semnați mai jos pentru a-l accepta.',
+    sig_label:'Semnătura', sig_hint:'Semnați aici cu degetul sau cu mouse-ul', sig_clear:'Șterge semnătura',
+    toast_sig_required:'Semnați contractul pentru a continua',
+    email_copia_label:'Doriți o copie a contractului pe e-mail? (opțional)', email_copia_ph:'E-mailul dumneavoastră',
+    btn_download_contract:'Descarcă contractul (PDF)', ok_contract_hint:'Puteți descărca mai jos copia contractului.',
+  },
 };
 let lang=localStorage.getItem('keyflow_lang')||null;
 function t(key){ return (T[lang]||T.it)[key]; }
@@ -589,6 +715,8 @@ const FLAGS={
   en:`<svg class="flagsvg" viewBox="0 0 60 30" preserveAspectRatio="none"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30" stroke="#C8102E" stroke-width="2"/><path d="M60,0 L0,30" stroke="#C8102E" stroke-width="2"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></svg>`,
   fr:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#0055A4"/><rect x="2" width="1" height="2" fill="#EF4135"/></svg>`,
   es:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#AA151B"/><rect y="0.5" width="3" height="1" fill="#F1BF00"/></svg>`,
+  de:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#000"/><rect y="0.667" width="3" height="0.667" fill="#DD0000"/><rect y="1.333" width="3" height="0.667" fill="#FFCE00"/></svg>`,
+  ro:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="1" height="2" fill="#002B7F"/><rect x="1" width="1" height="2" fill="#FCD116"/><rect x="2" width="1" height="2" fill="#CE1126"/></svg>`,
 };
 
 /* ===== schermate: solo una visibile alla volta (lang / form / ok / block) ===== */
@@ -1053,6 +1181,12 @@ function paragrafoContratto(cfg,d,lingua){
   }
   if(lingua==='es'){
     return `<b>CONTRATO DE ALQUILER TURÍSTICO</b>\n\nEl/La Sr./Sra. ${cfg.locatoreNome}, denominado/a Arrendador\nCódigo fiscal ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nCede en alquiler\n\nAl/A la Sr./Sra. ${d.conduttoreNome}, denominado/a Arrendatario\nNúmero de documento de identidad ${d.conduttoreDoc||'—'}\n\nQUE ACEPTA\n\nLa unidad inmobiliaria situada en ${ind}, compuesta por ${cfg.vani?`${cfg.vani} habitaciones, `:''}${cfg.postiLetto} plazas y ${cfg.wc} baño(s). ${cfg.accessori?`Local amueblado que incluye, además de la cocina, los siguientes elementos accesorios (${cfg.accessori})`:'Local amueblado con cocina'}. Identificada en el catastro de edificios del Municipio de ${cfg.comune}, hoja ${cfg.foglio}, parcela ${cfg.particella}, subalterno ${cfg.subalterno}.\n\nEl alquiler se regirá por los siguientes pactos:\n\n1. El contrato se estipula desde el ${d.arrivo} hasta el ${d.partenza} y cesará sin necesidad de aviso alguno.\n2. El inmueble deberá destinarse exclusivamente a fines turísticos y, incluido el arrendatario, se alojará ${d.numOspiti===1?'1 persona':`un total de ${d.numOspiti} personas`}.\n3. El arrendatario NO podrá subarrendar ni ceder en comodato, total o parcialmente, la unidad inmobiliaria, bajo pena de resolución de pleno derecho del contrato.\n4. La renta es la ya abonada en el momento de la reserva y consta en el detalle de la transacción de la plataforma utilizada ${cfg.piattaforma}. Dicho importe se considera aceptado por ambas partes sin necesidad de confirmación adicional.\n5. El arrendatario deberá avisar al propietario, o a quien lo represente, de los posibles defectos del inmueble y del mobiliario dentro de las cuarenta y ocho horas siguientes a la entrega de las llaves.\n6. Los gastos relativos al suministro de servicios (luz, agua, gas, gastos de comunidad) corren a cargo del arrendador (propietario).\n\nLeído, aprobado y firmado en ${cfg.comune}, el ${d.dataFirma}`;
+  }
+  if(lingua==='de'){
+    return `<b>TOURISTISCHER MIETVERTRAG</b>\n\nHerr/Frau ${cfg.locatoreNome}, im Folgenden „Vermieter" genannt\nSteuernummer ${cfg.codiceFiscale}\nE-Mail ${cfg.email}\n\nVermietet an\n\nHerrn/Frau ${d.conduttoreNome}, im Folgenden „Mieter" genannt\nAusweisnummer ${d.conduttoreDoc||'—'}\n\nDER/DIE ANNIMMT\n\nDie Immobilieneinheit in ${ind}, bestehend aus ${cfg.vani?`${cfg.vani} Zimmern, `:''}${cfg.postiLetto} Schlafplätzen und ${cfg.wc} Badezimmer(n). ${cfg.accessori?`Möblierte Einheit, die neben der Küche folgende Nebenräume umfasst (${cfg.accessori})`:'Möblierte Einheit mit Küche'}. Eingetragen im Gebäudekataster der Gemeinde ${cfg.comune}, Blatt ${cfg.foglio}, Parzelle ${cfg.particella}, Untereinheit ${cfg.subalterno}.\n\nFür die Vermietung gelten die folgenden Vereinbarungen:\n\n1. Der Vertrag wird vom ${d.arrivo} bis zum ${d.partenza} geschlossen und endet ohne jegliche Kündigung.\n2. Die Immobilie darf ausschließlich zu touristischen Zwecken genutzt werden; einschließlich des Mieters ${d.numOspiti===1?'wird 1 Person untergebracht':`werden ${d.numOspiti} Personen untergebracht`}.\n3. Der Mieter darf die Immobilieneinheit weder ganz noch teilweise untervermieten oder unentgeltlich überlassen; andernfalls wird der Vertrag von Rechts wegen aufgelöst.\n4. Der Mietpreis ist der bereits bei der Buchung gezahlte Betrag und ergibt sich aus den Transaktionsdetails der genutzten Plattform ${cfg.piattaforma}. Dieser Betrag gilt als von beiden Parteien akzeptiert, ohne dass eine weitere Bestätigung erforderlich ist.\n5. Der Mieter muss den Eigentümer oder dessen Vertreter innerhalb von achtundvierzig Stunden nach Schlüsselübergabe über etwaige Mängel der Immobilie und des Mobiliars informieren.\n6. Die Kosten für Versorgungsleistungen wie Strom, Wasser, Gas und Nebenkosten trägt der Vermieter (Eigentümer).\n\nGelesen, genehmigt und unterzeichnet in ${cfg.comune}, am ${d.dataFirma}`;
+  }
+  if(lingua==='ro'){
+    return `<b>CONTRACT DE ÎNCHIRIERE TURISTICĂ</b>\n\nDl./Dna. ${cfg.locatoreNome}, denumit(ă) Locator\nCod fiscal ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nÎnchiriază către\n\nDl./Dna. ${d.conduttoreNome}, denumit(ă) Chiriaș\nNumăr document de identitate ${d.conduttoreDoc||'—'}\n\nCARE ACCEPTĂ\n\nUnitatea imobiliară situată în ${ind}, compusă din ${cfg.vani?`${cfg.vani} camere, `:''}${cfg.postiLetto} locuri de dormit și ${cfg.wc} băi. ${cfg.accessori?`Spațiu mobilat care include, pe lângă bucătărie, următoarele elemente accesorii (${cfg.accessori})`:'Spațiu mobilat cu bucătărie'}. Identificată în cadastrul clădirilor al Municipiului ${cfg.comune}, foaia ${cfg.foglio}, parcela ${cfg.particella}, subalternul ${cfg.subalterno}.\n\nÎnchirierea va fi guvernată de următoarele clauze:\n\n1. Contractul este încheiat de la ${d.arrivo} până la ${d.partenza} și va înceta fără niciun preaviz.\n2. Imobilul va fi destinat exclusiv scopurilor turistice și, inclusiv chiriașul, ${d.numOspiti===1?'va fi găzduită 1 persoană':`vor fi găzduite ${d.numOspiti} persoane`}.\n3. Chiriașul NU poate subînchiria sau împrumuta, în tot sau în parte, unitatea imobiliară, sub sancțiunea rezilierii de drept a contractului.\n4. Chiria este cea deja achitată la momentul rezervării și rezultă din detaliile tranzacției de pe platforma utilizată ${cfg.piattaforma}. Această sumă se consideră acceptată de ambele părți fără a fi necesară o confirmare suplimentară.\n5. Chiriașul trebuie să informeze proprietarul sau reprezentantul acestuia despre eventualele defecte ale imobilului și ale mobilierului în termen de patruzeci și opt de ore de la predarea cheilor.\n6. Costurile aferente furnizării serviciilor precum electricitate, apă, gaz și cheltuieli de întreținere sunt suportate de locator (proprietar).\n\nCitit, aprobat și semnat la ${cfg.comune}, la data de ${d.dataFirma}`;
   }
   return `<b>CONTRATTO DI LOCAZIONE TURISTICA</b>\n\nIl/la Sig. ${cfg.locatoreNome} denominato Locatore\nCodice Fiscale ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nConcede in Locazione\n\nAlla/al Sig. ${d.conduttoreNome} denominato conduttore\nNumero Doc. Identità ${d.conduttoreDoc||'—'}\n\nCHE ACCETTA\n\n${descIT}\n\nLa locazione sarà regolata dalle seguenti pattuizioni:\n\n1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.\n2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore ${d.numOspiti===1?'sarà ospitato un numero di 1 persona':`saranno ospitate un numero di ${d.numOspiti} persone`}.\n3. Il conduttore NON potrà sublocare o dare in comodato, in tutto o in parte, l'unità immobiliare, pena la risoluzione di diritto del contratto.\n4. Il canone di locazione è quello già corrisposto al momento della prenotazione e risulta dal dettaglio della transazione sulla piattaforma utilizzata ${cfg.piattaforma}. Tale importo è considerato accettato da entrambe le parti senza necessità di ulteriore conferma.\n5. Il conduttore dovrà avvisare il proprietario o chi ne fa le veci degli eventuali difetti dell'immobile e dei mobili entro quarantotto ore dalla consegna delle chiavi.\n6. Le spese inerenti all'erogazione di servizi, quali: luce; acqua; gas; spese condominiali; sono a carico del locatore (proprietario).\n\nLetto, approvato e sottoscritto ${cfg.comune}, li ${d.dataFirma}`;
 }

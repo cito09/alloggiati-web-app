@@ -52,6 +52,14 @@ function emailOspiteTesti(lang, { nomeStruttura, arrivo, partenza }) {
       subject: `Tu copia del contrato · ${nomeStruttura}`,
       testo: `Adjunto encontrarás tu copia del contrato de alquiler turístico firmado para tu estancia del ${arrivo} al ${partenza}.`,
     },
+    de: {
+      subject: `Ihre Vertragskopie · ${nomeStruttura}`,
+      testo: `Im Anhang finden Sie Ihre Kopie des unterzeichneten touristischen Mietvertrags für Ihren Aufenthalt vom ${arrivo} bis zum ${partenza}.`,
+    },
+    ro: {
+      subject: `Copia contractului dumneavoastră · ${nomeStruttura}`,
+      testo: `Atașat găsiți copia contractului de închiriere turistică semnat pentru sejurul dumneavoastră din ${arrivo} până în ${partenza}.`,
+    },
   };
   return M[lang] || M.it;
 }

@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "Foto documenti -> schedine Alloggiati Web, con invio diretto al web service della Polizia di Stato",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@vercel/blob": "latest",
     "nodemailer": "^6.9.16",
     "pdf-lib": "^1.17.1"
