@@ -196,7 +196,7 @@
     <h2 style="margin:0 0 6px">Accesso gestionale</h2>
     <div class="muted" style="font-size:13px;margin-bottom:14px">Area riservata all'host. Inserisci il codice d'accesso.</div>
     <form id="loginForm">
-      <input type="password" id="loginCode" inputmode="numeric" autocomplete="off" placeholder="Codice d'accesso" required>
+      <input type="password" id="loginCode" autocomplete="off" placeholder="Codice d'accesso" required>
       <button type="submit" class="btn primary" style="margin-top:12px">Entra</button>
       <div class="err" id="loginErr"></div>
     </form>
@@ -398,13 +398,16 @@ async function verificaAdminCode(codice){
 }
 window.ADMIN_CONFIGURATO=false;
 async function adminGate(){
-  const salvato=sessionStorage.getItem('adminCode')||'';
+  // l'accesso resta ricordato su questo dispositivo (localStorage) finché non si fa
+  // "Esci dal gestionale" dalle Impostazioni; sessionStorage viene letto solo per
+  // compatibilità con chi era già dentro prima di questo cambiamento
+  const salvato=localStorage.getItem('adminCode')||sessionStorage.getItem('adminCode')||'';
   if(salvato){
     const d=await verificaAdminCode(salvato);
     window.ADMIN_CONFIGURATO=!!d.configurato;
-    if(d.ok){ window.ADMIN_CODE=salvato; return; }
+    if(d.ok){ window.ADMIN_CODE=salvato; localStorage.setItem('adminCode',salvato); return; }
     if(!d.configurato) return; // protezione non attiva lato server
-    sessionStorage.removeItem('adminCode');
+    localStorage.removeItem('adminCode'); sessionStorage.removeItem('adminCode');
   }else{
     const d=await verificaAdminCode('');
     window.ADMIN_CONFIGURATO=!!d.configurato;
@@ -421,7 +424,7 @@ async function adminGate(){
       const codice=inp.value.trim(); if(!codice)return;
       const d=await verificaAdminCode(codice);
       if(d.ok){
-        sessionStorage.setItem('adminCode',codice);
+        localStorage.setItem('adminCode',codice);
         window.ADMIN_CODE=codice;
         gate.style.display='none';
         resolve();
@@ -12690,6 +12693,7 @@ function closeSettings(e){
 }
 function uscitaGestionale(){
   if(!confirm('Uscire dal gestionale? Dovrai reinserire il codice d\'accesso.'))return;
+  localStorage.removeItem('adminCode');
   sessionStorage.removeItem('adminCode');
   location.reload();
 }
@@ -12722,7 +12726,7 @@ function wireChangeCodeForm(){
         body:JSON.stringify({codiceAttuale:attuale,codiceNuovo:nuovo})});
       const d=await r.json();
       if(!r.ok) throw new Error(d.error||'Errore');
-      sessionStorage.setItem('adminCode',nuovo);
+      localStorage.setItem('adminCode',nuovo);
       window.ADMIN_CODE=nuovo;
       msg.textContent='✓ Codice aggiornato.'; msg.style.color='var(--ok)';
       form.reset();
