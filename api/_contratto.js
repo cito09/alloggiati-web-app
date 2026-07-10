@@ -42,7 +42,9 @@ function testoIT(cfg, d) {
     { t: "sep" },
     {
       t: "p",
-      v: `L'unità immobiliare posta in via ${cfg.indirizzoVia}. Locale composto di n. ${cfg.vani} vani, di n. ${cfg.postiLetto} posti letto, di n. ${cfg.wc} wc. Locale ammobiliato che include oltre alla cucina i seguenti elementi accessori (${cfg.accessori}). Identificata al catasto fabbricati del Comune di ${cfg.comune}, nel Foglio di mappa ${cfg.foglio} particella ${cfg.particella} subalterno ${cfg.subalterno}.`,
+      // "vani" e "accessori" sono facoltativi: Canazei li ha, Bologna no —
+      // il testo si adatta di conseguenza (come nei rispettivi contratti originali)
+      v: `L'unità immobiliare posta in via ${cfg.indirizzoVia}. Locale composto di ${cfg.vani ? `n. ${cfg.vani} vani, di ` : ""}n. ${cfg.postiLetto} posti letto, di n. ${cfg.wc} wc. Locale ammobiliato ${cfg.accessori ? `che include oltre alla cucina i seguenti elementi accessori (${cfg.accessori})` : "dotato di cucina"}. Identificata al catasto fabbricati del Comune di ${cfg.comune}, nel Foglio di mappa ${cfg.foglio} particella ${cfg.particella} subalterno ${cfg.subalterno}.`,
     },
     { t: "sep" },
     { t: "p", v: "La locazione sarà regolata dalle seguenti pattuizioni:" },
@@ -90,7 +92,7 @@ function testoEN(cfg, d) {
     { t: "sep" },
     {
       t: "p",
-      v: `The real estate unit located at ${indirizzoEN}, consisting of ${cfg.vani} rooms, ${cfg.postiLetto} beds, and ${cfg.wc} bathroom(s). The furnished unit includes, in addition to the kitchen, the following accessory elements (${cfg.accessori}). Identified in the property registry of the Municipality of ${cfg.comune}, in Map Sheet ${cfg.foglio}, Parcel ${cfg.particella}, Subordinate ${cfg.subalterno}.`,
+      v: `The real estate unit located at ${indirizzoEN}, consisting of ${cfg.vani ? `${cfg.vani} rooms, ` : ""}${cfg.postiLetto} beds, and ${cfg.wc} bathroom(s). ${cfg.accessori ? `The furnished unit includes, in addition to the kitchen, the following accessory elements (${cfg.accessori})` : "Furnished unit with kitchen"}. Identified in the property registry of the Municipality of ${cfg.comune}, in Map Sheet ${cfg.foglio}, Parcel ${cfg.particella}, Subordinate ${cfg.subalterno}.`,
     },
     { t: "sep" },
     { t: "p", v: "The lease shall be governed by the following terms:" },
