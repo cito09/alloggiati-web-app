@@ -74,6 +74,16 @@
     padding:16px; margin-bottom:14px; box-shadow:0 8px 24px -12px rgba(0,0,0,.45)}
   .card h2{margin:0 0 12px; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px}
   .card h2 .n{font-family:var(--mono); color:var(--amber); font-size:13px}
+  /* schede stile app: il titolo è un pulsante che apre/chiude il contenuto */
+  .card>h2.card-toggle{margin:-16px; padding:14px 16px; cursor:pointer; user-select:none; -webkit-user-select:none;
+    border-radius:15px; gap:11px; font-size:15.5px}
+  .card>h2.card-toggle:active{background:rgba(90,160,242,.07)}
+  .card>h2.card-toggle .n{font-size:17px; width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center;
+    background:rgba(255,183,3,.10); border:1px solid rgba(255,183,3,.22); border-radius:11px; flex:0 0 auto}
+  .card-toggle .chev{margin-left:auto; color:var(--muted); font-size:13px; transition:transform .18s; flex:0 0 auto}
+  .card.closed>.card-toggle .chev{transform:rotate(-90deg)}
+  .card>.card-body{margin-top:26px}
+  .card.closed>.card-body{display:none}
   label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
   input[type=text], input[type=date], input[type=number], input[type=password], select{
     width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink);
@@ -284,7 +294,7 @@
 <div class="wrap">
 
   <div class="page" id="page-oggi">
-    <div class="card">
+    <div class="card" id="oggiSituazioneCard">
       <h2><span class="n">📊</span> Situazione</h2>
       <div id="oggiStato"></div>
     </div>
@@ -292,7 +302,7 @@
       <h2><span class="n">📅</span> Scadenza Ross1000</h2>
       <div id="oggiRoss"></div>
     </div>
-    <div class="card">
+    <div class="card" id="oggiAzioniCard">
       <h2><span class="n">⚡</span> Azioni rapide</h2>
       <div style="display:flex;gap:10px">
         <button class="btn ghost sm" style="flex:1" onclick="mostraTab('registra')">📝 Nuova registrazione</button>
@@ -325,7 +335,7 @@
   <div class="steplbl" id="step2lbl" style="display:none">2 · Controlla e correggi</div>
   <div id="bookings"></div>
 
-  <div class="card" style="margin-top:14px">
+  <div class="card" id="invioCard" style="margin-top:14px">
     <h2><span class="n">📤</span> Invio ufficiale</h2>
     <div id="strutturaWrap" style="display:none"><label>Struttura</label><select id="strutturaSel"></select></div>
 
@@ -350,7 +360,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="previewCard">
     <h2><span class="n">TXT</span> Anteprima file</h2>
     <div id="previewWrap"><div class="muted">Nessuna schedina pronta. Aggiungi una prenotazione e un ospite.</div></div>
     <button class="btn ghost sm" id="dlBtn" onclick="downloadTxt()" disabled style="width:100%;margin-top:10px">Scarica .txt (caricamento manuale)</button>
@@ -362,7 +372,7 @@
   </div><!-- /page-registra -->
 
   <div class="page" id="page-ospiti">
-    <div class="card">
+    <div class="card" id="checkinLinkCard">
       <h2><span class="n">🔗</span> Link check-in per gli ospiti</h2>
       <div class="muted" style="font-size:12px;margin-top:2px">Il link fisso da incollare nel messaggio automatico (es. Airbnb/Booking): l'ospite carica documento e dati da solo, tu li ritrovi qui sotto in "Ospiti in attesa".</div>
       <div id="checkinLinkBox" style="margin-top:10px"></div>
@@ -12581,8 +12591,8 @@ function renderEsito(data){
   if(errs.length) h+='<div style="margin-top:8px">'+errs.map(e=>`<div class="muted">Riga ${e.riga+1}: ${e.errore}</div>`).join('')+'</div>';
   return h;
 }
-async function verifica(){const data=await callSend('test');if(data){showSendResult(renderEsito(data));toast(data.righe.every(x=>x.ok)?'Tutte valide':'Ci sono errori');}}
-async function invia(){
+async function verifica(){apriCard('invioCard');const data=await callSend('test');if(data){showSendResult(renderEsito(data));toast(data.righe.every(x=>x.ok)?'Tutte valide':'Ci sono errori');}}
+async function invia(){apriCard('invioCard');
   const recordsInviati=validRecords();
   const n=recordsInviati.length;
   if(!confirm(`Invio UFFICIALE alla Questura di ${n} schedin${n===1?'a':'e'}. L'operazione è irreversibile. Procedere?`))return;
@@ -12823,9 +12833,35 @@ function wireChangeCodeForm(){
   };
 }
 
+/* ===== schede stile app: tocca il titolo per aprire/chiudere, lo stato viene ricordato ===== */
+const CARD_CHIUSE_DEFAULT={previewCard:1, checkinLinkCard:1};
+function initCardToggles(){
+  document.querySelectorAll('.wrap .card[id]').forEach(card=>{
+    const h2=card.querySelector(':scope>h2'); if(!h2)return;
+    const body=document.createElement('div'); body.className='card-body';
+    while(h2.nextSibling) body.appendChild(h2.nextSibling);
+    card.appendChild(body);
+    h2.classList.add('card-toggle');
+    const chev=document.createElement('span'); chev.className='chev'; chev.textContent='▾'; h2.appendChild(chev);
+    const salvato=localStorage.getItem('cardOpen_'+card.id);
+    const aperta=salvato!==null?salvato==='1':!CARD_CHIUSE_DEFAULT[card.id];
+    card.classList.toggle('closed',!aperta);
+    h2.addEventListener('click',()=>{
+      card.classList.toggle('closed');
+      localStorage.setItem('cardOpen_'+card.id,card.classList.contains('closed')?'0':'1');
+    });
+  });
+}
+// apre una scheda chiusa quando serve mostrarne il contenuto (es. esito di un invio)
+function apriCard(id){
+  const card=document.getElementById(id);
+  if(card&&card.classList.contains('closed')){ card.classList.remove('closed'); localStorage.setItem('cardOpen_'+id,'1'); }
+}
+
 /* init */
 (async()=>{
   await adminGate();
+  initCardToggles();
   document.body.classList.add('ready');
   $('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
   mostraTab(localStorage.getItem('tabAttiva')||'oggi');
