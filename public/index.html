@@ -170,6 +170,13 @@
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:9px 11px; margin-top:10px}
   .storico-item{padding:9px 0; border-bottom:1px solid var(--line)}
   .storico-item:last-child{border-bottom:none}
+  .gruppo-head{margin:22px 0 6px; padding:10px 14px; border-radius:12px; background:rgba(90,160,242,.12);
+    border:1px solid rgba(90,160,242,.25); font-size:16px; font-weight:800; letter-spacing:.5px;
+    display:flex; align-items:center; gap:10px; text-transform:uppercase}
+  .gruppo-head:first-child{margin-top:2px}
+  .gruppo-head.warn{background:rgba(255,183,3,.10); border-color:rgba(255,183,3,.30)}
+  .gruppo-head .cnt{font-size:12px; font-weight:700; background:rgba(90,160,242,.18); color:var(--blue);
+    border-radius:20px; padding:2px 9px; text-transform:none}
   .storico-head{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px}
   .storico-meta{font-size:12px; color:var(--muted); margin-top:2px}
   .storico-ospiti{font-size:12px; margin-top:2px}
@@ -364,6 +371,16 @@
     <div class="card" id="checkinPendingCard">
       <h2><span class="n">📥</span> Ospiti in attesa <span id="checkinBadge" class="pill wait" style="display:none"></span></h2>
       <div class="muted" style="font-size:12px;margin-top:2px">Check-in compilati dagli ospiti: verificali e aggiungili alla prenotazione con un tocco.</div>
+      <div id="checkinTools" style="display:none;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+        <input id="checkinSearch" type="search" placeholder="🔍 Cerca ospite…" autocomplete="off"
+          style="flex:1;min-width:150px" oninput="checkinSearch=this.value;renderCheckinPending(true)">
+        <select id="checkinSortSel" style="width:auto;flex:0 0 auto"
+          onchange="checkinSort=this.value;localStorage.setItem('checkinSort',this.value);renderCheckinPending(true)">
+          <option value="arrivo">Ordina: data di arrivo</option>
+          <option value="checkin">Ordina: data check-in</option>
+          <option value="nome">Ordina: nome ospite</option>
+        </select>
+      </div>
       <div id="checkinList" style="margin-top:10px"><div class="muted">Nessun check-in in attesa.</div></div>
     </div>
   </div><!-- /page-ospiti -->
@@ -12351,19 +12368,51 @@ async function loadCheckinPending(){
     if(data.configurato){ checkinPending=data.coda||[]; renderCheckinPending(); }
   }catch(e){/* offline o archivio non configurato: la coda resta vuota, nessun errore mostrato */}
 }
-function renderCheckinPending(){
+let checkinSort=localStorage.getItem('checkinSort')||'arrivo';
+let checkinSearch='';
+function parseArrivoTs(a){ // 'gg/mm/aaaa' -> timestamp (senza arrivo: in fondo alla lista)
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(a||'').trim());
+  return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():Infinity;
+}
+function nomeVoce(v){ return (v.ospiti||[]).map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', '); }
+function renderCheckinPending(soloLista){
   const w=$('#checkinList'); const badge=$('#checkinBadge'); if(!w)return;
   if(badge){ if(checkinPending.length){badge.textContent=checkinPending.length;badge.style.display='';} else badge.style.display='none'; }
   const tb=$('#tabBadgeOspiti'); if(tb){ if(checkinPending.length){tb.textContent=checkinPending.length;tb.style.display='flex';} else tb.style.display='none'; }
-  if(typeof aggiornaOggi==='function')aggiornaOggi();
+  if(!soloLista && typeof aggiornaOggi==='function')aggiornaOggi();
+  const tools=$('#checkinTools');
+  if(tools)tools.style.display=checkinPending.length?'flex':'none';
+  const sortSel=$('#checkinSortSel'); if(sortSel&&sortSel.value!==checkinSort)sortSel.value=checkinSort;
   if(!checkinPending.length){ w.innerHTML='<div class="muted">Nessun check-in in attesa.</div>'; return; }
-  w.innerHTML=checkinPending.map(v=>{
+
+  // filtro di ricerca (nome ospite, struttura o data di arrivo)
+  const q=checkinSearch.trim().toLowerCase();
+  let voci=!q?checkinPending.slice():checkinPending.filter(v=>
+    (nomeVoce(v)+' '+(v.strutturaNome||'')+' '+(v.arrivo||'')).toLowerCase().includes(q));
+  if(!voci.length){ w.innerHTML='<div class="muted">Nessun check-in trovato con questa ricerca.</div>'; return; }
+
+  // ordinamento (default: data di arrivo, il più vicino in alto)
+  const chiave=v=>checkinSort==='checkin'?-(v.ts||0):checkinSort==='nome'?nomeVoce(v).toLowerCase():parseArrivoTs(v.arrivo);
+  voci.sort((a,b)=>{ const ka=chiave(a),kb=chiave(b); return ka<kb?-1:ka>kb?1:(b.ts||0)-(a.ts||0); });
+
+  // raggruppa per struttura, ben distinte; le voci senza struttura (es. recuperate) in un gruppo a parte
+  const gruppi=[];
+  voci.forEach(v=>{
+    const nome=(v.strutturaNome&&!v.recuperato)?v.strutturaNome:(v.recuperato?'⚠️ Recuperati — struttura da verificare':'⚠️ Struttura da verificare');
+    let g=gruppi.find(x=>x.nome===nome);
+    if(!g){ g={nome,warn:nome.startsWith('⚠️'),voci:[]}; gruppi.push(g); }
+    g.voci.push(v);
+  });
+
+  w.innerHTML=gruppi.map(g=>
+    `<div class="gruppo-head${g.warn?' warn':''}">🏠 ${escText(g.nome)} <span class="cnt">${g.voci.length}</span></div>`+
+    g.voci.map(v=>{
     const quando=new Date(v.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const nomi=v.ospiti.map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ');
     const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
     return `<div class="storico-item">
-      <div class="storico-head"><span>${escText(quando)}</span>${v.strutturaNome?`<span class="pill ${v.recuperato?'wait':'ok'}">${escText(v.strutturaNome)}</span>`:'<span class="pill wait">in attesa</span>'}${v.presa?' <span class="pill wait">🕓 in prenotazione, da inviare</span>':''}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}</div>
-      <div class="storico-meta">${[v.arrivo?('arrivo '+v.arrivo):null, v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
+      <div class="storico-head"><span>check-in ${escText(quando)}</span>${v.presa?' <span class="pill wait">🕓 in prenotazione, da inviare</span>':''}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}</div>
+      <div class="storico-meta">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
       ${foto.length?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img src="${u}">`}</div>`).join('')}</div>`:''}
@@ -12374,7 +12423,7 @@ function renderCheckinPending(){
       </div>
       ${v.presa?'<div class="muted" style="font-size:11px;margin-top:6px">Sparirà da qui automaticamente dopo l\'invio ufficiale alla Questura (o il download .txt).</div>':''}
     </div>`;
-  }).join('');
+  }).join('')).join('');
 }
 function rimuoviCheckinPendingLocal(id){
   checkinPending=checkinPending.filter(v=>v.id!==id);
