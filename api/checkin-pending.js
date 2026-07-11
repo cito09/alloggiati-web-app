@@ -14,9 +14,12 @@ const { checkAdmin } = require("./_admin");
 const KEY = "checkin_pending";
 
 async function ripristinaDaBlob(coda) {
-  const GIORNI = 14;
+  const GIORNI = 21;
   const soglia = Date.now() - GIORNI * 86400000;
-  const tsDaPath = (p) => { const m = /\/(\d{13})-/.exec("/" + p); return m ? Number(m[1]) : 0; };
+  // stesso "invio" di check-in = file caricati a pochi secondi/minuti l'uno dall'altro.
+  // Raggruppando per vicinanza temporale, foto e contratto dello stesso ospite restano uniti.
+  const GAP = 20 * 60 * 1000;
+  const tsDaPath = (p) => { const m = /(?:^|\/)(\d{13})-/.exec(p); return m ? Number(m[1]) : 0; };
 
   const [contratti, foto] = await Promise.all([
     list({ prefix: "contratti/", limit: 1000 }),
@@ -29,54 +32,69 @@ async function ripristinaDaBlob(coda) {
     (v.ospiti || []).forEach((o) => (o.fotoUrls || []).forEach((u) => urlInCoda.add(u)));
   });
 
-  const fotoRecenti = foto.blobs
-    .map((b) => ({ url: b.url, ts: tsDaPath(b.pathname) || new Date(b.uploadedAt).getTime() }))
-    .filter((f) => f.ts > soglia && !urlInCoda.has(f.url));
+  const item = (b, tipo) => ({ tipo, url: b.url, pathname: b.pathname, ts: tsDaPath(b.pathname) || new Date(b.uploadedAt).getTime() });
+  const blobs = [
+    ...foto.blobs.map((b) => item(b, "foto")),
+    ...contratti.blobs.map((b) => item(b, "contratto")),
+  ]
+    .filter((b) => b.ts > soglia && !urlInCoda.has(b.url))
+    .sort((a, b) => a.ts - b.ts);
 
-  const nuove = [];
-  const fotoUsate = new Set();
-
-  for (const c of contratti.blobs) {
-    if (urlInCoda.has(c.url)) continue;
-    const ts = tsDaPath(c.pathname) || new Date(c.uploadedAt).getTime();
-    if (ts < soglia) continue;
-    const m = /contratto_(\d{2})-(\d{2})-(\d{4})_(.+)\.pdf$/.exec(c.pathname);
-    if (!m) continue;
-    const arrivo = `${m[1]}/${m[2]}/${m[3]}`;
-    const nome = m[4].replace(/_/g, " ");
-    // foto caricate nello stesso invio: entro 30 minuti dal contratto
-    const vicine = fotoRecenti.filter((f) => !fotoUsate.has(f.url) && Math.abs(f.ts - ts) < 30 * 60 * 1000);
-    vicine.forEach((f) => fotoUsate.add(f.url));
-    nuove.push({
-      id: `recupero-${ts}-${Math.random().toString(36).slice(2, 6)}`,
-      ts: Date.now(),
-      strutturaId: "",
-      strutturaNome: "recuperato — verifica struttura",
-      arrivo,
-      partenza: "",
-      notti: 0,
-      ospiti: [{ cognome: nome, nome: "", fotoUrls: vicine.map((f) => f.url), incertezze: [] }],
-      contrattoRichiesto: true,
-      contrattoInviato: true,
-      contrattoUrl: c.url,
-      recuperato: true,
-    });
+  // raggruppa i blob in "invii": nuovo gruppo quando il salto dal file precedente supera GAP
+  const gruppi = [];
+  let g = null;
+  for (const b of blobs) {
+    if (!g || b.ts - g.tsUltimo > GAP) { g = { items: [b], tsUltimo: b.ts }; gruppi.push(g); }
+    else { g.items.push(b); g.tsUltimo = b.ts; }
   }
 
-  // foto orfane (non vicine a nessun contratto): raggruppate in un'unica voce da smistare
-  const orfane = fotoRecenti.filter((f) => !fotoUsate.has(f.url));
-  if (orfane.length) {
-    nuove.push({
-      id: `recupero-foto-${Date.now()}`,
-      ts: Date.now(),
-      strutturaId: "",
-      strutturaNome: "foto recuperate — da smistare",
-      arrivo: "",
-      partenza: "",
-      notti: 0,
-      ospiti: [{ cognome: "FOTO RECUPERATE", nome: "", fotoUrls: orfane.map((f) => f.url), incertezze: [] }],
-      recuperato: true,
-    });
+  const datiDaContratto = (pathname) => {
+    const m = /contratto_(\d{2})-(\d{2})-(\d{4})_(.+)\.pdf$/.exec(pathname);
+    return m ? { arrivo: `${m[1]}/${m[2]}/${m[3]}`, nome: m[4].replace(/_/g, " ") } : null;
+  };
+  const dataIt = (ts) => new Date(ts).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  const nuove = [];
+  for (const gr of gruppi) {
+    const contrattiGr = gr.items.filter((b) => b.tipo === "contratto");
+    const fotoUrls = gr.items.filter((b) => b.tipo === "foto").map((f) => f.url);
+    const tsGr = gr.items[0].ts;
+
+    if (contrattiGr.length) {
+      // invio con contratto: nome/arrivo dal contratto, foto dello stesso invio già agganciate.
+      // Il primo contratto tiene le foto; eventuali contratti extra (raro) diventano voci a parte.
+      contrattiGr.forEach((c, idx) => {
+        const d = datiDaContratto(c.pathname);
+        nuove.push({
+          id: `recupero-${tsGr}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+          ts: Date.now(),
+          strutturaId: "",
+          strutturaNome: "recuperato — verifica struttura",
+          arrivo: d ? d.arrivo : "",
+          partenza: "",
+          notti: 0,
+          ospiti: [{ cognome: d ? d.nome : "ospite", nome: "", fotoUrls: idx === 0 ? fotoUrls : [], incertezze: [] }],
+          contrattoRichiesto: true,
+          contrattoInviato: true,
+          contrattoUrl: c.url,
+          recuperato: true,
+        });
+      });
+    } else if (fotoUrls.length) {
+      // invio di sole foto (nessun contratto): una voce da smistare per invio, con la data
+      // così l'host capisce a quale arrivo appartengono senza mescolare invii diversi.
+      nuove.push({
+        id: `recupero-foto-${tsGr}`,
+        ts: Date.now(),
+        strutturaId: "",
+        strutturaNome: `foto recuperate — da smistare (${dataIt(tsGr)})`,
+        arrivo: "",
+        partenza: "",
+        notti: 0,
+        ospiti: [{ cognome: "FOTO RECUPERATE", nome: "", fotoUrls, incertezze: [] }],
+        recuperato: true,
+      });
+    }
   }
 
   return nuove;
