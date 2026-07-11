@@ -356,6 +356,8 @@
         <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">Scarica .xml</button>
         <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Invia a Ross1000</button>
       </div>
+      <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="toggleRossArretrati()">📦 Arretrati: file unico del mese</button>
+      <div id="rossArretrati" style="display:none;margin-top:10px"></div>
       <div id="rossResult"></div>
     </div>
   </div>
@@ -11877,11 +11879,14 @@ function currentStrutturaNome(){
 }
 function aggiungiStorico(entry){
   // mostra subito la voce (istantaneo, funziona anche offline), poi la manda
-  // all'archivio online se e' configurato: se ok, riallinea lo storico condiviso
-  storico.unshift({ts:Date.now(), ...entry});
+  // all'archivio online se e' configurato: se ok, riallinea lo storico condiviso.
+  // Il ts viene generato qui e inviato anche al server, così la voce ha lo stesso
+  // identificativo ovunque (serve p.es. per segnarla "Ross1000 fatta").
+  const voce={ts:Date.now(), ...entry};
+  storico.unshift(voce);
   salvaStorico();
   renderStorico();
-  fetch('/api/storico',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(entry)})
+  fetch('/api/storico',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(voce)})
     .then(r=>r.json())
     .then(data=>{ if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); } })
     .catch(()=>{/* offline o archivio online non configurato: resta comunque salvata in locale */});
@@ -11922,7 +11927,7 @@ function renderStorico(){
   if(!lista.length){ w.innerHTML='<div class="muted">Nessuna voce trovata per "'+escText(q)+'".</div>'; return; }
   w.innerHTML=lista.map(e=>{
     const quando=new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    const pill=e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>';
+    const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>':'');
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
     const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null].filter(Boolean).map(escText).join(' · ');
     const aperto=storicoAperto.has(e.ts);
@@ -12702,10 +12707,113 @@ async function inviaRoss(manuale){
     if(!r.ok)throw new Error(data.error||'Errore');
     if(out)out.innerHTML='<div class="pill ok" style="margin-top:10px">Ross1000: trasmesso ✓</div>';
     toast('Ross1000: dati trasmessi');
+    // segna nello storico che per questo soggiorno Ross1000 è fatto (per gli "arretrati")
+    const ent=storico.find(x=>x.tipo==='inviata'&&x.arrivo===(bookings[0]&&bookings[0].arrivo));
+    if(ent)segnaRossFatto(ent.ts);
   }catch(e){
     if(out)out.innerHTML=`<div class="pill err" style="margin-top:10px">Ross1000: ${e.message}</div>`;
     if(manuale)toast('Ross1000: '+e.message);
   }finally{ if(btn)btn.disabled=false; }
+}
+
+/* ===== Arretrati Ross1000: file unico con le prenotazioni non ancora mandate =====
+   Le prenotazioni già registrate (inviate alla Questura o scaricate .txt) restano nello
+   storico con le schedine complete: da lì si ricostruiscono i dati per Ross1000, si
+   selezionano quelle dimenticate e si scarica UN SOLO file .xml da importare sul portale. */
+const statoNome=c=>{const s=STATI.find(x=>x[0]===c);return s?s[1]:'';};
+// ricostruisce un soggiorno Ross1000 dalle schedine (168 caratteri) salvate nello storico
+function rossSoggiornoDaStorico(e){
+  if(!e||!(e.records||[]).length)return null;
+  const ospiti=[]; let capoId='', arrivo='', notti=0;
+  e.records.forEach((rec,idx)=>{
+    if(!rec||rec.length!==168)return;
+    const f=(a,b)=>rec.slice(a,b).trim();
+    const tipo=f(0,2);
+    if(!arrivo){arrivo=f(2,12); notti=parseInt(f(12,14),10)||0;}
+    const comuneN=f(105,114), statoN=f(116,125), citt=f(125,134);
+    const natoIt=!!comuneN;
+    const idswh=(arrivo.replace(/\//g,'')+'-'+idx+'-'+Number(e.ts).toString(36)).slice(0,20);
+    if(tipo==='16'||tipo==='17'||tipo==='18')capoId=idswh;
+    ospiti.push({idswh, tipoalloggiato:tipo, idcapo:(tipo==='19'||tipo==='20')?capoId:'',
+      cognome:f(14,64), nome:f(64,94), sesso:f(94,95)==='1'?'M':'F',
+      cittadinanza:citt, statoresidenza:natoIt?ITALIA_CODE:(statoN||citt),
+      luogoresidenza:natoIt?comuneN:(statoNome(statoN||citt)||'ESTERO').toUpperCase().slice(0,30),
+      datanascita:f(95,105).split('/').reverse().join(''),
+      statonascita:natoIt?ITALIA_CODE:statoN,
+      comunenascita:comuneN});
+  });
+  if(!ospiti.length||!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo)||!(notti>0))return null;
+  return {arrivo,notti,ospiti};
+}
+let rossMese='';
+const rossMeseDi=s=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s.arrivo);return m?`${m[3]}-${m[2]}`:'';};
+const rossLabelMese=k=>{const [y,mm]=k.split('-');return new Date(+y,+mm-1,1).toLocaleDateString('it-IT',{month:'long',year:'numeric'});};
+function toggleRossArretrati(){
+  const w=$('#rossArretrati'); if(!w)return;
+  if(w.style.display==='none'){ w.style.display=''; renderRossArretrati(); }
+  else w.style.display='none';
+}
+function rossVociArretrati(){
+  const nomeStr=currentStrutturaNome();
+  return storico
+    .filter(e=>e.struttura===nomeStr)
+    .map(e=>({e, s:rossSoggiornoDaStorico(e)}))
+    .filter(x=>x.s);
+}
+function renderRossArretrati(){
+  const w=$('#rossArretrati'); if(!w)return;
+  const voci=rossVociArretrati();
+  if(!voci.length){
+    w.innerHTML='<div class="muted" style="font-size:12.5px">Ancora nessuna prenotazione registrata per questa struttura. Qui compariranno quelle inviate alla Questura (o scaricate .txt), da riesportare per Ross1000 in un file unico.</div>';
+    return;
+  }
+  const mesi=[...new Set(voci.map(x=>rossMeseDi(x.s)))].sort().reverse();
+  if(!rossMese||!mesi.includes(rossMese)){
+    rossMese=mesi.find(m=>voci.some(x=>rossMeseDi(x.s)===m&&!x.e.rossOk))||mesi[0];
+  }
+  const delMese=voci.filter(x=>rossMeseDi(x.s)===rossMese)
+    .sort((a,b)=>a.s.arrivo.split('/').reverse().join('')<b.s.arrivo.split('/').reverse().join('')?-1:1);
+  const daFare=delMese.filter(x=>!x.e.rossOk).length;
+  w.innerHTML=`
+    <select onchange="rossMese=this.value;renderRossArretrati()">
+      ${mesi.map(m=>`<option value="${m}"${m===rossMese?' selected':''}>${rossLabelMese(m)}</option>`).join('')}
+    </select>
+    <div class="muted" style="font-size:12px;margin-top:6px">${daFare?`<b>${daFare}</b> da mandare a Ross1000 (già spuntate).`:'Tutte già mandate a Ross1000 ✓ (puoi rispuntarne una per riesportarla).'}</div>
+    ${delMese.map(({e,s})=>{
+      const cognomi=[...new Set(s.ospiti.map(o=>o.cognome).filter(Boolean))].join(', ');
+      return `<label style="display:flex;gap:10px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-top:6px;cursor:pointer;background:var(--surface2)">
+        <input type="checkbox" data-ts="${e.ts}" ${e.rossOk?'':'checked'} style="width:20px;height:20px;flex:0 0 auto;accent-color:var(--amber)">
+        <span style="flex:1;font-size:13.5px;line-height:1.35"><b>arrivo ${escText(s.arrivo)}</b> · ${s.notti} nott${s.notti===1?'e':'i'} · ${s.ospiti.length} ospit${s.ospiti.length===1?'e':'i'}<br>
+          <span class="muted" style="font-size:12px">${escText(cognomi)}</span></span>
+        ${e.rossOk?'<span class="pill ok">✓ fatta</span>':'<span class="pill wait">da fare</span>'}
+      </label>`;
+    }).join('')}
+    <button class="btn primary sm" style="width:100%;margin-top:10px" onclick="generaRossUnico()">⬇ Scarica file unico (.xml)</button>
+    <div class="muted" style="font-size:11.5px;margin-top:6px">Un solo file con tutte le prenotazioni spuntate: importalo sul portale Ross1000 (check-in → importa file gestionale). Dopo l'export vengono segnate "✓ fatta".</div>`;
+}
+async function generaRossUnico(){
+  const boxes=[...document.querySelectorAll('#rossArretrati input[type=checkbox]:checked')];
+  if(!boxes.length){toast('Spunta almeno una prenotazione');return;}
+  const tss=boxes.map(b=>Number(b.dataset.ts));
+  const sogg=tss.map(ts=>rossSoggiornoDaStorico(storico.find(e=>e.ts===ts))).filter(Boolean);
+  if(!sogg.length){toast('Nessun dato esportabile');return;}
+  try{
+    const r=await fetch('/api/ross',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'file',struttura:rossStrutturaId(),soggiorni:sogg})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Errore');
+    const url=URL.createObjectURL(new Blob([data.xml],{type:'application/xml;charset=utf-8'}));
+    const a=document.createElement('a');a.href=url;a.download=data.filename||'ross1000_unico.xml';a.click();URL.revokeObjectURL(url);
+    tss.forEach(ts=>segnaRossFatto(ts));
+    renderRossArretrati();
+    toast(`File unico con ${sogg.length} soggiorn${sogg.length===1?'o':'i'} scaricato: importalo sul portale Ross1000`);
+  }catch(e){toast('Ross1000: '+e.message);}
+}
+function segnaRossFatto(ts){
+  const e=storico.find(x=>x.ts===ts);
+  if(e&&!e.rossOk){ e.rossOk=true; salvaStorico(); renderStorico(); }
+  fetch('/api/storico',{method:'PATCH',headers:adminHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({ts,campi:{rossOk:true}})}).catch(()=>{/* offline: resta segnato in locale */});
 }
 
 /* ===== schede dashboard ===== */

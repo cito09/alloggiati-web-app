@@ -30,6 +30,16 @@ module.exports = async (req, res) => {
       await redisCmd(conn, ["SET", KEY, JSON.stringify(storico)]);
       return res.status(200).json({ configurato: true, storico });
     }
+    if (req.method === "PATCH") {
+      // aggiorna campi di una voce esistente (es. rossOk:true dopo l'export Ross1000)
+      const { ts, campi } = req.body || {};
+      const raw = await redisCmd(conn, ["GET", KEY]);
+      const storico = raw ? JSON.parse(raw) : [];
+      const voce = storico.find((v) => v.ts === ts);
+      if (voce && campi && typeof campi === "object") Object.assign(voce, campi);
+      await redisCmd(conn, ["SET", KEY, JSON.stringify(storico)]);
+      return res.status(200).json({ configurato: true, storico });
+    }
     if (req.method === "DELETE") {
       const { ts } = req.body || {};
       const raw = await redisCmd(conn, ["GET", KEY]);

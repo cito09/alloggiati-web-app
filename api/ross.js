@@ -56,53 +56,70 @@ function xmlArrivo(o) {
 </arrivo>`;
 }
 
-// Un <movimento> per ogni giorno del soggiorno: il giorno di arrivo contiene gli <arrivi>,
-// quello di partenza le <partenze>, i giorni intermedi solo l'occupazione della struttura.
-function buildMovimenti(conf, arrivoDate, notti, ospiti) {
-  const out = [];
-  for (let i = 0; i <= notti; i++) {
-    const d = new Date(arrivoDate.getTime());
-    d.setDate(d.getDate() + i);
-    const isArrivo = i === 0;
-    const isPartenza = i === notti;
-    const occupate = isPartenza ? 0 : Number(conf.cameredisponibili) || 1;
-    let m = `<movimento>
-<data>${aaaammgg(d)}</data>
+// Un <movimento> per ogni giorno: il giorno di arrivo contiene gli <arrivi>, quello di
+// partenza le <partenze>, i giorni intermedi solo l'occupazione. Accetta PIÙ soggiorni
+// (per il file unico "arretrati"): le giornate in comune vengono fuse in un solo movimento.
+function buildMovimenti(conf, soggiorni) {
+  const perData = new Map(); // 'aaaammgg' -> { occ, arrivi:[], partenze:[] }
+  for (const s of soggiorni) {
+    for (let i = 0; i <= s.notti; i++) {
+      const d = new Date(s.arrivoDate.getTime());
+      d.setDate(d.getDate() + i);
+      const k = aaaammgg(d);
+      let m = perData.get(k);
+      if (!m) { m = { occ: 0, arrivi: [], partenze: [] }; perData.set(k, m); }
+      if (i === 0) m.arrivi.push(...s.ospiti);
+      if (i === s.notti) m.partenze.push(...s.ospiti.map((o) =>
+        `<partenza>\n<idswh>${esc(o.idswh)}</idswh>\n<tipoalloggiato>${esc(o.tipoalloggiato)}</tipoalloggiato>\n<arrivo>${aaaammgg(s.arrivoDate)}</arrivo>\n</partenza>`));
+      if (i < s.notti) m.occ++;
+    }
+  }
+  const disponibili = Number(conf.cameredisponibili) || 1;
+  return [...perData.keys()].sort().map((k) => {
+    const m = perData.get(k);
+    let x = `<movimento>
+<data>${k}</data>
 <struttura>
 <apertura>SI</apertura>
-<camereoccupate>${occupate}</camereoccupate>
-<cameredisponibili>${Number(conf.cameredisponibili) || 1}</cameredisponibili>
+<camereoccupate>${Math.min(m.occ, disponibili)}</camereoccupate>
+<cameredisponibili>${disponibili}</cameredisponibili>
 <lettidisponibili>${Number(conf.lettidisponibili) || 2}</lettidisponibili>
 </struttura>`;
-    if (isArrivo) m += `\n<arrivi>\n${ospiti.map(xmlArrivo).join("\n")}\n</arrivi>`;
-    if (isPartenza) m += `\n<partenze>\n${ospiti.map((o) =>
-      `<partenza>\n<idswh>${esc(o.idswh)}</idswh>\n<tipoalloggiato>${esc(o.tipoalloggiato)}</tipoalloggiato>\n<arrivo>${aaaammgg(arrivoDate)}</arrivo>\n</partenza>`).join("\n")}\n</partenze>`;
-    m += `\n</movimento>`;
-    out.push(m);
-  }
-  return out.join("\n");
+    if (m.arrivi.length) x += `\n<arrivi>\n${m.arrivi.map(xmlArrivo).join("\n")}\n</arrivi>`;
+    if (m.partenze.length) x += `\n<partenze>\n${m.partenze.join("\n")}\n</partenze>`;
+    return x + `\n</movimento>`;
+  }).join("\n");
 }
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   try {
-    const { azione, struttura, arrivo, notti, ospiti = [] } = req.body || {};
+    const { azione, struttura, arrivo, notti, ospiti = [], soggiorni } = req.body || {};
     const conf = getRossStrutture().find((s) => s.id === struttura);
     if (!conf) return res.status(400).json({ error: "Ross1000 non configurato per questa struttura (variabile ROSS_STRUTTURE)" });
     if (!conf.codice) return res.status(400).json({ error: "Manca il codice struttura Ross1000 (campo \"codice\" in ROSS_STRUTTURE)" });
 
-    const arrivoDate = parseGgMmAaaa(arrivo);
-    const n = Number(notti);
-    if (!arrivoDate || !(n > 0)) return res.status(400).json({ error: "Date del soggiorno non valide" });
-    if (!ospiti.length) return res.status(400).json({ error: "Nessun ospite completo da trasmettere" });
+    // uno o più soggiorni: il file unico "arretrati" ne manda diversi in una volta sola
+    const grezzi = Array.isArray(soggiorni) && soggiorni.length ? soggiorni : [{ arrivo, notti, ospiti }];
+    const validati = [];
+    for (const s of grezzi) {
+      const arrivoDate = parseGgMmAaaa(s.arrivo);
+      const n = Number(s.notti);
+      if (!arrivoDate || !(n > 0)) return res.status(400).json({ error: `Date del soggiorno non valide (arrivo ${s.arrivo || "?"})` });
+      if (!(s.ospiti || []).length) return res.status(400).json({ error: `Nessun ospite completo da trasmettere (arrivo ${s.arrivo || "?"})` });
+      validati.push({ arrivoDate, notti: n, ospiti: s.ospiti });
+    }
 
-    const movimenti = buildMovimenti(conf, arrivoDate, n, ospiti);
+    const movimenti = buildMovimenti(conf, validati);
     const corpo = `<codice>${esc(conf.codice)}</codice>\n<prodotto>${PRODOTTO}</prodotto>\n${movimenti}`;
 
     if (azione === "file") {
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<movimenti>\n${corpo}\n</movimenti>\n`;
-      return res.status(200).json({ ok: true, xml, filename: `ross1000_${aaaammgg(arrivoDate)}.xml` });
+      const nome = validati.length > 1
+        ? `ross1000_unico_${validati.length}_soggiorni.xml`
+        : `ross1000_${aaaammgg(validati[0].arrivoDate)}.xml`;
+      return res.status(200).json({ ok: true, xml, filename: nome });
     }
 
     // azione 'invia': web service SOAP con HTTP Basic
