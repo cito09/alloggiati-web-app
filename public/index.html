@@ -253,6 +253,15 @@
     </details>
 
     <details class="settings-section">
+      <summary><span class="n">🛟</span> Recupero</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px;margin-bottom:8px">Se un check-in accettato è sparito prima dell'invio (es. app chiusa), ripesca contratti firmati e foto documenti dall'archivio e li rimette in "Ospiti in attesa".</div>
+        <button class="btn ghost sm" style="width:100%" onclick="recuperaCheckinPersi()">🛟 Recupera check-in persi</button>
+        <div id="recuperoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+      </div>
+    </details>
+
+    <details class="settings-section">
       <summary><span class="n">ℹ️</span> Stato configurazione</summary>
       <div class="settings-body">
         <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
@@ -12353,16 +12362,17 @@ function renderCheckinPending(){
     const nomi=v.ospiti.map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ');
     const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
     return `<div class="storico-item">
-      <div class="storico-head"><span>${escText(quando)}</span>${v.strutturaNome?`<span class="pill ok">${escText(v.strutturaNome)}</span>`:'<span class="pill wait">in attesa</span>'}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}</div>
+      <div class="storico-head"><span>${escText(quando)}</span>${v.strutturaNome?`<span class="pill ${v.recuperato?'wait':'ok'}">${escText(v.strutturaNome)}</span>`:'<span class="pill wait">in attesa</span>'}${v.presa?' <span class="pill wait">🕓 in prenotazione, da inviare</span>':''}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}</div>
       <div class="storico-meta">${[v.arrivo?('arrivo '+v.arrivo):null, v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
       ${foto.length?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img src="${u}">`}</div>`).join('')}</div>`:''}
       ${v.contrattoUrl?`<div style="margin-top:8px"><a class="btn ghost sm btn-link" href="${v.contrattoUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn primary sm" style="flex:1" onclick="accettaCheckin('${v.id}')">✓ Aggiungi alla prenotazione</button>
+        <button class="btn ${v.presa?'ghost':'primary'} sm" style="flex:1" onclick="accettaCheckin('${v.id}')">${v.presa?'↺ Riaggiungi alla prenotazione':'✓ Aggiungi alla prenotazione'}</button>
         <button class="btn ghost sm" onclick="scartaCheckin('${v.id}')">Scarta</button>
       </div>
+      ${v.presa?'<div class="muted" style="font-size:11px;margin-top:6px">Sparirà da qui automaticamente dopo l\'invio ufficiale alla Questura (o il download .txt).</div>':''}
     </div>`;
   }).join('');
 }
@@ -12377,6 +12387,7 @@ function rimuoviCheckinPendingLocal(id){
 function accettaCheckin(id){
   const v=checkinPending.find(x=>x.id===id); if(!v)return;
   const b=bookingAttivo();
+  if((b._pendingIds||[]).includes(id)){ toast('Già aggiunta alla prenotazione corrente'); mostraTab('registra'); return; }
   if(v.arrivo && !b.arrivo) b.arrivo=v.arrivo;
   if(v.notti && !b.notti) b.notti=v.notti;
   if(v.strutturaId){
@@ -12398,7 +12409,14 @@ function accettaCheckin(id){
   if(v.contrattoUrl){ b._contratti=(b._contratti||[]).concat(v.contrattoUrl); }
   b.guests.push(...nuovi);
   b.soggiorno=inferSoggiorno(b.guests);
-  rimuoviCheckinPendingLocal(id);
+  // NON rimuoviamo la voce dalla coda: resta lì (segnata "già in prenotazione") finché le
+  // schedine non vengono davvero inviate alla Questura o scaricate come .txt. Così se l'app
+  // si chiude prima dell'invio non si perde nulla: basta riaggiungerla.
+  b._pendingIds=(b._pendingIds||[]).concat(id);
+  v.presa=true;
+  fetch('/api/checkin-pending',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'presa',id})})
+    .catch(()=>{/* offline: il flag resta almeno in locale */});
+  renderCheckinPending();
   render();
   mostraTab('registra'); // porta alla scheda di lavoro, dove ora c'è l'ospite appena aggiunto
   toast(`${nuovi.length} ospit${nuovi.length===1?'e':'i'} aggiunt${nuovi.length===1?'o':'i'} dal check-in`);
@@ -12483,7 +12501,11 @@ function downloadTxt(){
   toast(recs.length+' schedine esportate');
   const snap=snapshotOspiti();
   aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recs});
-  if(bookings[0]){ bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti(); }
+  if(bookings[0]){
+    bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
+    (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id));
+    bookings[0]._pendingIds=[];
+  }
 }
 
 /* ===== invio Alloggiati ===== */
@@ -12521,7 +12543,11 @@ async function invia(){
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     const snap=snapshotOspiti();
     aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
-    if(bookings[0]){ bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti(); }
+    if(bookings[0]){
+      bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
+      (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id)); // ora sì: inviate davvero
+      bookings[0]._pendingIds=[];
+    }
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
   }
 }
@@ -12696,6 +12722,19 @@ function uscitaGestionale(){
   localStorage.removeItem('adminCode');
   sessionStorage.removeItem('adminCode');
   location.reload();
+}
+async function recuperaCheckinPersi(){
+  const msg=$('#recuperoMsg');
+  msg.textContent='Cerco nell\'archivio…';
+  try{
+    const r=await fetch('/api/checkin-pending',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'ripristina'})});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'Errore');
+    if(Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); }
+    const n=data.ripristinate||0;
+    msg.textContent=n?`✓ Recuperat${n===1?'a 1 voce':'e '+n+' voci'}: le trovi in "Ospiti in attesa" (scheda Ospiti).`:'Nessuna voce da recuperare trovata negli ultimi 14 giorni.';
+    if(n){ toast(n+' check-in recuperat'+(n===1?'o':'i')); }
+  }catch(e){ msg.textContent='Errore: '+e.message; }
 }
 function renderSettingsInfo(){
   const w=$('#settingsInfo'); if(!w)return;
