@@ -123,6 +123,30 @@ module.exports = async (req, res) => {
       ospitiSalvati.push({ ...campi, fotoUrls });
     }
 
+    // verifica identità "de visu": selfie del capogruppo (confronto fatto nel browser
+    // dell'ospite). Salviamo il selfie su Blob come prova + l'esito del confronto.
+    let deVisuSalvata = null;
+    const dv = (req.body || {}).deVisu;
+    if (dv && dv.selfie) {
+      let selfieUrl = "";
+      try {
+        const blobSelfie = await put(`devisu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, toBuffer(dv.selfie), {
+          access: "public",
+          contentType: "image/jpeg",
+        });
+        selfieUrl = blobSelfie.url;
+      } catch (e) {
+        /* selfie non salvato: la verifica resta registrata con il solo esito */
+      }
+      deVisuSalvata = {
+        esito: String(dv.esito || "non_disponibile"),
+        distanza: typeof dv.distanza === "number" ? dv.distanza : null,
+        tentativi: Number(dv.tentativi) || 0,
+        ts: Number(dv.ts) || Date.now(),
+        selfieUrl,
+      };
+    }
+
     // contratto di locazione turistica: solo se la struttura ha una config (CONTRATTI_STRUTTURE)
     // e l'ospite ha effettivamente firmato. Il PDF viene generato, mandato via email e
     // salvato su Blob insieme alle foto, così resta consultabile nell'archivio della prenotazione.
@@ -215,6 +239,7 @@ module.exports = async (req, res) => {
       contrattoInviato,
       contrattoErrore,
       contrattoUrl,
+      deVisu: deVisuSalvata,
     };
 
     let raw;
