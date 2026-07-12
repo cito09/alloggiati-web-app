@@ -12481,10 +12481,13 @@ function renderCheckinPending(soloLista){
     </div>`;
   }).join('')).join('');
 }
-function rimuoviCheckinPendingLocal(id){
+function rimuoviCheckinPendingLocal(id,definitivo){
+  // definitivo=true (schedine inviate alla Questura, pulizia dal pannello recupero): la voce
+  // finisce in lista nera e i ripristini non la ripescano più. Lo "Scarta" normale invece
+  // NON è definitivo: la voce resta recuperabile con "Ripristina dai backup".
   checkinPending=checkinPending.filter(v=>v.id!==id);
   renderCheckinPending();
-  fetch('/api/checkin-pending',{method:'DELETE',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({id})})
+  fetch('/api/checkin-pending',{method:'DELETE',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({id,definitivo:!!definitivo})})
     .then(r=>r.json())
     .then(data=>{ if(data.configurato&&Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); } })
     .catch(()=>{/* offline: resta comunque rimossa in locale */});
@@ -12650,7 +12653,7 @@ async function invia(){apriCard('invioCard');
     aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
     if(bookings[0]){
       bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
-      (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id)); // ora sì: inviate davvero
+      (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id,true)); // inviate davvero: eliminazione definitiva
       bookings[0]._pendingIds=[];
     }
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
@@ -12994,7 +12997,7 @@ async function eliminaCheckinSelezionati(){
   if(!confirm(`Eliminare definitivamente ${ids.length} check-in dalla lista di attesa? (Foto e contratti già archiviati non vengono toccati.)`))return;
   const msg=$('#recuperoMsg'); if(msg)msg.textContent='Elimino…';
   try{
-    const r=await fetch('/api/checkin-pending',{method:'DELETE',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ids})});
+    const r=await fetch('/api/checkin-pending',{method:'DELETE',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ids,definitivo:true})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
     if(Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); }

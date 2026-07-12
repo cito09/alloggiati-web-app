@@ -120,16 +120,17 @@ module.exports = async (req, res) => {
     }
     if (req.method === "DELETE") {
       // { id } per una voce sola, { ids:[...] } per la pulizia multipla dal pannello recupero.
-      // In entrambi i casi l'eliminazione è DEFINITIVA anche per il recupero: gli URL delle
-      // voci rimosse finiscono tra gli scartati e non verranno più ripescati dall'archivio.
-      const { id, ids } = req.body || {};
+      // Con { definitivo:true } (invio ufficiale avvenuto o pulizia) gli URL delle voci rimosse
+      // finiscono tra gli scartati e non verranno più ripescati dall'archivio; lo "Scarta"
+      // normale invece resta recuperabile con il ripristino.
+      const { id, ids, definitivo } = req.body || {};
       const daEliminare = new Set(Array.isArray(ids) ? ids : id ? [id] : []);
       const raw = await redisCmd(conn, ["GET", KEY]);
       const tutte = raw ? JSON.parse(raw) : [];
       const rimosse = tutte.filter((v) => daEliminare.has(v.id));
       const coda = tutte.filter((v) => !daEliminare.has(v.id));
       await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
-      if (rimosse.length) {
+      if (rimosse.length && definitivo) {
         try {
           const rawS = await redisCmd(conn, ["GET", KEY_SCARTATI]);
           let scartati = rawS ? JSON.parse(rawS) : [];

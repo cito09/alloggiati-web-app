@@ -159,6 +159,12 @@
   .datepick2 .db{pointer-events:none; opacity:.9; display:flex}
   .datepick2 .db svg{width:19px; height:19px}
   .datepick2-input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:0; padding:0}
+  .contratto-prev{position:relative; max-height:130px; overflow:hidden; background:var(--surface2);
+    border:1px solid var(--line); border-radius:12px; cursor:pointer; user-select:none; -webkit-user-select:none}
+  .contratto-prev .txt{padding:12px 13px; font-size:12px; line-height:1.55; white-space:pre-wrap;
+    filter:blur(2.1px); opacity:.72}
+  .contratto-prev::after{content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(20,40,60,0) 25%, var(--surface) 96%)}
   .contratto-fs{display:none; position:fixed; inset:0; z-index:650; background:var(--bg); flex-direction:column; padding:14px}
   .contratto-fs.show{display:flex}
   .contratto-fs .corpo{flex:1; overflow-y:auto; background:var(--surface2); border:1px solid var(--line); border-radius:14px;
@@ -355,7 +361,7 @@ const T={
     welcome_text:"Bastano 2 minuti: carica il documento di ogni ospite e conferma i dati.",
     welcome_btn:'Continua',
     trust_secure:'Dati protetti', trust_fast:'Solo 2 minuti', trust_reviewed:"Rivisto dall'host, mai automatico",
-    prog_date:'Date', prog_doc:'Documento', prog_check:'Controllo', prog_send:'Invio',
+    prog_date:'Date', prog_doc:'Documento', prog_check:'Controllo', prog_selfie:'Selfie', prog_send:'Invio',
     btn_next:'Avanti', btn_back:'‹ Indietro',
     manual_link:'oppure compila i dati a mano',
     btn_confirm_data:'Conferma i dati ✓',
@@ -417,7 +423,7 @@ const T={
     welcome_text:"It only takes 2 minutes: upload each guest's ID document and confirm the details.",
     welcome_btn:'Continue',
     trust_secure:'Data protected', trust_fast:'Just 2 minutes', trust_reviewed:'Reviewed by host, never automatic',
-    prog_date:'Dates', prog_doc:'Document', prog_check:'Review', prog_send:'Send',
+    prog_date:'Dates', prog_doc:'Document', prog_check:'Review', prog_selfie:'Selfie', prog_send:'Send',
     btn_next:'Next', btn_back:'‹ Back',
     manual_link:'or enter the details manually',
     btn_confirm_data:'Confirm details ✓',
@@ -479,7 +485,7 @@ const T={
     welcome_text:"Cela ne prend que 2 minutes : téléchargez le document de chaque voyageur et confirmez les données.",
     welcome_btn:'Continuer',
     trust_secure:'Données protégées', trust_fast:'2 minutes seulement', trust_reviewed:"Vérifié par l'hôte, jamais automatique",
-    prog_date:'Dates', prog_doc:'Document', prog_check:'Vérification', prog_send:'Envoi',
+    prog_date:'Dates', prog_doc:'Document', prog_check:'Vérification', prog_selfie:'Selfie', prog_send:'Envoi',
     btn_next:'Suivant', btn_back:'‹ Retour',
     manual_link:'ou saisissez les données à la main',
     btn_confirm_data:'Confirmer les données ✓',
@@ -541,7 +547,7 @@ const T={
     welcome_text:'Solo toma 2 minutos: sube el documento de cada huésped y confirma los datos.',
     welcome_btn:'Continuar',
     trust_secure:'Datos protegidos', trust_fast:'Solo 2 minutos', trust_reviewed:'Revisado por el anfitrión, nunca automático',
-    prog_date:'Fechas', prog_doc:'Documento', prog_check:'Revisión', prog_send:'Envío',
+    prog_date:'Fechas', prog_doc:'Documento', prog_check:'Revisión', prog_selfie:'Selfie', prog_send:'Envío',
     btn_next:'Siguiente', btn_back:'‹ Atrás',
     manual_link:'o introduce los datos a mano',
     btn_confirm_data:'Confirmar datos ✓',
@@ -603,7 +609,7 @@ const T={
     welcome_text:'Es dauert nur 2 Minuten: Laden Sie den Ausweis jedes Gastes hoch und bestätigen Sie die Daten.',
     welcome_btn:'Weiter',
     trust_secure:'Daten geschützt', trust_fast:'Nur 2 Minuten', trust_reviewed:'Vom Gastgeber geprüft, nie automatisch',
-    prog_date:'Daten', prog_doc:'Dokument', prog_check:'Prüfung', prog_send:'Senden',
+    prog_date:'Daten', prog_doc:'Dokument', prog_check:'Prüfung', prog_selfie:'Selfie', prog_send:'Senden',
     btn_next:'Weiter', btn_back:'‹ Zurück',
     manual_link:'oder Daten von Hand eingeben',
     btn_confirm_data:'Daten bestätigen ✓',
@@ -665,7 +671,7 @@ const T={
     welcome_text:'Durează doar 2 minute: încărcați documentul fiecărui oaspete și confirmați datele.',
     welcome_btn:'Continuă',
     trust_secure:'Date protejate', trust_fast:'Doar 2 minute', trust_reviewed:'Verificat de gazdă, niciodată automat',
-    prog_date:'Date', prog_doc:'Document', prog_check:'Verificare', prog_send:'Trimitere',
+    prog_date:'Date', prog_doc:'Document', prog_check:'Verificare', prog_selfie:'Selfie', prog_send:'Trimitere',
     btn_next:'Înainte', btn_back:'‹ Înapoi',
     manual_link:'sau introduceți datele manual',
     btn_confirm_data:'Confirmă datele ✓',
@@ -727,7 +733,7 @@ const T={
     welcome_text:'Leva só 2 minutos: envie o documento de cada hóspede e confirme os dados.',
     welcome_btn:'Continuar',
     trust_secure:'Dados protegidos', trust_fast:'Só 2 minutos', trust_reviewed:'Revisto pelo anfitrião, nunca automático',
-    prog_date:'Datas', prog_doc:'Documento', prog_check:'Revisão', prog_send:'Envio',
+    prog_date:'Datas', prog_doc:'Documento', prog_check:'Revisão', prog_selfie:'Selfie', prog_send:'Envio',
     btn_next:'Avançar', btn_back:'‹ Voltar',
     manual_link:'ou preencha os dados manualmente',
     btn_confirm_data:'Confirmar dados ✓',
@@ -789,7 +795,7 @@ const T={
     welcome_text:'To tylko 2 minuty: prześlij dokument każdego gościa i potwierdź dane.',
     welcome_btn:'Dalej',
     trust_secure:'Dane chronione', trust_fast:'Tylko 2 minuty', trust_reviewed:'Sprawdzane przez gospodarza, nigdy automatycznie',
-    prog_date:'Daty', prog_doc:'Dokument', prog_check:'Kontrola', prog_send:'Wysyłka',
+    prog_date:'Daty', prog_doc:'Dokument', prog_check:'Kontrola', prog_selfie:'Selfie', prog_send:'Wysyłka',
     btn_next:'Dalej', btn_back:'‹ Wstecz',
     manual_link:'lub wpisz dane ręcznie',
     btn_confirm_data:'Potwierdź dane ✓',
@@ -1271,7 +1277,7 @@ function fw(g,k){ return (g._warn||[]).includes(k) ? 'field-warn' : ''; }
 function natoInItalia(g){ return String(g.statoNascita||'').trim().toUpperCase()==='ITALIA'; }
 function setStatoNascita(id,val){ const g=getG(id); g.statoNascita=val; if(!natoInItalia(g)) g.comuneNascita=''; render(); }
 
-function stepIndex(){ return passo==='date'?0 : passo==='foto'?1 : (passo==='verifica'||passo==='altro')?2 : 3; }
+function stepIndex(){ return passo==='date'?0 : passo==='foto'?1 : (passo==='verifica'||passo==='altro')?2 : passo==='selfie'?3 : 4; }
 
 function render(){
   const root=$('#stepBody'); if(!root||!lang)return;
@@ -1281,7 +1287,7 @@ function render(){
   const selEnd=active&&typeof active.selectionEnd==='number'?active.selectionEnd:null;
   const scrollY=window.scrollY;
 
-  const labels=[t('prog_date'),t('prog_doc'),t('prog_check'),t('prog_send')];
+  const labels=[t('prog_date'),t('prog_doc'),t('prog_check'),t('prog_selfie'),t('prog_send')];
   const cur=stepIndex();
   $('#stepsBar').innerHTML=labels.map((l,i)=>
     `<div class="step-item ${i===cur?'active':''} ${i<cur?'done':''}"><div class="dot">${i<cur?'✓':i+1}</div>${l}</div>`).join('');
@@ -1290,6 +1296,7 @@ function render(){
   else if(passo==='foto') renderFoto(root);
   else if(passo==='verifica') renderVerifica(root);
   else if(passo==='altro') renderAltro(root);
+  else if(passo==='selfie') renderSelfie(root);
   else renderInvio(root);
 
   if(activeId){
@@ -1410,10 +1417,33 @@ function renderAltro(root){
       <div style="font-weight:800; font-size:18px">${t('guest_added')}</div>
       <div class="muted" style="margin:8px 0 18px">${t('add_more_q')}</div>
       <button class="btn ghost" onclick="aggiungiAltroOspite()">${t('btn_add_guest')}</button>
-      <button class="btn primary big" style="margin-top:10px" onclick="mostraPasso('invio')">${t('btn_no_continue')} →</button>
+      <button class="btn primary big" style="margin-top:10px" onclick="mostraPasso('selfie')">${t('btn_no_continue')} →</button>
     </div>`;
 }
 function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1; mostraPasso('foto'); }
+
+/* ---- passo 4: verifica identità (selfie de visu) ---- */
+function renderSelfie(root){
+  root.innerHTML=`
+    <div class="card">
+      <div class="steplbl">🪪 ${t('devisu_title')}</div>
+      <div class="muted" style="line-height:1.55;font-size:13px">${t('devisu_hint')}</div>
+      <input id="selfieInput" type="file" accept="image/*" capture="user" style="display:none" onchange="onSelfieFiles(this.files);this.value=''">
+      <button class="btn primary big" id="devisuBtn" style="margin-top:14px;${deVisu.selfie?'display:none':''}" onclick="selfieScatta()">📸 ${t('devisu_btn')}</button>
+      <div id="devisuStato"></div>
+    </div>
+    <button class="btn primary big" onclick="avantiSelfie()">${t('btn_next')} →</button>
+    <button class="btn ghost" onclick="mostraPasso('altro')">${t('btn_back')}</button>`;
+  if(deVisu.selfie){
+    const mappa={verificata:'ok', non_corrispondente:(deVisu.tentativi>=2?'manual':'ko'),
+      volto_non_rilevato:(deVisu.tentativi>=2?'manual':'noface'), documento_non_confrontabile:'nd', non_disponibile:'nd'};
+    aggiornaDevisuUI(mappa[deVisu.esito]||'nd');
+  }
+}
+function avantiSelfie(){
+  if(!deVisu.selfie){ toast(t('devisu_required')); return; }
+  mostraPasso('invio');
+}
 
 /* ---- passo 4: riepilogo e invio ---- */
 /* ===== contratto di locazione turistica (solo se la struttura è configurata) ===== */
@@ -1515,7 +1545,8 @@ function renderInvio(root){
     <div class="card">
       <div class="steplbl">${t('contratto_title')}</div>
       <div class="muted" style="margin-bottom:8px">${t('contratto_hint')}</div>
-      <button class="btn ${contrattoLetto?'ghost':'primary'} big" id="contrattoApriBtn" style="width:100%;margin-top:4px" onclick="apriContrattoFS()">${contrattoLetto?'✅ '+t('contratto_letto_btn'):'📖 '+t('contratto_apri')}</button>
+      <div class="contratto-prev" onclick="apriContrattoFS()"><div class="txt">${testo}</div></div>
+      <button class="btn ${contrattoLetto?'ghost':'primary'} big" id="contrattoApriBtn" style="width:100%;margin-top:10px" onclick="apriContrattoFS()">${contrattoLetto?'✅ '+t('contratto_letto_btn'):'📖 '+t('contratto_apri')}</button>
       <label style="display:block;margin-top:12px" class="muted">${t('sig_label')}</label>
       <div class="sig-wrap"><canvas id="firmaCanvas" style="touch-action:none"></canvas></div>
       <div class="sig-hint">${t('sig_hint')}</div>
@@ -1537,13 +1568,6 @@ function renderInvio(root){
         </div>`).join('')}
     </div>
     ${contrattoHtml}
-    <div class="card" id="devisuCard">
-      <div class="steplbl">🪪 ${t('devisu_title')}</div>
-      <div class="muted" style="line-height:1.55;font-size:13px">${t('devisu_hint')}</div>
-      <input id="selfieInput" type="file" accept="image/*" capture="user" style="display:none" onchange="onSelfieFiles(this.files);this.value=''">
-      <button class="btn primary" id="devisuBtn" style="margin-top:12px;${deVisu.selfie?'display:none':''}" onclick="selfieScatta()">📸 ${t('devisu_btn')}</button>
-      <div id="devisuStato"></div>
-    </div>
     <div class="card">
       <div class="steplbl">${t('privacy_title')}</div>
       <div class="hint" style="line-height:1.6">${t('privacy_html')}</div>
@@ -1554,14 +1578,8 @@ function renderInvio(root){
       <button class="btn primary big" id="submitBtn" style="margin-top:14px" onclick="inviaCheckin()">${t('btn_submit')}</button>
       <div class="muted" id="submitStatus" style="margin-top:8px"></div>
     </div>
-    <button class="btn ghost" onclick="gIdx=${guests.length-1};mostraPasso('verifica')">${t('btn_back')}</button>`;
+    <button class="btn ghost" onclick="mostraPasso('selfie')">${t('btn_back')}</button>`;
   if(contrattoCfg){ firmaTracciata=false; firmaDataUrl=null; wireFirmaCanvas(); }
-  // se il selfie era già stato fatto e si torna su questo passo, rimostra l'esito
-  if(deVisu.selfie){
-    const mappa={verificata:'ok', non_corrispondente:(deVisu.tentativi>=2?'manual':'ko'),
-      volto_non_rilevato:(deVisu.tentativi>=2?'manual':'noface'), documento_non_confrontabile:'nd', non_disponibile:'nd'};
-    aggiornaDevisuUI(mappa[deVisu.esito]||'nd');
-  }
 }
 function rimuoviOspite(i){
   guests.splice(i,1);
@@ -1598,11 +1616,7 @@ async function inviaCheckin(){
   }
   if(contrattoCfg&&!firmaDataUrl){toast(t('toast_sig_required'));return;}
   // selfie del capogruppo richiesto (la verifica può anche non essere riuscita: fa fede la foto)
-  if(!deVisu.selfie){
-    toast(t('devisu_required'));
-    const c=$('#devisuCard'); if(c)c.scrollIntoView({behavior:'smooth',block:'center'});
-    return;
-  }
+  if(!deVisu.selfie){ toast(t('devisu_required')); mostraPasso('selfie'); return; }
   if(!consensoOk){toast(t('toast_accept_privacy'));return;}
 
   const btn=$('#submitBtn'); btn.disabled=true;
