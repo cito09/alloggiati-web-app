@@ -159,6 +159,10 @@
   .datepick2 .db{pointer-events:none; opacity:.9; display:flex}
   .datepick2 .db svg{width:19px; height:19px}
   .datepick2-input{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; border:0; padding:0}
+  .contratto-fs{display:none; position:fixed; inset:0; z-index:650; background:var(--bg); flex-direction:column; padding:14px}
+  .contratto-fs.show{display:flex}
+  .contratto-fs .corpo{flex:1; overflow-y:auto; background:var(--surface2); border:1px solid var(--line); border-radius:14px;
+    padding:16px 15px; font-size:15.5px; line-height:1.65; white-space:pre-wrap; -webkit-overflow-scrolling:touch}
   .cam-overlay{display:none; position:fixed; inset:0; z-index:700; background:rgba(3,8,14,.9); align-items:center; justify-content:center; padding:16px}
   .cam-overlay.show{display:flex}
   .cam-box{width:100%; max-width:520px; text-align:center}
@@ -257,6 +261,10 @@
   </div>
 </div>
 
+<div class="contratto-fs" id="contrattoFS">
+  <div class="corpo" id="contrattoFSBody"></div>
+  <button class="btn primary big" style="margin-top:12px" onclick="chiudiContrattoFS()" id="contrattoFSOk">OK</button>
+</div>
 <div class="cam-overlay" id="camOverlay">
   <div class="cam-box">
     <div class="cam-frame">
@@ -341,7 +349,7 @@ const T={
     default_title:'Check-in',
     sub_header:"Benvenuto! Completa il check-in per il tuo soggiorno.",
     label_arrivo:'Data di arrivo (check-in)', label_partenza:'Data di partenza (check-out)',
-    notte_s:'notte', notte_p:'notti', notti_error:"La data di partenza deve essere dopo l'arrivo", arrivo_min_error:'Puoi fare il check-in solo il giorno di arrivo o al massimo il giorno dopo: la data di arrivo non può essere prima di ieri', devisu_title:'Verifica identità (selfie)', devisu_hint:'Ultimo passo: un selfie di chi firma (il capogruppo). Viene confrontato automaticamente con la foto del documento, direttamente sul tuo telefono: nessun dato biometrico viene conservato, resta solo la foto come prova della verifica.', devisu_btn:'Scatta selfie', devisu_retry:'Riprova selfie', devisu_checking:'Confronto col documento in corso…', devisu_ok:'Identità verificata', devisu_ko:'Il volto non corrisponde bene al documento: riprova con più luce, senza occhiali o cappello', devisu_noface:'Non si vede bene un volto nel selfie: riprova', devisu_flagged:'Non è stato possibile confermare la corrispondenza: puoi comunque completare il check-in', devisu_nd:'Confronto automatico non disponibile su questo dispositivo: il selfie verrà comunque allegato', devisu_required:'Manca il selfie di verifica del capogruppo',
+    notte_s:'notte', notte_p:'notti', notti_error:"La data di partenza deve essere dopo l'arrivo", arrivo_min_error:'Puoi fare il check-in solo il giorno di arrivo o al massimo il giorno dopo: la data di arrivo non può essere prima di ieri', devisu_title:'Verifica identità (selfie)', devisu_hint:'Selfie di chi firma (il capogruppo): serve per la verifica dell\'identità richiesta dalla legge italiana (art. 109 TULPS). Il confronto col documento avviene sul tuo telefono e nessun dato biometrico viene conservato.', devisu_btn:'Scatta selfie', devisu_retry:'Riprova selfie', devisu_checking:'Confronto col documento in corso…', devisu_ok:'Identità verificata', devisu_ko:'Il volto non corrisponde bene al documento: riprova con più luce, senza occhiali o cappello', devisu_noface:'Non si vede bene un volto nel selfie: riprova', devisu_flagged:'Non è stato possibile confermare la corrispondenza: puoi comunque completare il check-in', devisu_nd:'Confronto automatico non disponibile su questo dispositivo: il selfie verrà comunque allegato', devisu_required:'Manca il selfie di verifica del capogruppo', devisu_manual:'Va bene così: l\'identità verrà confermata manualmente dall\'host. Puoi completare il check-in.', contratto_fs:'Leggi a schermo intero', contratto_fs_ok:'OK, ho letto',
     btn_add_guest:'+ Aggiungi un altro ospite',
     welcome_title:'Completa il check-in',
     welcome_text:"Bastano 2 minuti: carica il documento di ogni ospite e conferma i dati.",
@@ -403,7 +411,7 @@ const T={
     default_title:'Check-in',
     sub_header:"Welcome! Complete your check-in for your stay.",
     label_arrivo:'Arrival date (check-in)', label_partenza:'Departure date (check-out)',
-    notte_s:'night', notte_p:'nights', notti_error:'The departure date must be after the arrival date', arrivo_min_error:'You can check in only on your arrival day or the day after at the latest: the arrival date cannot be earlier than yesterday', devisu_title:'Identity check (selfie)', devisu_hint:'Last step: a selfie of the person signing (the group leader). It is automatically compared with your document photo, right on your phone: no biometric data is stored, only the photo is kept as proof of verification.', devisu_btn:'Take selfie', devisu_retry:'Retry selfie', devisu_checking:'Comparing with your document…', devisu_ok:'Identity verified', devisu_ko:'The face doesn\'t match the document well: try again with more light, without glasses or hat', devisu_noface:'We can\'t see a face clearly in the selfie: please try again', devisu_flagged:'We couldn\'t confirm the match: you can still complete the check-in', devisu_nd:'Automatic comparison is not available on this device: the selfie will still be attached', devisu_required:'The group leader\'s verification selfie is missing',
+    notte_s:'night', notte_p:'nights', notti_error:'The departure date must be after the arrival date', arrivo_min_error:'You can check in only on your arrival day or the day after at the latest: the arrival date cannot be earlier than yesterday', devisu_title:'Identity check (selfie)', devisu_hint:'A selfie of the person signing (group leader): required for the identity check under Italian law (art. 109 TULPS). The comparison happens on your phone and no biometric data is stored.', devisu_btn:'Take selfie', devisu_retry:'Retry selfie', devisu_checking:'Comparing with your document…', devisu_ok:'Identity verified', devisu_ko:'The face doesn\'t match the document well: try again with more light, without glasses or hat', devisu_noface:'We can\'t see a face clearly in the selfie: please try again', devisu_flagged:'We couldn\'t confirm the match: you can still complete the check-in', devisu_nd:'Automatic comparison is not available on this device: the selfie will still be attached', devisu_required:'The group leader\'s verification selfie is missing', devisu_manual:'That\'s fine: your identity will be confirmed manually by the host. You can complete the check-in.', contratto_fs:'Read full screen', contratto_fs_ok:'OK, I\'ve read it',
     btn_add_guest:'+ Add another guest',
     welcome_title:'Complete your check-in',
     welcome_text:"It only takes 2 minutes: upload each guest's ID document and confirm the details.",
@@ -465,7 +473,7 @@ const T={
     default_title:'Check-in',
     sub_header:"Bienvenue ! Complétez votre check-in pour votre séjour.",
     label_arrivo:"Date d'arrivée (check-in)", label_partenza:'Date de départ (check-out)',
-    notte_s:'nuit', notte_p:'nuits', notti_error:"La date de départ doit être postérieure à la date d'arrivée", arrivo_min_error:'Vous ne pouvez faire le check-in que le jour de votre arrivée ou au plus tard le lendemain : la date d\'arrivée ne peut pas être antérieure à hier', devisu_title:'Vérification d\'identité (selfie)', devisu_hint:'Dernière étape : un selfie de la personne qui signe (le chef de groupe). Il est comparé automatiquement à la photo de votre document, directement sur votre téléphone : aucune donnée biométrique n\'est conservée, seule la photo est gardée comme preuve de la vérification.', devisu_btn:'Prendre un selfie', devisu_retry:'Réessayer le selfie', devisu_checking:'Comparaison avec le document…', devisu_ok:'Identité vérifiée', devisu_ko:'Le visage ne correspond pas bien au document : réessayez avec plus de lumière, sans lunettes ni chapeau', devisu_noface:'On ne voit pas bien un visage sur le selfie : réessayez', devisu_flagged:'Impossible de confirmer la correspondance : vous pouvez quand même terminer le check-in', devisu_nd:'Comparaison automatique non disponible sur cet appareil : le selfie sera tout de même joint', devisu_required:'Il manque le selfie de vérification du chef de groupe',
+    notte_s:'nuit', notte_p:'nuits', notti_error:"La date de départ doit être postérieure à la date d'arrivée", arrivo_min_error:'Vous ne pouvez faire le check-in que le jour de votre arrivée ou au plus tard le lendemain : la date d\'arrivée ne peut pas être antérieure à hier', devisu_title:'Vérification d\'identité (selfie)', devisu_hint:'Un selfie de la personne qui signe (chef de groupe) : requis pour la vérification d\'identité prévue par la loi italienne (art. 109 TULPS). La comparaison se fait sur votre téléphone, aucune donnée biométrique n\'est conservée.', devisu_btn:'Prendre un selfie', devisu_retry:'Réessayer le selfie', devisu_checking:'Comparaison avec le document…', devisu_ok:'Identité vérifiée', devisu_ko:'Le visage ne correspond pas bien au document : réessayez avec plus de lumière, sans lunettes ni chapeau', devisu_noface:'On ne voit pas bien un visage sur le selfie : réessayez', devisu_flagged:'Impossible de confirmer la correspondance : vous pouvez quand même terminer le check-in', devisu_nd:'Comparaison automatique non disponible sur cet appareil : le selfie sera tout de même joint', devisu_required:'Il manque le selfie de vérification du chef de groupe', devisu_manual:'C\'est bon : votre identité sera confirmée manuellement par l\'hôte. Vous pouvez terminer le check-in.', contratto_fs:'Lire en plein écran', contratto_fs_ok:'OK, j\'ai lu',
     btn_add_guest:'+ Ajouter un autre voyageur',
     welcome_title:'Complétez votre check-in',
     welcome_text:"Cela ne prend que 2 minutes : téléchargez le document de chaque voyageur et confirmez les données.",
@@ -527,7 +535,7 @@ const T={
     default_title:'Check-in',
     sub_header:'¡Bienvenido! Completa tu check-in para tu estancia.',
     label_arrivo:'Fecha de llegada (check-in)', label_partenza:'Fecha de salida (check-out)',
-    notte_s:'noche', notte_p:'noches', notti_error:'La fecha de salida debe ser posterior a la de llegada', arrivo_min_error:'Solo puedes hacer el check-in el día de llegada o como máximo el día siguiente: la fecha de llegada no puede ser anterior a ayer', devisu_title:'Verificación de identidad (selfie)', devisu_hint:'Último paso: un selfie de quien firma (el responsable del grupo). Se compara automáticamente con la foto de tu documento, directamente en tu teléfono: no se conserva ningún dato biométrico, solo la foto queda como prueba de la verificación.', devisu_btn:'Hacer selfie', devisu_retry:'Repetir selfie', devisu_checking:'Comparando con el documento…', devisu_ok:'Identidad verificada', devisu_ko:'El rostro no coincide bien con el documento: inténtalo de nuevo con más luz, sin gafas ni gorro', devisu_noface:'No se ve bien un rostro en el selfie: inténtalo de nuevo', devisu_flagged:'No se pudo confirmar la coincidencia: aun así puedes completar el check-in', devisu_nd:'Comparación automática no disponible en este dispositivo: el selfie se adjuntará igualmente', devisu_required:'Falta el selfie de verificación del responsable del grupo',
+    notte_s:'noche', notte_p:'noches', notti_error:'La fecha de salida debe ser posterior a la de llegada', arrivo_min_error:'Solo puedes hacer el check-in el día de llegada o como máximo el día siguiente: la fecha de llegada no puede ser anterior a ayer', devisu_title:'Verificación de identidad (selfie)', devisu_hint:'Un selfie de quien firma (responsable del grupo): necesario para la verificación de identidad exigida por la ley italiana (art. 109 TULPS). La comparación se hace en tu teléfono y no se conserva ningún dato biométrico.', devisu_btn:'Hacer selfie', devisu_retry:'Repetir selfie', devisu_checking:'Comparando con el documento…', devisu_ok:'Identidad verificada', devisu_ko:'El rostro no coincide bien con el documento: inténtalo de nuevo con más luz, sin gafas ni gorro', devisu_noface:'No se ve bien un rostro en el selfie: inténtalo de nuevo', devisu_flagged:'No se pudo confirmar la coincidencia: aun así puedes completar el check-in', devisu_nd:'Comparación automática no disponible en este dispositivo: el selfie se adjuntará igualmente', devisu_required:'Falta el selfie de verificación del responsable del grupo', devisu_manual:'No pasa nada: el anfitrión confirmará tu identidad manualmente. Puedes completar el check-in.', contratto_fs:'Leer a pantalla completa', contratto_fs_ok:'OK, lo he leído',
     btn_add_guest:'+ Añadir otro huésped',
     welcome_title:'Completa tu check-in',
     welcome_text:'Solo toma 2 minutos: sube el documento de cada huésped y confirma los datos.',
@@ -589,7 +597,7 @@ const T={
     default_title:'Check-in',
     sub_header:'Willkommen! Schließen Sie den Check-in für Ihren Aufenthalt ab.',
     label_arrivo:'Ankunftsdatum (Check-in)', label_partenza:'Abreisedatum (Check-out)',
-    notte_s:'Nacht', notte_p:'Nächte', notti_error:'Das Abreisedatum muss nach dem Ankunftsdatum liegen', arrivo_min_error:'Der Check-in ist nur am Anreisetag oder spätestens am Tag danach möglich: das Ankunftsdatum darf nicht vor gestern liegen', devisu_title:'Identitätsprüfung (Selfie)', devisu_hint:'Letzter Schritt: ein Selfie der unterzeichnenden Person (Gruppenleiter). Es wird automatisch mit dem Foto Ihres Dokuments verglichen, direkt auf Ihrem Telefon: es werden keine biometrischen Daten gespeichert, nur das Foto bleibt als Nachweis der Prüfung erhalten.', devisu_btn:'Selfie aufnehmen', devisu_retry:'Selfie wiederholen', devisu_checking:'Vergleich mit dem Dokument…', devisu_ok:'Identität bestätigt', devisu_ko:'Das Gesicht stimmt nicht gut mit dem Dokument überein: versuchen Sie es erneut mit mehr Licht, ohne Brille oder Mütze', devisu_noface:'Auf dem Selfie ist kein Gesicht gut zu erkennen: bitte erneut versuchen', devisu_flagged:'Die Übereinstimmung konnte nicht bestätigt werden: Sie können den Check-in trotzdem abschließen', devisu_nd:'Automatischer Vergleich auf diesem Gerät nicht verfügbar: das Selfie wird trotzdem beigefügt', devisu_required:'Das Verifizierungs-Selfie des Gruppenleiters fehlt',
+    notte_s:'Nacht', notte_p:'Nächte', notti_error:'Das Abreisedatum muss nach dem Ankunftsdatum liegen', arrivo_min_error:'Der Check-in ist nur am Anreisetag oder spätestens am Tag danach möglich: das Ankunftsdatum darf nicht vor gestern liegen', devisu_title:'Identitätsprüfung (Selfie)', devisu_hint:'Ein Selfie der unterzeichnenden Person (Gruppenleiter): erforderlich für die Identitätsprüfung nach italienischem Recht (Art. 109 TULPS). Der Abgleich erfolgt auf Ihrem Telefon, es werden keine biometrischen Daten gespeichert.', devisu_btn:'Selfie aufnehmen', devisu_retry:'Selfie wiederholen', devisu_checking:'Vergleich mit dem Dokument…', devisu_ok:'Identität bestätigt', devisu_ko:'Das Gesicht stimmt nicht gut mit dem Dokument überein: versuchen Sie es erneut mit mehr Licht, ohne Brille oder Mütze', devisu_noface:'Auf dem Selfie ist kein Gesicht gut zu erkennen: bitte erneut versuchen', devisu_flagged:'Die Übereinstimmung konnte nicht bestätigt werden: Sie können den Check-in trotzdem abschließen', devisu_nd:'Automatischer Vergleich auf diesem Gerät nicht verfügbar: das Selfie wird trotzdem beigefügt', devisu_required:'Das Verifizierungs-Selfie des Gruppenleiters fehlt', devisu_manual:'Alles gut: Ihre Identität wird vom Gastgeber manuell bestätigt. Sie können den Check-in abschließen.', contratto_fs:'Im Vollbild lesen', contratto_fs_ok:'OK, gelesen',
     btn_add_guest:'+ Weiteren Gast hinzufügen',
     welcome_title:'Check-in abschließen',
     welcome_text:'Es dauert nur 2 Minuten: Laden Sie den Ausweis jedes Gastes hoch und bestätigen Sie die Daten.',
@@ -651,7 +659,7 @@ const T={
     default_title:'Check-in',
     sub_header:'Bine ați venit! Completați check-in-ul pentru sejurul dumneavoastră.',
     label_arrivo:'Data sosirii (check-in)', label_partenza:'Data plecării (check-out)',
-    notte_s:'noapte', notte_p:'nopți', notti_error:'Data plecării trebuie să fie după data sosirii', arrivo_min_error:'Puteți face check-in doar în ziua sosirii sau cel târziu a doua zi: data sosirii nu poate fi înainte de ieri', devisu_title:'Verificarea identității (selfie)', devisu_hint:'Ultimul pas: un selfie al persoanei care semnează (capul grupului). Este comparat automat cu fotografia din document, direct pe telefonul dumneavoastră: nu se păstrează date biometrice, rămâne doar fotografia ca dovadă a verificării.', devisu_btn:'Fă un selfie', devisu_retry:'Reîncearcă selfie-ul', devisu_checking:'Se compară cu documentul…', devisu_ok:'Identitate verificată', devisu_ko:'Fața nu corespunde bine documentului: încercați din nou cu mai multă lumină, fără ochelari sau șapcă', devisu_noface:'Nu se vede bine o față în selfie: încercați din nou', devisu_flagged:'Corespondența nu a putut fi confirmată: puteți totuși finaliza check-in-ul', devisu_nd:'Compararea automată nu este disponibilă pe acest dispozitiv: selfie-ul va fi totuși atașat', devisu_required:'Lipsește selfie-ul de verificare al capului grupului',
+    notte_s:'noapte', notte_p:'nopți', notti_error:'Data plecării trebuie să fie după data sosirii', arrivo_min_error:'Puteți face check-in doar în ziua sosirii sau cel târziu a doua zi: data sosirii nu poate fi înainte de ieri', devisu_title:'Verificarea identității (selfie)', devisu_hint:'Un selfie al persoanei care semnează (capul grupului): necesar pentru verificarea identității cerută de legea italiană (art. 109 TULPS). Compararea are loc pe telefonul dumneavoastră și nu se păstrează date biometrice.', devisu_btn:'Fă un selfie', devisu_retry:'Reîncearcă selfie-ul', devisu_checking:'Se compară cu documentul…', devisu_ok:'Identitate verificată', devisu_ko:'Fața nu corespunde bine documentului: încercați din nou cu mai multă lumină, fără ochelari sau șapcă', devisu_noface:'Nu se vede bine o față în selfie: încercați din nou', devisu_flagged:'Corespondența nu a putut fi confirmată: puteți totuși finaliza check-in-ul', devisu_nd:'Compararea automată nu este disponibilă pe acest dispozitiv: selfie-ul va fi totuși atașat', devisu_required:'Lipsește selfie-ul de verificare al capului grupului', devisu_manual:'E în regulă: identitatea va fi confirmată manual de gazdă. Puteți finaliza check-in-ul.', contratto_fs:'Citește pe tot ecranul', contratto_fs_ok:'OK, am citit',
     btn_add_guest:'+ Adaugă alt oaspete',
     welcome_title:'Completați check-in-ul',
     welcome_text:'Durează doar 2 minute: încărcați documentul fiecărui oaspete și confirmați datele.',
@@ -713,7 +721,7 @@ const T={
     default_title:'Check-in',
     sub_header:'Bem-vindo! Complete o check-in para a sua estadia.',
     label_arrivo:'Data de chegada (check-in)', label_partenza:'Data de partida (check-out)',
-    notte_s:'noite', notte_p:'noites', notti_error:'A data de partida deve ser posterior à de chegada', arrivo_min_error:'Só pode fazer o check-in no dia da chegada ou, no máximo, no dia seguinte: a data de chegada não pode ser anterior a ontem', devisu_title:'Verificação de identidade (selfie)', devisu_hint:'Último passo: uma selfie de quem assina (o responsável do grupo). É comparada automaticamente com a foto do seu documento, diretamente no seu telemóvel: nenhum dado biométrico é conservado, apenas a foto fica guardada como prova da verificação.', devisu_btn:'Tirar selfie', devisu_retry:'Repetir selfie', devisu_checking:'A comparar com o documento…', devisu_ok:'Identidade verificada', devisu_ko:'O rosto não corresponde bem ao documento: tente novamente com mais luz, sem óculos nem chapéu', devisu_noface:'Não se vê bem um rosto na selfie: tente novamente', devisu_flagged:'Não foi possível confirmar a correspondência: pode mesmo assim concluir o check-in', devisu_nd:'Comparação automática não disponível neste dispositivo: a selfie será anexada na mesma', devisu_required:'Falta a selfie de verificação do responsável do grupo',
+    notte_s:'noite', notte_p:'noites', notti_error:'A data de partida deve ser posterior à de chegada', arrivo_min_error:'Só pode fazer o check-in no dia da chegada ou, no máximo, no dia seguinte: a data de chegada não pode ser anterior a ontem', devisu_title:'Verificação de identidade (selfie)', devisu_hint:'Uma selfie de quem assina (responsável do grupo): necessária para a verificação de identidade exigida pela lei italiana (art. 109 TULPS). A comparação é feita no seu telemóvel e nenhum dado biométrico é conservado.', devisu_btn:'Tirar selfie', devisu_retry:'Repetir selfie', devisu_checking:'A comparar com o documento…', devisu_ok:'Identidade verificada', devisu_ko:'O rosto não corresponde bem ao documento: tente novamente com mais luz, sem óculos nem chapéu', devisu_noface:'Não se vê bem um rosto na selfie: tente novamente', devisu_flagged:'Não foi possível confirmar a correspondência: pode mesmo assim concluir o check-in', devisu_nd:'Comparação automática não disponível neste dispositivo: a selfie será anexada na mesma', devisu_required:'Falta a selfie de verificação do responsável do grupo', devisu_manual:'Está tudo bem: a identidade será confirmada manualmente pelo anfitrião. Pode concluir o check-in.', contratto_fs:'Ler em ecrã inteiro', contratto_fs_ok:'OK, li',
     btn_add_guest:'+ Adicionar outro hóspede',
     welcome_title:'Complete o check-in',
     welcome_text:'Leva só 2 minutos: envie o documento de cada hóspede e confirme os dados.',
@@ -775,7 +783,7 @@ const T={
     default_title:'Zameldowanie',
     sub_header:'Witamy! Dokończ zameldowanie na swój pobyt.',
     label_arrivo:'Data przyjazdu (check-in)', label_partenza:'Data wyjazdu (check-out)',
-    notte_s:'noc', notte_p:'noce', notti_error:'Data wyjazdu musi być po dacie przyjazdu', arrivo_min_error:'Zameldować się można tylko w dniu przyjazdu lub najpóźniej dzień później: data przyjazdu nie może być wcześniejsza niż wczoraj', devisu_title:'Weryfikacja tożsamości (selfie)', devisu_hint:'Ostatni krok: selfie osoby podpisującej (kierownika grupy). Jest automatycznie porównywane ze zdjęciem w dokumencie, bezpośrednio na Twoim telefonie: żadne dane biometryczne nie są przechowywane, pozostaje tylko zdjęcie jako dowód weryfikacji.', devisu_btn:'Zrób selfie', devisu_retry:'Powtórz selfie', devisu_checking:'Porównywanie z dokumentem…', devisu_ok:'Tożsamość zweryfikowana', devisu_ko:'Twarz nie pasuje dobrze do dokumentu: spróbuj ponownie przy lepszym świetle, bez okularów i czapki', devisu_noface:'Na selfie nie widać dobrze twarzy: spróbuj ponownie', devisu_flagged:'Nie udało się potwierdzić zgodności: mimo to możesz dokończyć zameldowanie', devisu_nd:'Automatyczne porównanie niedostępne na tym urządzeniu: selfie zostanie mimo to dołączone', devisu_required:'Brakuje selfie weryfikacyjnego kierownika grupy',
+    notte_s:'noc', notte_p:'noce', notti_error:'Data wyjazdu musi być po dacie przyjazdu', arrivo_min_error:'Zameldować się można tylko w dniu przyjazdu lub najpóźniej dzień później: data przyjazdu nie może być wcześniejsza niż wczoraj', devisu_title:'Weryfikacja tożsamości (selfie)', devisu_hint:'Selfie osoby podpisującej (kierownika grupy): wymagane do weryfikacji tożsamości zgodnie z włoskim prawem (art. 109 TULPS). Porównanie odbywa się na Twoim telefonie, żadne dane biometryczne nie są przechowywane.', devisu_btn:'Zrób selfie', devisu_retry:'Powtórz selfie', devisu_checking:'Porównywanie z dokumentem…', devisu_ok:'Tożsamość zweryfikowana', devisu_ko:'Twarz nie pasuje dobrze do dokumentu: spróbuj ponownie przy lepszym świetle, bez okularów i czapki', devisu_noface:'Na selfie nie widać dobrze twarzy: spróbuj ponownie', devisu_flagged:'Nie udało się potwierdzić zgodności: mimo to możesz dokończyć zameldowanie', devisu_nd:'Automatyczne porównanie niedostępne na tym urządzeniu: selfie zostanie mimo to dołączone', devisu_required:'Brakuje selfie weryfikacyjnego kierownika grupy', devisu_manual:'W porządku: tożsamość zostanie potwierdzona ręcznie przez gospodarza. Możesz dokończyć zameldowanie.', contratto_fs:'Czytaj na pełnym ekranie', contratto_fs_ok:'OK, przeczytałem',
     btn_add_guest:'+ Dodaj kolejnego gościa',
     welcome_title:'Dokończ zameldowanie',
     welcome_text:'To tylko 2 minuty: prześlij dokument każdego gościa i potwierdź dane.',
@@ -986,6 +994,17 @@ function chiudiWebcam(){
   const v=$('#camVideo'); if(v)v.srcObject=null;
   const ov=$('#camOverlay'); if(ov)ov.classList.remove('show');
 }
+function apriContrattoFS(){
+  if(!contrattoCfg)return;
+  $('#contrattoFSBody').innerHTML=paragrafoContratto(contrattoCfg,datiContratto(),lang);
+  $('#contrattoFSOk').textContent='✓ '+t('contratto_fs_ok');
+  $('#contrattoFS').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function chiudiContrattoFS(){
+  $('#contrattoFS').classList.remove('show');
+  document.body.style.overflow='';
+}
 function scattaFoto(iCam, onFiles){
   const suTelefono = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
   const webcamOk = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
@@ -1025,9 +1044,14 @@ function imgDa(dataUrl){
 }
 async function descriptorDa(dataUrl){
   const im=await imgDa(dataUrl);
-  const det=await faceapi.detectSingleFace(im,new faceapi.TinyFaceDetectorOptions({inputSize:512,scoreThreshold:0.3}))
-    .withFaceLandmarks(true).withFaceDescriptor();
-  return det?det.descriptor:null;
+  // due passaggi: se al primo il volto non viene trovato (poca luce, inquadratura storta),
+  // riprova con una soglia più permissiva prima di arrendersi
+  for(const opt of [{inputSize:512,scoreThreshold:0.3},{inputSize:320,scoreThreshold:0.15}]){
+    const det=await faceapi.detectSingleFace(im,new faceapi.TinyFaceDetectorOptions(opt))
+      .withFaceLandmarks(true).withFaceDescriptor();
+    if(det)return det.descriptor;
+  }
+  return null;
 }
 let _descDocCache=null;
 async function descriptorDocumento(){
@@ -1062,14 +1086,13 @@ async function verificaSelfie(){
     await caricaFaceApi();
     const dSelfie=await descriptorDa(deVisu.selfie);
     deVisu.ts=Date.now();
-    if(!dSelfie){ deVisu.esito='volto_non_rilevato'; aggiornaDevisuUI('noface'); return; }
+    if(!dSelfie){ deVisu.esito='volto_non_rilevato'; aggiornaDevisuUI(deVisu.tentativi>=2?'manual':'noface'); return; }
     const dDoc=await descriptorDocumento();
     if(!dDoc){ deVisu.esito='documento_non_confrontabile'; aggiornaDevisuUI('nd'); return; }
     const dist=faceapi.euclideanDistance(dDoc,dSelfie);
     deVisu.distanza=Math.round(dist*100)/100;
     if(dist<=0.6){ deVisu.esito='verificata'; aggiornaDevisuUI('ok'); }
-    else if(deVisu.tentativi>=3){ deVisu.esito='non_corrispondente'; aggiornaDevisuUI('flagged'); }
-    else { deVisu.esito='non_corrispondente'; aggiornaDevisuUI('ko'); }
+    else { deVisu.esito='non_corrispondente'; aggiornaDevisuUI(deVisu.tentativi>=2?'manual':'ko'); }
   }catch(e){
     deVisu.esito='non_disponibile'; deVisu.ts=Date.now();
     aggiornaDevisuUI('nd');
@@ -1087,7 +1110,7 @@ function aggiornaDevisuUI(stato){
   else if(stato==='ok') box.innerHTML=riga('var(--ok)','✅',t('devisu_ok'),false);
   else if(stato==='ko') box.innerHTML=riga('var(--err)','⚠️',t('devisu_ko'),true);
   else if(stato==='noface') box.innerHTML=riga('var(--err)','⚠️',t('devisu_noface'),true);
-  else if(stato==='flagged') box.innerHTML=riga('var(--muted)','ℹ️',t('devisu_flagged'),true);
+  else if(stato==='manual') box.innerHTML=riga('var(--ok)','🤝',t('devisu_manual'),false);
   else if(stato==='nd') box.innerHTML=riga('var(--muted)','ℹ️',t('devisu_nd'),false);
   else box.innerHTML='';
 }
@@ -1479,7 +1502,8 @@ function renderInvio(root){
     <div class="card">
       <div class="steplbl">${t('contratto_title')}</div>
       <div class="muted" style="margin-bottom:8px">${t('contratto_hint')}</div>
-      <div class="contratto-box">${testo}</div>
+      <div class="contratto-box" onclick="apriContrattoFS()">${testo}</div>
+      <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="apriContrattoFS()">⛶ ${t('contratto_fs')}</button>
       <label style="display:block;margin-top:12px" class="muted">${t('sig_label')}</label>
       <div class="sig-wrap"><canvas id="firmaCanvas" style="touch-action:none"></canvas></div>
       <div class="sig-hint">${t('sig_hint')}</div>
@@ -1522,8 +1546,8 @@ function renderInvio(root){
   if(contrattoCfg){ firmaTracciata=false; firmaDataUrl=null; wireFirmaCanvas(); }
   // se il selfie era già stato fatto e si torna su questo passo, rimostra l'esito
   if(deVisu.selfie){
-    const mappa={verificata:'ok', non_corrispondente:(deVisu.tentativi>=3?'flagged':'ko'),
-      volto_non_rilevato:'noface', documento_non_confrontabile:'nd', non_disponibile:'nd'};
+    const mappa={verificata:'ok', non_corrispondente:(deVisu.tentativi>=2?'manual':'ko'),
+      volto_non_rilevato:(deVisu.tentativi>=2?'manual':'noface'), documento_non_confrontabile:'nd', non_disponibile:'nd'};
     aggiornaDevisuUI(mappa[deVisu.esito]||'nd');
   }
 }

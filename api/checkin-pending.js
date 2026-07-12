@@ -111,9 +111,11 @@ module.exports = async (req, res) => {
       return res.status(200).json({ configurato: true, coda: raw ? JSON.parse(raw) : [] });
     }
     if (req.method === "DELETE") {
-      const { id } = req.body || {};
+      // { id } per una voce sola, { ids:[...] } per la pulizia multipla dal pannello recupero
+      const { id, ids } = req.body || {};
+      const daEliminare = new Set(Array.isArray(ids) ? ids : id ? [id] : []);
       const raw = await redisCmd(conn, ["GET", KEY]);
-      const coda = (raw ? JSON.parse(raw) : []).filter((v) => v.id !== id);
+      const coda = (raw ? JSON.parse(raw) : []).filter((v) => !daEliminare.has(v.id));
       await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
       return res.status(200).json({ configurato: true, coda });
     }

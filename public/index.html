@@ -274,9 +274,8 @@
     <details class="settings-section">
       <summary><span class="n">🛟</span> Recupero</summary>
       <div class="settings-body">
-        <div class="muted" style="font-size:12px;margin-bottom:8px">Se un check-in accettato è sparito prima dell'invio (es. app chiusa), ripesca contratti firmati e foto documenti dall'archivio e li rimette in "Ospiti in attesa".</div>
-        <button class="btn ghost sm" style="width:100%" onclick="recuperaCheckinPersi()">🛟 Recupera check-in persi</button>
-        <div id="recuperoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+        <div class="muted" style="font-size:12px;margin-bottom:8px">Ripesca i check-in persi dall'archivio e fai pulizia di quelli che non servono (test, doppioni).</div>
+        <button class="btn ghost sm" style="width:100%" onclick="apriRecupero()">🛟 Apri recupero e pulizia</button>
       </div>
     </details>
 
@@ -289,6 +288,24 @@
 
     <div class="settings-section">
       <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
+    </div>
+  </div>
+</div>
+
+<div class="settings-overlay" id="recuperoOverlay" onclick="chiudiRecupero(event)">
+  <div class="settings-panel">
+    <div class="settings-head">
+      <h2>🛟 Recupero e pulizia</h2>
+      <button class="settings-close" onclick="chiudiRecupero()" aria-label="Chiudi">✕</button>
+    </div>
+    <div class="settings-section">
+      <div class="muted" style="font-size:12px">Qui vedi <b>tutti i check-in in attesa</b>. Spunta quelli che non ti servono (test, doppioni, voci recuperate per sbaglio) ed eliminali; oppure ripesca dall'archivio i check-in spariti prima dell'invio.</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn ghost sm" style="flex:1" onclick="recuperaCheckinPersi()">🛟 Ripristina dai backup</button>
+        <button class="btn ghost sm" style="flex:1" id="recuperoDelBtn" onclick="eliminaCheckinSelezionati()" disabled>🗑 Elimina selezionati</button>
+      </div>
+      <div id="recuperoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+      <div id="recuperoLista" style="margin-top:10px"></div>
     </div>
   </div>
 </div>
@@ -12914,9 +12931,60 @@ async function recuperaCheckinPersi(){
     if(!r.ok) throw new Error(data.error||'Errore');
     if(Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); }
     const n=data.ripristinate||0;
-    msg.textContent=n?`✓ Recuperat${n===1?'a 1 voce':'e '+n+' voci'}: le trovi in "Ospiti in attesa" (scheda Ospiti).`:'Nessuna voce da recuperare trovata negli ultimi 14 giorni.';
+    msg.textContent=n?`✓ Recuperat${n===1?'a 1 voce':'e '+n+' voci'}.`:'Nessuna voce da recuperare trovata negli ultimi 21 giorni.';
     if(n){ toast(n+' check-in recuperat'+(n===1?'o':'i')); }
+    renderRecuperoLista();
   }catch(e){ msg.textContent='Errore: '+e.message; }
+}
+
+/* ===== pannello Recupero e pulizia: tutti i check-in in attesa, con spunte per eliminare ===== */
+function apriRecupero(){
+  closeSettings();
+  $('#recuperoOverlay').classList.add('open');
+  const msg=$('#recuperoMsg'); if(msg)msg.textContent='';
+  renderRecuperoLista();
+}
+function chiudiRecupero(e){
+  if(e&&e.target!==e.currentTarget)return;
+  $('#recuperoOverlay').classList.remove('open');
+}
+function renderRecuperoLista(){
+  const w=$('#recuperoLista'); if(!w)return;
+  if(!checkinPending.length){ w.innerHTML='<div class="muted" style="font-size:12.5px">Nessun check-in in attesa.</div>'; aggiornaRecuperoDelBtn(); return; }
+  w.innerHTML=checkinPending.map(v=>{
+    const nomi=(v.ospiti||[]).map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ')||'(senza nome)';
+    const quando=new Date(v.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return `<label style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;margin-top:6px;cursor:pointer;background:var(--surface2)">
+      <input type="checkbox" data-rid="${v.id}" onchange="aggiornaRecuperoDelBtn()" style="width:19px;height:19px;flex:0 0 auto;margin-top:2px;accent-color:var(--err)">
+      <span style="flex:1;font-size:12.5px;line-height:1.45">
+        <b>${escText(nomi)}</b><br>
+        <span class="muted">${escText([v.arrivo?('arrivo '+v.arrivo):null, v.strutturaNome||null, 'check-in '+quando].filter(Boolean).join(' · '))}</span>
+        ${v.recuperato?' <span class="pill wait">recuperato</span>':''}${v.presa?' <span class="pill wait">in prenotazione</span>':''}
+      </span>
+    </label>`;
+  }).join('');
+  aggiornaRecuperoDelBtn();
+}
+function aggiornaRecuperoDelBtn(){
+  const b=$('#recuperoDelBtn'); if(!b)return;
+  const n=document.querySelectorAll('#recuperoLista input[type=checkbox]:checked').length;
+  b.disabled=!n;
+  b.textContent=n?`🗑 Elimina selezionati (${n})`:'🗑 Elimina selezionati';
+}
+async function eliminaCheckinSelezionati(){
+  const ids=[...document.querySelectorAll('#recuperoLista input[type=checkbox]:checked')].map(c=>c.dataset.rid);
+  if(!ids.length)return;
+  if(!confirm(`Eliminare definitivamente ${ids.length} check-in dalla lista di attesa? (Foto e contratti già archiviati non vengono toccati.)`))return;
+  const msg=$('#recuperoMsg'); if(msg)msg.textContent='Elimino…';
+  try{
+    const r=await fetch('/api/checkin-pending',{method:'DELETE',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ids})});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'Errore');
+    if(Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); }
+    if(msg)msg.textContent=`✓ Eliminat${ids.length===1?'o 1 check-in':'i '+ids.length+' check-in'}.`;
+    toast('Pulizia fatta');
+    renderRecuperoLista();
+  }catch(e){ if(msg)msg.textContent='Errore: '+e.message; }
 }
 function renderSettingsInfo(){
   const w=$('#settingsInfo'); if(!w)return;
