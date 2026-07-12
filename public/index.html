@@ -147,6 +147,8 @@
   .field-bad{outline:2px solid var(--err)!important; border-color:var(--err)!important}
   .field-warn{outline:2px solid var(--amber)!important; border-color:var(--amber)!important}
   .warn-badge{font-size:10px; color:var(--amber); margin-left:6px; font-weight:700}
+  .warn-badge.click{cursor:pointer; text-decoration:underline dotted; user-select:none}
+  .warn-badge.okd{color:var(--ok); cursor:pointer; user-select:none}
   .ta-wrap{position:relative}
   .ta-list{position:absolute; left:0; right:0; top:calc(100% + 2px); z-index:40; background:var(--surface2); border:1px solid var(--amber); border-radius:10px; max-height:230px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.4)}
   .ta-item{padding:10px 12px; font-size:14px; cursor:pointer; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px}
@@ -12117,13 +12119,21 @@ function wireThumbsDrop(el,onFiles){
   el.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)onFiles(e.dataTransfer.files);});
 }
 
-function warnBadge(warn){return warn?` <span class="warn-badge" title="L'AI non è sicura di aver letto bene questo dato: controlla sul documento">⚠ verifica</span>`:'';}
+// avviso AI cliccabile: ⚠ = da controllare (tocca per confermare che è giusto → diventa ✓ verde);
+// ✓ = confermato a mano (tocca per rimettere l'avviso). Correggere il campo a mano conferma da sé.
+function warnBadge(g,campo){
+  if((g._warn||[]).includes(campo)) return ` <span class="warn-badge click" title="L'AI non è sicura di aver letto bene questo dato: controlla sul documento e, se è giusto, tocca qui per confermare" onclick="confermaCampo('${g._bid}','${g.id}','${campo}')">⚠ verifica</span>`;
+  if((g._warnOk||[]).includes(campo)) return ` <span class="warn-badge okd" title="Verificato: tocca per rimettere l'avviso" onclick="riapriCampo('${g._bid}','${g.id}','${campo}')">✓ verificato</span>`;
+  return '';
+}
+window.confermaCampo=(bid,gid,campo)=>{const g=getG(bid,gid);if(!g)return;g._warn=(g._warn||[]).filter(x=>x!==campo);g._warnOk=[...new Set([...(g._warnOk||[]),campo])];render();};
+window.riapriCampo=(bid,gid,campo)=>{const g=getG(bid,gid);if(!g)return;g._warnOk=(g._warnOk||[]).filter(x=>x!==campo);g._warn=[...new Set([...(g._warn||[]),campo])];render();};
 function taField(label,g,nameKey,codeKey,kind,bad,extra,warn,disabled){
   const id='ta-'+g.id+'-'+nameKey;
   const code=g[codeKey]||resolveCodeFor(g,nameKey,kind);
   const badge=g[nameKey]?(code?`<span class="code-badge">${code}</span>`:`<span class="code-badge miss">?</span>`):'';
-  return `<label>${label}${badge}${warnBadge(warn)}</label>
-    <div class="ta-wrap"><input id="${id}" type="text" ${disabled?'disabled':''} class="${bad?'field-bad':(warn?'field-warn':'')}" value="${(g[nameKey]||'').replace(/"/g,'&quot;')}"
+  return `<label>${label}${badge}${warnBadge(g,nameKey)}</label>
+    <div class="ta-wrap"><input id="${id}" type="text" ${disabled?'disabled':''} class="${bad?'field-bad':((g._warn||[]).includes(nameKey)?'field-warn':'')}" value="${(g[nameKey]||'').replace(/"/g,'&quot;')}"
       autocomplete="off"
       oninput="onTAInput('${g._bid}','${g.id}','${nameKey}','${codeKey}',this.value)"
       onfocus="startTA(this,'${kind}','${g._bid}','${g.id}','${nameKey}','${codeKey}')"></div>${extra||''}`;
@@ -12136,7 +12146,9 @@ function resolveCodeFor(g,nameKey,kind){
   if(kind==='luogo')return lookupStato(v)||((lookupComune(v)||{}).c)||null;
   return null;
 }
-window.onTAInput=(bid,gid,nameKey,codeKey,val)=>{const g=getG(bid,gid);g[nameKey]=val;g[codeKey]=null;g._touched=true;/* no full render while typing */};
+window.onTAInput=(bid,gid,nameKey,codeKey,val)=>{const g=getG(bid,gid);g[nameKey]=val;g[codeKey]=null;g._touched=true;
+  if((g._warn||[]).includes(nameKey)){g._warn=g._warn.filter(x=>x!==nameKey);g._warnOk=[...new Set([...(g._warnOk||[]),nameKey])];}
+  /* no full render while typing: il badge si aggiorna al prossimo render */};
 window.startTA=(input,kind,bid,gid,nameKey,codeKey)=>{
   openTA(input,kind,o=>{const g=getG(bid,gid);g[nameKey]=o.n;g[codeKey]=o.c;
     if(kind==='comune'){g.provinciaNascita=o.p;} render();});
@@ -12170,7 +12182,7 @@ function renderGuest(b,g,idx){
     const f=el.querySelector('#gform-'+g.id);
     const doc = hasDoc(tipo)? `
       ${taField('Tipo documento',g,'tipoDoc','tipoDocCode','doc',bad.includes('tipoDoc'),null,warn.includes('tipoDoc'))}
-      <label>Numero documento${warnBadge(warn.includes('numeroDoc'))}</label><input id="numdoc-${g.id}" type="text" class="${fb('numeroDoc')||fw('numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${b.id}','${g.id}','numeroDoc',this.value)">
+      <label>Numero documento${warnBadge(g,'numeroDoc')}</label><input id="numdoc-${g.id}" type="text" class="${fb('numeroDoc')||fw('numeroDoc')}" value="${g.numeroDoc||''}" oninput="setG('${b.id}','${g.id}','numeroDoc',this.value)">
       ${taField('Luogo rilascio (stato o comune)',g,'luogoRilascio','luogoRilascioCode','luogo',bad.includes('luogoRilascio'),null,warn.includes('luogoRilascio'))}
     ` : '<div class="muted" style="margin-top:8px">Componente gruppo/famiglia: documento non richiesto (34 spazi).</div>';
     // il comune di nascita ha senso solo se nato in Italia: se lo stato non è ITALIA lo azzeriamo e il campo resta bloccato
@@ -12178,11 +12190,11 @@ function renderGuest(b,g,idx){
     if(!inItalia && (g.comuneNascita||g.comuneNascitaCode)){ g.comuneNascita=''; g.comuneNascitaCode=null; g.provinciaNascita=''; }
     f.innerHTML=`
       ${warn.length?'<div class="hint" style="margin-top:10px">⚠ L\'AI non era sicura di alcuni campi qui sotto (segnati in arancione): ricontrollali a occhio sul documento.</div>':''}
-      <div style="margin-top:10px"><label>Cognome${warnBadge(warn.includes('cognome'))}</label><input id="cogn-${g.id}" type="text" class="${fb('cognome')||fw('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
-      <div><label>Nome${warnBadge(warn.includes('nome'))}</label><input id="nome-${g.id}" type="text" class="${fb('nome')||fw('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div>
+      <div style="margin-top:10px"><label>Cognome${warnBadge(g,'cognome')}</label><input id="cogn-${g.id}" type="text" class="${fb('cognome')||fw('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
+      <div><label>Nome${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fb('nome')||fw('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div>
       <div class="row3">
-        <div><label>Sesso${warnBadge(warn.includes('sesso'))}</label><select id="sesso-${g.id}" class="${fb('sesso')||fw('sesso')}" onchange="setG('${b.id}','${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
-        <div style="grid-column:span 2"><label>Data nascita${warnBadge(warn.includes('dataNascita'))}</label><div class="datefield">
+        <div><label>Sesso${warnBadge(g,'sesso')}</label><select id="sesso-${g.id}" class="${fb('sesso')||fw('sesso')}" onchange="setG('${b.id}','${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select></div>
+        <div style="grid-column:span 2"><label>Data nascita${warnBadge(g,'dataNascita')}</label><div class="datefield">
           <input id="nasc-${g.id}" type="text" inputmode="numeric" class="${fb('nascita')||fw('dataNascita')}" placeholder="gg/mm/aaaa" value="${g.dataNascita||''}" oninput="setG('${b.id}','${g.id}','dataNascita',this.value)">
           ${datePickerBtn(g.dataNascita, `setG('${b.id}','${g.id}','dataNascita',dateToItalian(this.value))`)}
         </div></div></div>
@@ -12260,7 +12272,10 @@ function rmBooking(id){
 function setB(id,k,v){getB(id)[k]=v;render();}
 function addGuest(bid){getB(bid).guests.push({id:uid(),_bid:bid,imgs:[]});render();}
 function rmGuest(bid,gid){const b=getB(bid);b.guests=b.guests.filter(g=>g.id!==gid);render();}
-function setG(bid,gid,k,v){const g=getG(bid,gid);g[k]=v;g._touched=true;render();}
+function setG(bid,gid,k,v){const g=getG(bid,gid);g[k]=v;g._touched=true;
+  // correggere a mano un campo segnalato dall'AI equivale a verificarlo: l'avviso diventa ✓
+  if((g._warn||[]).includes(k)){g._warn=g._warn.filter(x=>x!==k);g._warnOk=[...new Set([...(g._warnOk||[]),k])];}
+  render();}
 function compilaManuale(bid,gid){const g=getG(bid,gid);g._touched=true;render();
   const el=document.getElementById('cogn-'+gid); if(el)el.focus({preventScroll:false});}
 
@@ -12277,7 +12292,7 @@ function applyAI(g,j){
   Object.assign(g,{cognome:j.cognome||g.cognome,nome:j.nome||g.nome,sesso:j.sesso||g.sesso,
     dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:j.stato_nascita||g.statoNascita,
     cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
-    luogoRilascio:j.luogo_rilascio||g.luogoRilascio,_touched:true});
+    luogoRilascio:normalizzaLuogoRilascio(j.luogo_rilascio||g.luogoRilascio),_touched:true});
   g.comuneNascitaCode=g.statoNascitaCode=g.cittadinanzaCode=g.tipoDocCode=g.luogoRilascioCode=null;
   g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
 }

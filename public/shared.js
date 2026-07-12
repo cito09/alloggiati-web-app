@@ -45,3 +45,18 @@ function onlyImages(files){return [...(files||[])].filter(f=>f&&f.type&&(f.type.
 /* selettore calendario: converte tra gg/mm/aaaa (usato ovunque nell'app) e aaaa-mm-gg (input type=date) */
 function dateToItalian(iso){ if(!iso)return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
 function italianToIso(gg){ const m=(gg||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?`${m[3]}-${m[2]}-${m[1]}`:''; }
+
+/* luogo di rilascio delle patenti: Alloggiati Web vuole un comune o uno stato, non l'ente.
+   Se sul documento (campo 4c) c'è la Motorizzazione ("MCTC-BO", "MIT-UCO TN", ecc.),
+   convertiamo la sigla provincia nel capoluogo. */
+const CAPOLUOGHI_PROVINCIA={AG:"AGRIGENTO",AL:"ALESSANDRIA",AN:"ANCONA",AO:"AOSTA",AP:"ASCOLI PICENO",AQ:"L'AQUILA",AR:"AREZZO",AT:"ASTI",AV:"AVELLINO",BA:"BARI",BG:"BERGAMO",BI:"BIELLA",BL:"BELLUNO",BN:"BENEVENTO",BO:"BOLOGNA",BR:"BRINDISI",BS:"BRESCIA",BT:"BARLETTA",BZ:"BOLZANO",CA:"CAGLIARI",CB:"CAMPOBASSO",CE:"CASERTA",CH:"CHIETI",CL:"CALTANISSETTA",CN:"CUNEO",CO:"COMO",CR:"CREMONA",CS:"COSENZA",CT:"CATANIA",CZ:"CATANZARO",EN:"ENNA",FC:"FORLI'",FE:"FERRARA",FG:"FOGGIA",FI:"FIRENZE",FM:"FERMO",FR:"FROSINONE",GE:"GENOVA",GO:"GORIZIA",GR:"GROSSETO",IM:"IMPERIA",IS:"ISERNIA",KR:"CROTONE",LC:"LECCO",LE:"LECCE",LI:"LIVORNO",LO:"LODI",LT:"LATINA",LU:"LUCCA",MB:"MONZA",MC:"MACERATA",ME:"MESSINA",MI:"MILANO",MN:"MANTOVA",MO:"MODENA",MS:"MASSA",MT:"MATERA",NA:"NAPOLI",NO:"NOVARA",NU:"NUORO",OR:"ORISTANO",PA:"PALERMO",PC:"PIACENZA",PD:"PADOVA",PE:"PESCARA",PG:"PERUGIA",PI:"PISA",PN:"PORDENONE",PO:"PRATO",PR:"PARMA",PT:"PISTOIA",PU:"PESARO",PV:"PAVIA",PZ:"POTENZA",RA:"RAVENNA",RC:"REGGIO DI CALABRIA",RE:"REGGIO NELL'EMILIA",RG:"RAGUSA",RI:"RIETI",RM:"ROMA",RN:"RIMINI",RO:"ROVIGO",SA:"SALERNO",SI:"SIENA",SO:"SONDRIO",SP:"LA SPEZIA",SR:"SIRACUSA",SS:"SASSARI",SU:"CARBONIA",SV:"SAVONA",TA:"TARANTO",TE:"TERAMO",TN:"TRENTO",TO:"TORINO",TP:"TRAPANI",TR:"TERNI",TS:"TRIESTE",TV:"TREVISO",UD:"UDINE",VA:"VARESE",VB:"VERBANIA",VC:"VERCELLI",VE:"VENEZIA",VI:"VICENZA",VR:"VERONA",VT:"VITERBO",VV:"VIBO VALENTIA"};
+function normalizzaLuogoRilascio(v){
+  const s=String(v||'').trim(); if(!s)return s;
+  if(!/\b(MCTC|MC ?- ?TC|MIT|UCO|MOTORIZ)/i.test(s)) return s;
+  const sig=/(?:^|[^A-Z])([A-Z]{2})(?:[^A-Z]|$)/.exec(s.toUpperCase().replace(/\bMC\s*-?\s*TC\b/g,' ').replace(/\b(MCTC|MIT|UCO|IT)\b/g,' '));
+  const cap=sig&&CAPOLUOGHI_PROVINCIA[sig[1]];
+  if(cap)return cap;
+  // "Motorizzazione di Bologna" → prova col nome scritto per esteso
+  const m=/(?:DI|DEL|DELLA)\s+([A-ZÀ-Ù' ]{3,})$/i.exec(s);
+  return m?m[1].trim().toUpperCase():s;
+}

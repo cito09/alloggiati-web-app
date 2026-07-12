@@ -84,6 +84,8 @@
   .ok-screen{text-align:center; padding:44px 16px}
   .ok-screen h2{font-size:25px; font-weight:800; letter-spacing:-.02em; margin:0 0 10px}
   .warn-badge{font-size:10px; color:var(--amber); margin-left:6px; font-weight:700}
+  .warn-badge.click{cursor:pointer; text-decoration:underline dotted; user-select:none}
+  .warn-badge.okd{color:var(--ok); cursor:pointer; user-select:none}
   .field-warn{outline:2px solid var(--amber)!important; border-color:var(--amber)!important}
   .steplbl{font-size:12px; letter-spacing:.04em; text-transform:uppercase; color:var(--amber); font-weight:700; margin:14px 0 8px}
   .steplbl:first-child{margin-top:0}
@@ -383,7 +385,7 @@ const T={
     label_cittadinanza:'Cittadinanza', label_tipo_doc:'Tipo documento',
     doc_ci:"CARTA DI IDENTITA'", doc_cie:"CARTA IDENTITA' ELETTRONICA", doc_pass:'PASSAPORTO ORDINARIO', doc_patente:'PATENTE DI GUIDA',
     label_numero_doc:'Numero documento', label_luogo_rilascio:'Luogo di rilascio', luogo_rilascio_hint:'(comune o stato)',
-    guest_default_name:'Ospite', warn_badge:'⚠ verifica',
+    guest_default_name:'Ospite', warn_badge:'⚠ verifica', warn_ok_badge:'✓ verificato',
     toast_add_photo_first:'Aggiungi prima una foto del documento',
     toast_data_read:'Dati letti dal documento, controllali qui sotto',
     progress_title:'Riconoscimento documenti', progress_reading_doc:'Leggo il documento', progress_of:'di', progress_done:'Fatto!',
@@ -445,7 +447,7 @@ const T={
     label_cittadinanza:'Nationality', label_tipo_doc:'Document type',
     doc_ci:'ID card', doc_cie:'Electronic ID card (CIE)', doc_pass:'Passport', doc_patente:'Driving licence',
     label_numero_doc:'Document number', label_luogo_rilascio:'Place of issue', luogo_rilascio_hint:'(town or country)',
-    guest_default_name:'Guest', warn_badge:'⚠ check',
+    guest_default_name:'Guest', warn_badge:'⚠ check', warn_ok_badge:'✓ verified',
     toast_add_photo_first:'Please add a document photo first',
     toast_data_read:'Data read from the document — please check it below',
     progress_title:'Reading documents', progress_reading_doc:'Reading document', progress_of:'of', progress_done:'Done!',
@@ -507,7 +509,7 @@ const T={
     label_cittadinanza:'Nationalité', label_tipo_doc:'Type de document',
     doc_ci:"Carte d'identité", doc_cie:"Carte d'identité électronique (CIE)", doc_pass:'Passeport', doc_patente:'Permis de conduire',
     label_numero_doc:'Numéro de document', label_luogo_rilascio:'Lieu de délivrance', luogo_rilascio_hint:'(commune ou pays)',
-    guest_default_name:'Voyageur', warn_badge:'⚠ à vérifier',
+    guest_default_name:'Voyageur', warn_badge:'⚠ à vérifier', warn_ok_badge:'✓ vérifié',
     toast_add_photo_first:"Ajoutez d'abord une photo du document",
     toast_data_read:'Données lues depuis le document, vérifiez-les ci-dessous',
     progress_title:'Lecture des documents', progress_reading_doc:'Lecture du document', progress_of:'sur', progress_done:'Terminé !',
@@ -569,7 +571,7 @@ const T={
     label_cittadinanza:'Nacionalidad', label_tipo_doc:'Tipo de documento',
     doc_ci:'Documento de identidad', doc_cie:'Documento de identidad electrónico (CIE)', doc_pass:'Pasaporte', doc_patente:'Carné de conducir',
     label_numero_doc:'Número de documento', label_luogo_rilascio:'Lugar de expedición', luogo_rilascio_hint:'(municipio o país)',
-    guest_default_name:'Huésped', warn_badge:'⚠ revisar',
+    guest_default_name:'Huésped', warn_badge:'⚠ revisar', warn_ok_badge:'✓ verificado',
     toast_add_photo_first:'Añade primero una foto del documento',
     toast_data_read:'Datos leídos del documento, revísalos abajo',
     progress_title:'Leyendo documentos', progress_reading_doc:'Leyendo documento', progress_of:'de', progress_done:'¡Listo!',
@@ -631,7 +633,7 @@ const T={
     label_cittadinanza:'Staatsangehörigkeit', label_tipo_doc:'Dokumenttyp',
     doc_ci:'Personalausweis', doc_cie:'Elektronischer Personalausweis (CIE)', doc_pass:'Reisepass', doc_patente:'Führerschein',
     label_numero_doc:'Dokumentnummer', label_luogo_rilascio:'Ausstellungsort', luogo_rilascio_hint:'(Gemeinde oder Staat)',
-    guest_default_name:'Gast', warn_badge:'⚠ prüfen',
+    guest_default_name:'Gast', warn_badge:'⚠ prüfen', warn_ok_badge:'✓ geprüft',
     toast_add_photo_first:'Bitte zuerst ein Foto des Dokuments hinzufügen',
     toast_data_read:'Daten aus dem Dokument gelesen — bitte unten prüfen',
     progress_title:'Dokumente werden gelesen', progress_reading_doc:'Lese Dokument', progress_of:'von', progress_done:'Fertig!',
@@ -693,7 +695,7 @@ const T={
     label_cittadinanza:'Cetățenia', label_tipo_doc:'Tipul documentului',
     doc_ci:'Carte de identitate', doc_cie:'Carte de identitate electronică (CIE)', doc_pass:'Pașaport', doc_patente:'Permis de conducere',
     label_numero_doc:'Numărul documentului', label_luogo_rilascio:'Locul eliberării', luogo_rilascio_hint:'(localitate sau țară)',
-    guest_default_name:'Oaspete', warn_badge:'⚠ verificați',
+    guest_default_name:'Oaspete', warn_badge:'⚠ verificați', warn_ok_badge:'✓ verificat',
     toast_add_photo_first:'Adăugați mai întâi o fotografie a documentului',
     toast_data_read:'Date citite din document — verificați-le mai jos',
     progress_title:'Citesc documentele', progress_reading_doc:'Citesc documentul', progress_of:'din', progress_done:'Gata!',
@@ -755,7 +757,7 @@ const T={
     label_cittadinanza:'Nacionalidade', label_tipo_doc:'Tipo de documento',
     doc_ci:'Cartão de identidade', doc_cie:'Cartão de identidade eletrónico (CIE)', doc_pass:'Passaporte', doc_patente:'Carta de condução',
     label_numero_doc:'Número do documento', label_luogo_rilascio:'Local de emissão', luogo_rilascio_hint:'(localidade ou país)',
-    guest_default_name:'Hóspede', warn_badge:'⚠ verificar',
+    guest_default_name:'Hóspede', warn_badge:'⚠ verificar', warn_ok_badge:'✓ verificado',
     toast_add_photo_first:'Adicione primeiro uma foto do documento',
     toast_data_read:'Dados lidos do documento — verifique-os abaixo',
     progress_title:'A ler os documentos', progress_reading_doc:'A ler o documento', progress_of:'de', progress_done:'Concluído!',
@@ -817,7 +819,7 @@ const T={
     label_cittadinanza:'Obywatelstwo', label_tipo_doc:'Rodzaj dokumentu',
     doc_ci:'Dowód osobisty', doc_cie:'Elektroniczny dowód osobisty (CIE)', doc_pass:'Paszport', doc_patente:'Prawo jazdy',
     label_numero_doc:'Numer dokumentu', label_luogo_rilascio:'Miejsce wydania', luogo_rilascio_hint:'(miejscowość lub kraj)',
-    guest_default_name:'Gość', warn_badge:'⚠ sprawdź',
+    guest_default_name:'Gość', warn_badge:'⚠ sprawdź', warn_ok_badge:'✓ zweryfikowano',
     toast_add_photo_first:'Najpierw dodaj zdjęcie dokumentu',
     toast_data_read:'Dane odczytane z dokumentu — sprawdź je poniżej',
     progress_title:'Odczytuję dokumenty', progress_reading_doc:'Odczytuję dokument', progress_of:'z', progress_done:'Gotowe!',
@@ -1105,7 +1107,9 @@ function nuovoOspite(){ return {id:uid(), imgs:[], cognome:'',nome:'',sesso:'',d
 function addGuest(){ guests.push(nuovoOspite()); render(); }
 function rmGuest(id){ guests=guests.filter(g=>g.id!==id); render(); }
 function getG(id){ return guests.find(g=>g.id===id); }
-function setG(id,k,v){ getG(id)[k]=v; render(); }
+function setG(id,k,v){ const g=getG(id); g[k]=v;
+  if((g._warn||[]).includes(k)){g._warn=g._warn.filter(x=>x!==k);g._warnOk=[...new Set([...(g._warnOk||[]),k])];}
+  render(); }
 
 function thumb(src,onRm){
   const d=document.createElement('div');d.className='thumb';
@@ -1163,7 +1167,7 @@ function applicaEstratto(g,j){
   Object.assign(g,{cognome:j.cognome||g.cognome,nome:j.nome||g.nome,sesso:j.sesso||g.sesso,
     dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:j.stato_nascita||g.statoNascita,
     cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
-    luogoRilascio:j.luogo_rilascio||g.luogoRilascio});
+    luogoRilascio:normalizzaLuogoRilascio(j.luogo_rilascio||g.luogoRilascio)});
   g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
 }
 /* ===== barra di avanzamento durante la lettura dei documenti ===== */
@@ -1220,7 +1224,13 @@ async function estraiDati(id){
   g._busy=false; render();
 }
 
-function warnBadge(g,k){ return (g._warn||[]).includes(k) ? ` <span class="warn-badge">${t('warn_badge')}</span>` : ''; }
+function warnBadge(g,k){
+  if((g._warn||[]).includes(k)) return ` <span class="warn-badge click" onclick="confermaCampoG('${g.id}','${k}')">${t('warn_badge')}</span>`;
+  if((g._warnOk||[]).includes(k)) return ` <span class="warn-badge okd" onclick="riapriCampoG('${g.id}','${k}')">${t('warn_ok_badge')}</span>`;
+  return '';
+}
+function confermaCampoG(id,k){const g=getG(id);if(!g)return;g._warn=(g._warn||[]).filter(x=>x!==k);g._warnOk=[...new Set([...(g._warnOk||[]),k])];render();}
+function riapriCampoG(id,k){const g=getG(id);if(!g)return;g._warnOk=(g._warnOk||[]).filter(x=>x!==k);g._warn=[...new Set([...(g._warn||[]),k])];render();}
 function fw(g,k){ return (g._warn||[]).includes(k) ? 'field-warn' : ''; }
 function natoInItalia(g){ return String(g.statoNascita||'').trim().toUpperCase()==='ITALIA'; }
 function setStatoNascita(id,val){ const g=getG(id); g.statoNascita=val; if(!natoInItalia(g)) g.comuneNascita=''; render(); }
