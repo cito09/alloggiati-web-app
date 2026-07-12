@@ -51,6 +51,12 @@
   .login-gate .err{color:var(--err); font-size:13px; font-weight:600; margin-top:8px; min-height:16px}
   .settings-btn{background:var(--surface2); border:1px solid var(--line); border-radius:999px; width:34px; height:34px;
     font-size:16px; line-height:1; cursor:pointer; flex-shrink:0}
+  .pagina-piena{display:none; position:fixed; inset:0; z-index:520; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch}
+  .pagina-piena.open{display:block}
+  .pagina-piena .pp-head{position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:10px; padding:14px 16px;
+    background:var(--surface); border-bottom:1px solid var(--line)}
+  .pagina-piena .pp-head h2{margin:0; font-size:17px; flex:1}
+  .pagina-piena .pp-body{padding:14px 16px 40px; max-width:640px; margin:0 auto}
   .settings-overlay{display:none; position:fixed; inset:0; z-index:500; background:rgba(5,12,20,.55)}
   .settings-overlay.open{display:block}
   .settings-panel{position:absolute; top:0; right:0; height:100%; width:min(340px,88vw); overflow-y:auto;
@@ -292,21 +298,24 @@
   </div>
 </div>
 
-<div class="settings-overlay" id="recuperoOverlay" onclick="chiudiRecupero(event)">
-  <div class="settings-panel">
-    <div class="settings-head">
-      <h2>🛟 Recupero e pulizia</h2>
-      <button class="settings-close" onclick="chiudiRecupero()" aria-label="Chiudi">✕</button>
+<div class="pagina-piena" id="recuperoOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiRecupero()" style="width:auto">← Indietro</button>
+    <h2>🛟 Recupero e pulizia</h2>
+    <span class="pill wait" id="recuperoConta"></span>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.55">Qui vedi <b>tutti i check-in in attesa</b>. Spunta quelli che non ti servono (test, doppioni, voci recuperate per sbaglio) ed eliminali: l'eliminazione è <b>definitiva</b>, non ricompariranno nei prossimi ripristini. "Ripristina dai backup" ripesca dall'archivio solo i check-in mai gestiti.</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn ghost sm" style="flex:1" onclick="recuperaCheckinPersi()">🛟 Ripristina dai backup</button>
+      <button class="btn sm" style="flex:1;background:rgba(239,71,111,.14);color:var(--err);border:1px solid rgba(239,71,111,.3)" id="recuperoDelBtn" onclick="eliminaCheckinSelezionati()" disabled>🗑 Elimina selezionati</button>
     </div>
-    <div class="settings-section">
-      <div class="muted" style="font-size:12px">Qui vedi <b>tutti i check-in in attesa</b>. Spunta quelli che non ti servono (test, doppioni, voci recuperate per sbaglio) ed eliminali; oppure ripesca dall'archivio i check-in spariti prima dell'invio.</div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn ghost sm" style="flex:1" onclick="recuperaCheckinPersi()">🛟 Ripristina dai backup</button>
-        <button class="btn ghost sm" style="flex:1" id="recuperoDelBtn" onclick="eliminaCheckinSelezionati()" disabled>🗑 Elimina selezionati</button>
-      </div>
-      <div id="recuperoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
-      <div id="recuperoLista" style="margin-top:10px"></div>
-    </div>
+    <label style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:13px;cursor:pointer;user-select:none">
+      <input type="checkbox" id="recuperoTutti" onchange="selezionaTuttiRecupero(this.checked)" style="width:19px;height:19px;accent-color:var(--err)">
+      Seleziona tutto
+    </label>
+    <div id="recuperoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+    <div id="recuperoLista" style="margin-top:8px"></div>
   </div>
 </div>
 
@@ -12941,15 +12950,23 @@ async function recuperaCheckinPersi(){
 function apriRecupero(){
   closeSettings();
   $('#recuperoOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
   const msg=$('#recuperoMsg'); if(msg)msg.textContent='';
+  const tutti=$('#recuperoTutti'); if(tutti)tutti.checked=false;
   renderRecuperoLista();
 }
-function chiudiRecupero(e){
-  if(e&&e.target!==e.currentTarget)return;
+function chiudiRecupero(){
   $('#recuperoOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+function selezionaTuttiRecupero(on){
+  document.querySelectorAll('#recuperoLista input[type=checkbox]').forEach(c=>{c.checked=on;});
+  aggiornaRecuperoDelBtn();
 }
 function renderRecuperoLista(){
   const w=$('#recuperoLista'); if(!w)return;
+  const conta=$('#recuperoConta'); if(conta)conta.textContent=checkinPending.length+' in attesa';
+  const tutti=$('#recuperoTutti'); if(tutti)tutti.checked=false;
   if(!checkinPending.length){ w.innerHTML='<div class="muted" style="font-size:12.5px">Nessun check-in in attesa.</div>'; aggiornaRecuperoDelBtn(); return; }
   w.innerHTML=checkinPending.map(v=>{
     const nomi=(v.ospiti||[]).map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ')||'(senza nome)';

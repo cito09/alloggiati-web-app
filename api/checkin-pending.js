@@ -12,8 +12,19 @@ const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
 
 const KEY = "checkin_pending";
+// URL (foto/contratti/selfie) delle voci ELIMINATE dalla coda: il recupero non deve
+// più ripescarle dall'archivio Blob, altrimenti i check-in scartati "risorgono" a ogni
+// ripristino (test, doppioni, voci già gestite).
+const KEY_SCARTATI = "checkin_scartati";
+function urlDiVoce(v) {
+  const out = [];
+  if (v.contrattoUrl) out.push(v.contrattoUrl);
+  if (v.deVisu && v.deVisu.selfieUrl) out.push(v.deVisu.selfieUrl);
+  (v.ospiti || []).forEach((o) => (o.fotoUrls || []).forEach((u) => out.push(u)));
+  return out;
+}
 
-async function ripristinaDaBlob(coda) {
+async function ripristinaDaBlob(coda, scartati) {
   const GIORNI = 21;
   const soglia = Date.now() - GIORNI * 86400000;
   // stesso "invio" di check-in = file caricati a pochi secondi/minuti l'uno dall'altro.
@@ -26,11 +37,8 @@ async function ripristinaDaBlob(coda) {
     list({ prefix: "checkin/", limit: 1000 }),
   ]);
 
-  const urlInCoda = new Set();
-  coda.forEach((v) => {
-    if (v.contrattoUrl) urlInCoda.add(v.contrattoUrl);
-    (v.ospiti || []).forEach((o) => (o.fotoUrls || []).forEach((u) => urlInCoda.add(u)));
-  });
+  const urlInCoda = new Set(scartati || []);
+  coda.forEach((v) => urlDiVoce(v).forEach((u) => urlInCoda.add(u)));
 
   const item = (b, tipo) => ({ tipo, url: b.url, pathname: b.pathname, ts: tsDaPath(b.pathname) || new Date(b.uploadedAt).getTime() });
   const blobs = [
@@ -111,12 +119,28 @@ module.exports = async (req, res) => {
       return res.status(200).json({ configurato: true, coda: raw ? JSON.parse(raw) : [] });
     }
     if (req.method === "DELETE") {
-      // { id } per una voce sola, { ids:[...] } per la pulizia multipla dal pannello recupero
+      // { id } per una voce sola, { ids:[...] } per la pulizia multipla dal pannello recupero.
+      // In entrambi i casi l'eliminazione è DEFINITIVA anche per il recupero: gli URL delle
+      // voci rimosse finiscono tra gli scartati e non verranno più ripescati dall'archivio.
       const { id, ids } = req.body || {};
       const daEliminare = new Set(Array.isArray(ids) ? ids : id ? [id] : []);
       const raw = await redisCmd(conn, ["GET", KEY]);
-      const coda = (raw ? JSON.parse(raw) : []).filter((v) => !daEliminare.has(v.id));
+      const tutte = raw ? JSON.parse(raw) : [];
+      const rimosse = tutte.filter((v) => daEliminare.has(v.id));
+      const coda = tutte.filter((v) => !daEliminare.has(v.id));
       await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
+      if (rimosse.length) {
+        try {
+          const rawS = await redisCmd(conn, ["GET", KEY_SCARTATI]);
+          let scartati = rawS ? JSON.parse(rawS) : [];
+          rimosse.forEach((v) => scartati.push(...urlDiVoce(v)));
+          scartati = [...new Set(scartati)];
+          if (scartati.length > 3000) scartati = scartati.slice(-3000);
+          await redisCmd(conn, ["SET", KEY_SCARTATI, JSON.stringify(scartati)]);
+        } catch (e) {
+          /* lista scartati non aggiornata: la voce resta comunque eliminata dalla coda */
+        }
+      }
       return res.status(200).json({ configurato: true, coda });
     }
     if (req.method === "POST") {
@@ -132,7 +156,9 @@ module.exports = async (req, res) => {
 
       if (azione === "ripristina") {
         if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(400).json({ error: "Archivio foto (Blob) non configurato" });
-        const nuove = await ripristinaDaBlob(coda);
+        let scartati = [];
+        try { const rawS = await redisCmd(conn, ["GET", KEY_SCARTATI]); scartati = rawS ? JSON.parse(rawS) : []; } catch (e) {}
+        const nuove = await ripristinaDaBlob(coda, scartati);
         coda = [...nuove, ...coda];
         await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
         return res.status(200).json({ configurato: true, coda, ripristinate: nuove.length });
