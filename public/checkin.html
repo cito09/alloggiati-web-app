@@ -1682,6 +1682,12 @@ async function verificaAccesso(){
   }
 }
 
+// lingua automatica: se il telefono dell'ospite è in una delle 8 lingue supportate,
+// la usiamo subito senza fargli scegliere (può sempre cambiarla dal pulsante in alto)
+if(!lang){
+  const nav=((navigator.language||navigator.userLanguage||'')+'').slice(0,2).toLowerCase();
+  if(T[nav]){ lang=nav; localStorage.setItem('keyflow_lang',lang); document.documentElement.lang=lang; }
+}
 if(lang){
   $('#langWrap').style.display='none';
   onboardingFatto=true;

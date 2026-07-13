@@ -188,6 +188,27 @@
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:9px 11px; margin-top:10px}
   .storico-item{padding:9px 0; border-bottom:1px solid var(--line)}
   .storico-item:last-child{border-bottom:none}
+  .cal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
+  .cal-head b{font-size:14.5px; text-transform:capitalize}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+  .cal-dow{font-size:10px; color:var(--muted); text-align:center; font-weight:700}
+  .cal-day{position:relative; aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:9px; font-size:12.5px; color:var(--ink); background:var(--surface2); border:1px solid transparent; cursor:pointer}
+  .cal-day.fuori{opacity:.28}
+  .cal-day.oggi{border-color:var(--amber); font-weight:800}
+  .cal-day.sel{outline:2px solid var(--blue)}
+  .cal-day .dots{display:flex; gap:2px; height:5px; margin-top:2px}
+  .cal-day .dots i{width:5px; height:5px; border-radius:50%}
+  .cal-day .dots .a{background:var(--ok)}
+  .cal-day .dots .p{background:var(--err)}
+  .stat-bar{display:flex; align-items:center; gap:8px; margin-top:5px; font-size:12px}
+  .stat-bar .lbl{width:34px; color:var(--muted); flex:0 0 auto}
+  .stat-bar .track{display:block; flex:1; height:14px; background:var(--surface2); border-radius:7px; overflow:hidden}
+  .stat-bar .fill{display:block; height:100%; background:linear-gradient(90deg,var(--amber),var(--amber-d)); border-radius:7px; min-width:2px}
+  .stat-bar .val{width:44px; text-align:right; flex:0 0 auto; font-weight:700}
+  .stat-tile{flex:1; background:var(--surface2); border:1px solid var(--line); border-radius:12px; padding:10px 8px; text-align:center}
+  .stat-tile b{display:block; font-size:19px}
+  .stat-tile span{font-size:10.5px; color:var(--muted)}
   .todo-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line)}
   .todo-row:last-child{border-bottom:none; padding-bottom:2px}
   .gruppo-head{margin:22px 0 6px; padding:10px 14px; border-radius:12px; background:rgba(90,160,242,.12);
@@ -328,6 +349,10 @@
       <h2><span class="n">📌</span> Da fare <span id="oggiTodoBadge" class="pill err" style="display:none"></span></h2>
       <div id="oggiTodo"><div class="muted" style="font-size:13px">…</div></div>
     </div>
+    <div class="card" id="oggiCalendarioCard">
+      <h2><span class="n">📆</span> Calendario</h2>
+      <div id="oggiCalendario"></div>
+    </div>
     <div class="card" id="oggiSituazioneCard">
       <h2><span class="n">📊</span> Situazione</h2>
       <div id="oggiStato"></div>
@@ -432,6 +457,10 @@
   </div><!-- /page-ospiti -->
 
   <div class="page" id="page-archivio">
+    <div class="card" id="statsCard">
+      <h2><span class="n">📊</span> Statistiche</h2>
+      <div id="statsBody"><div class="muted">Ancora nessun dato.</div></div>
+    </div>
     <div class="card" id="storicoCard">
       <h2><span class="n">🕘</span> Storico</h2>
       <div class="muted" style="font-size:12px;margin-top:2px">Solo le schedine effettivamente inviate alla Questura o scaricate come .txt.</div>
@@ -11952,6 +11981,7 @@ const escText=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function renderStorico(){
   const w=$('#storicoList'); if(!w)return;
   if(typeof aggiornaOggi==='function')aggiornaOggi();
+  if(typeof renderStatistiche==='function')renderStatistiche();
   if(!storico.length){ w.innerHTML='<div class="muted">Nessun invio o esportazione ancora registrato.</div>'; return; }
   const q=(($('#storicoSearch')||{}).value||'').trim().toLowerCase();
   const lista=q?storico.filter(e=>{
@@ -12466,6 +12496,11 @@ function renderCheckinPending(soloLista){
     g.voci.push(v);
   });
 
+  // doppioni nella coda: stesso capogruppo + stessa data di arrivo in più voci
+  const chiaveDoppione=v=>{const o=(v.ospiti||[])[0]||{};const nm=(String(o.cognome||'')+' '+String(o.nome||'')).trim().toUpperCase();return nm&&v.arrivo?nm+'|'+v.arrivo:'';};
+  const conteggiDoppioni={};
+  checkinPending.forEach(v=>{const k=chiaveDoppione(v); if(k)conteggiDoppioni[k]=(conteggiDoppioni[k]||0)+1;});
+
   w.innerHTML=gruppi.map(g=>
     `<div class="gruppo-head${g.warn?' warn':''}">🏠 ${escText(g.nome)} <span class="cnt">${g.voci.length}</span></div>`+
     g.voci.map(v=>{
@@ -12473,7 +12508,7 @@ function renderCheckinPending(soloLista){
     const nomi=v.ospiti.map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ');
     const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
     return `<div class="storico-item">
-      <div class="storico-head"><span>check-in ${escText(quando)}</span>${v.presa?' <span class="pill wait">🕓 in prenotazione, da inviare</span>':''}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}${v.deVisu?(v.deVisu.esito==='verificata'?' <span class="pill ok">🪪 identità verificata</span>':v.deVisu.esito==='non_corrispondente'?' <span class="pill err">🪪 selfie da ricontrollare</span>':' <span class="pill wait">🪪 selfie allegato</span>'):''}</div>
+      <div class="storico-head"><span>check-in ${escText(quando)}</span>${v.presa?' <span class="pill wait">🕓 in prenotazione, da inviare</span>':''}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}${v.deVisu?(v.deVisu.esito==='verificata'?' <span class="pill ok">🪪 identità verificata</span>':v.deVisu.esito==='non_corrispondente'?' <span class="pill err">🪪 selfie da ricontrollare</span>':' <span class="pill wait">🪪 selfie allegato</span>'):''}${conteggiDoppioni[chiaveDoppione(v)]>1?' <span class="pill err">⚠️ possibile doppione</span>':''}</div>
       <div class="storico-meta">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
@@ -12650,6 +12685,14 @@ async function verifica(){apriCard('invioCard');const data=await callSend('test'
 async function invia(){apriCard('invioCard');
   const recordsInviati=validRecords();
   const n=recordsInviati.length;
+  // anti-doppioni: stesso nome + stessa data di arrivo già inviati alla Questura
+  const b0=bookings[0];
+  if(b0&&b0.arrivo){
+    const nomiAttuali=b0.guests.map(g=>(String(g.cognome||'')+' '+String(g.nome||'')).trim().toUpperCase()).filter(Boolean);
+    const doppi=[...new Set(storico.filter(e=>e.tipo==='inviata'&&e.arrivo===b0.arrivo)
+      .flatMap(e=>e.ospiti||[]).filter(nm=>nomiAttuali.includes(String(nm).trim().toUpperCase())))];
+    if(doppi.length&&!confirm(`⚠️ POSSIBILE DOPPIONE\n${doppi.join(', ')}\nrisulta GIÀ INVIATO alla Questura per l'arrivo ${b0.arrivo} (vedi Archivio).\n\nInviare comunque una seconda volta?`))return;
+  }
   if(!confirm(`Invio UFFICIALE alla Questura di ${n} schedin${n===1?'a':'e'}. L'operazione è irreversibile. Procedere?`))return;
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
@@ -12905,6 +12948,7 @@ function aggiornaOggi(){
     const bd=$('#oggiTodoBadge');
     if(bd){ if(voci.length){bd.textContent=voci.length; bd.style.display='';} else bd.style.display='none'; }
   }
+  if(typeof renderCalendario==='function')renderCalendario();
   const ultimo=storico.find(e=>e.tipo==='inviata');
   const ultimoTxt=ultimo
     ?`${new Date(ultimo.ts).toLocaleDateString('it-IT')} · ${escText(ultimo.struttura||'')} (${ultimo.valide} schedin${ultimo.valide===1?'a':'e'})`
@@ -12928,6 +12972,138 @@ function aggiornaOggi(){
       rw.innerHTML=`<div class="muted">Prossima scadenza: <b>5 ${meseIt(new Date(oggi.getFullYear(),oggi.getMonth()+1,1))}</b> per i flussi di ${meseIt(oggi)}. In più, ogni "Invia ufficialmente" trasmette già il soggiorno anche a Ross1000 (se le credenziali web service sono configurate).</div>`;
     }
   }
+}
+
+/* ===== calendario arrivi/partenze (pagina Oggi) ===== */
+let calMese=new Date(); calMese.setDate(1);
+let calSelDay='';
+const dataKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseIt=a=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(a||'');return m?new Date(+m[3],+m[2]-1,+m[1]):null;};
+// eventi: arrivi e partenze da coda in attesa + storico (partenza = arrivo + notti)
+function eventiCalendario(){
+  const ev={}; const add=(d,tipo,nome,str)=>{ if(!d)return; const k=dataKey(d); (ev[k]=ev[k]||{a:[],p:[]})[tipo].push(nome+(str?' · '+str:'')); };
+  checkinPending.forEach(v=>{
+    const nome=((v.ospiti||[])[0]&&((v.ospiti[0].cognome||'')+' '+(v.ospiti[0].nome||'')).trim())||'ospite';
+    const extra=v.ospiti&&v.ospiti.length>1?` (+${v.ospiti.length-1})`:'';
+    const arr=parseIt(v.arrivo); add(arr,'a',nome+extra,v.strutturaNome);
+    let par=parseIt(v.partenza);
+    if(!par&&arr&&v.notti){ par=new Date(arr); par.setDate(par.getDate()+Number(v.notti)); }
+    add(par,'p',nome+extra,v.strutturaNome);
+  });
+  storico.forEach(e=>{
+    if(!(e.records||[]).length)return;
+    const rec=e.records[0]; if(!rec||rec.length!==168)return;
+    const arr=parseIt(e.arrivo||rec.slice(2,12).trim()); if(!arr)return;
+    const notti=parseInt(rec.slice(12,14),10)||0;
+    const nome=(e.ospiti&&e.ospiti[0])||'ospite';
+    const extra=(e.ospiti&&e.ospiti.length>1)?` (+${e.ospiti.length-1})`:'';
+    add(arr,'a',nome+extra,e.struttura);
+    if(notti){ const par=new Date(arr); par.setDate(par.getDate()+notti); add(par,'p',nome+extra,e.struttura); }
+  });
+  return ev;
+}
+function renderCalendario(){
+  const w=$('#oggiCalendario'); if(!w)return;
+  const ev=eventiCalendario();
+  const anno=calMese.getFullYear(), mese=calMese.getMonth();
+  const titolo=calMese.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
+  const primo=new Date(anno,mese,1);
+  const offset=(primo.getDay()+6)%7; // settimana che parte da lunedì
+  const inizio=new Date(anno,mese,1-offset);
+  const oggiK=dataKey(new Date());
+  let celle='';
+  for(let i=0;i<42;i++){
+    const d=new Date(inizio); d.setDate(inizio.getDate()+i);
+    const k=dataKey(d); const e=ev[k];
+    celle+=`<div class="cal-day${d.getMonth()!==mese?' fuori':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')">
+      ${d.getDate()}<span class="dots">${e&&e.a.length?'<i class="a"></i>':''}${e&&e.p.length?'<i class="p"></i>':''}</span></div>`;
+  }
+  const sel=calSelDay&&ev[calSelDay];
+  const dett=calSelDay?`
+    <div style="margin-top:10px;font-size:12.5px">
+      <b>${new Date(calSelDay+'T12:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}</b><br>
+      ${sel&&sel.a.length?sel.a.map(x=>`<div style="margin-top:4px">🟢 arrivo: ${escText(x)}</div>`).join(''):''}
+      ${sel&&sel.p.length?sel.p.map(x=>`<div style="margin-top:4px">🔴 partenza: ${escText(x)}</div>`).join(''):''}
+      ${!sel||(!sel.a.length&&!sel.p.length)?'<div class="muted" style="margin-top:4px">Nessun arrivo o partenza.</div>':''}
+    </div>`:'';
+  w.innerHTML=`
+    <div class="cal-head">
+      <button class="btn ghost sm" style="width:auto;padding:8px 13px" onclick="calSposta(-1)">‹</button>
+      <b>${escText(titolo)}</b>
+      <button class="btn ghost sm" style="width:auto;padding:8px 13px" onclick="calSposta(1)">›</button>
+    </div>
+    <div class="cal-grid">${['L','M','M','G','V','S','D'].map(g=>`<div class="cal-dow">${g}</div>`).join('')}${celle}</div>
+    <div class="muted" style="font-size:10.5px;margin-top:6px">🟢 arrivi · 🔴 partenze — tocca un giorno per il dettaglio</div>
+    ${dett}`;
+}
+function calSposta(n){ calMese.setMonth(calMese.getMonth()+n); calSelDay=''; renderCalendario(); }
+function calSeleziona(k){ calSelDay=(calSelDay===k?'':k); renderCalendario(); }
+
+/* ===== statistiche (pagina Archivio) ===== */
+let statsAnno=0;
+function statSoggiorno(e){
+  const rec=(e.records||[])[0]; if(!rec||rec.length!==168)return null;
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(e.arrivo||rec.slice(2,12).trim()); if(!m)return null;
+  const notti=parseInt(rec.slice(12,14),10)||0;
+  const ospiti=e.records.length;
+  return {anno:+m[3], mese:+m[2], notti, ospiti, presenze:notti*ospiti, struttura:e.struttura||'—',
+    nazioni:e.records.filter(r=>r.length===168).map(r=>r.slice(125,134).trim()).filter(Boolean)};
+}
+function renderStatistiche(){
+  const w=$('#statsBody'); if(!w)return;
+  const dati=storico.map(statSoggiorno).filter(Boolean);
+  if(!dati.length){ w.innerHTML='<div class="muted">Ancora nessun dato: le statistiche si riempiono con le schedine registrate.</div>'; return; }
+  const anni=[...new Set(dati.map(d=>d.anno))].sort().reverse();
+  if(!statsAnno||!anni.includes(statsAnno))statsAnno=anni[0];
+  const anno=dati.filter(d=>d.anno===statsAnno);
+  const tot=(k)=>anno.reduce((a,d)=>a+d[k],0);
+  const mesi=Array.from({length:12},(_,i)=>anno.filter(d=>d.mese===i+1).reduce((a,d)=>a+d.presenze,0));
+  const maxM=Math.max(...mesi,1);
+  const nomiMesi=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  const perStruttura={}; anno.forEach(d=>{const x=perStruttura[d.struttura]=perStruttura[d.struttura]||{s:0,o:0,p:0}; x.s++; x.o+=d.ospiti; x.p+=d.presenze;});
+  const naz={}; anno.forEach(d=>d.nazioni.forEach(c=>{naz[c]=(naz[c]||0)+1;}));
+  const topNaz=Object.entries(naz).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  w.innerHTML=`
+    ${anni.length>1?`<select style="margin-bottom:10px" onchange="statsAnno=+this.value;renderStatistiche()">${anni.map(a=>`<option value="${a}"${a===statsAnno?' selected':''}>${a}</option>`).join('')}</select>`:''}
+    <div style="display:flex;gap:8px">
+      <div class="stat-tile"><b>${anno.length}</b><span>soggiorni</span></div>
+      <div class="stat-tile"><b>${tot('ospiti')}</b><span>ospiti</span></div>
+      <div class="stat-tile"><b>${tot('presenze')}</b><span>presenze (notti·ospite)</span></div>
+    </div>
+    <div class="muted" style="font-size:11.5px;margin:14px 0 4px;font-weight:700">PRESENZE PER MESE · ${statsAnno}</div>
+    ${mesi.map((v,i)=>`<div class="stat-bar"><span class="lbl">${nomiMesi[i]}</span><span class="track"><span class="fill" style="width:${Math.round(v/maxM*100)}%"></span></span><span class="val">${v||''}</span></div>`).join('')}
+    <div class="muted" style="font-size:11.5px;margin:14px 0 2px;font-weight:700">PER STRUTTURA</div>
+    ${Object.entries(perStruttura).map(([n,x])=>`<div class="oggi-row"><span>🏠 ${escText(n)}</span><span class="muted">${x.s} soggiorn${x.s===1?'o':'i'} · ${x.o} ospiti · ${x.p} presenze</span></div>`).join('')}
+    ${topNaz.length?`<div class="muted" style="font-size:11.5px;margin:14px 0 2px;font-weight:700">PROVENIENZA OSPITI (TOP 5)</div>
+    ${topNaz.map(([c,n])=>`<div class="oggi-row"><span>${escText(nomeStato(c)||c)}</span><span class="muted">${n} ospit${n===1?'e':'i'}</span></div>`).join('')}`:''}
+    <div class="muted" style="font-size:11.5px;margin:16px 0 4px;font-weight:700">📦 FASCICOLO MENSILE</div>
+    <div class="muted" style="font-size:11.5px;margin-bottom:8px">Zip con registro CSV + contratti firmati del mese, inviato alla tua email. Parte anche da solo il giorno 1 di ogni mese (mese precedente).</div>
+    <div style="display:flex;gap:8px">
+      <select id="fascicoloMese" style="flex:1">${mesiConDati(dati).map(k=>`<option value="${k.v}">${k.l}</option>`).join('')}</select>
+      <button class="btn ghost sm" style="flex:0 0 auto;width:auto" id="fascicoloBtn" onclick="inviaFascicoloMese()">📤 Invia via email</button>
+    </div>
+    <div id="fascicoloMsg" class="muted" style="font-size:12px;margin-top:6px"></div>`;
+}
+function mesiConDati(dati){
+  const set=new Set(dati.map(d=>`${d.anno}-${String(d.mese).padStart(2,'0')}`));
+  return [...set].sort().reverse().map(v=>{
+    const [a,m]=v.split('-');
+    return {v, l:new Date(+a,+m-1,1).toLocaleDateString('it-IT',{month:'long',year:'numeric'})};
+  });
+}
+async function inviaFascicoloMese(){
+  const sel=$('#fascicoloMese'); const msg=$('#fascicoloMsg'); const btn=$('#fascicoloBtn');
+  if(!sel||!sel.value)return;
+  btn.disabled=true; msg.textContent='Preparo e invio il fascicolo…';
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'fascicolo',mese:sel.value})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Errore');
+    msg.textContent=`✓ Fascicolo inviato via email: ${data.soggiorni} soggiorn${data.soggiorni===1?'o':'i'}, ${data.contratti} contratt${data.contratti===1?'o':'i'}.`;
+    toast('Fascicolo inviato via email');
+  }catch(e){ msg.textContent='Errore: '+e.message; }
+  finally{ btn.disabled=false; }
 }
 
 /* ===== archivio: esportazione CSV ===== */
@@ -13072,7 +13248,7 @@ function wireChangeCodeForm(){
 }
 
 /* ===== schede stile app: tocca il titolo per aprire/chiudere, lo stato viene ricordato ===== */
-const CARD_CHIUSE_DEFAULT={previewCard:1, checkinLinkCard:1};
+const CARD_CHIUSE_DEFAULT={previewCard:1, checkinLinkCard:1, oggiCalendarioCard:1, statsCard:1};
 function initCardToggles(){
   document.querySelectorAll('.wrap .card[id]').forEach(card=>{
     const h2=card.querySelector(':scope>h2'); if(!h2)return;

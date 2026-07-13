@@ -19,9 +19,67 @@
 //        perché è stata inviata ufficialmente o svuotata).
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
+const { inviaEmailConAllegato } = require("./_email");
 
 const KEY_PENDENTI = "bookings_pending";
 const MAX_PENDENTI = 200;
+
+// FASCICOLO MENSILE: zip con registro CSV + contratti firmati del mese (per arrivo).
+// Parte da solo il giorno 1 (mese precedente) e a richiesta dal gestionale
+// (POST { azione:'fascicolo', mese:'aaaa-mm' }).
+const MESI_IT = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+async function costruisciFascicolo(conn, meseKey) {
+  const raw = await redisCmd(conn, ["GET", "storico_schedine"]);
+  const storico = raw ? JSON.parse(raw) : [];
+  const del = storico.filter((e) => {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(e.arrivo || "");
+    return m && `${m[3]}-${m[2]}` === meseKey;
+  });
+  if (!del.length) return null;
+  const JSZip = require("jszip");
+  const zip = new JSZip();
+  const cell = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  const righe = [["Data registrazione","Tipo","Struttura","Arrivo","Schedine","Ospiti","Ross1000"].map(cell).join(";")];
+  del.forEach((e) => righe.push([
+    new Date(e.ts).toLocaleString("it-IT", { timeZone: "Europe/Rome" }),
+    e.tipo === "inviata" ? "Inviata in Questura" : "File TXT scaricato",
+    e.struttura || "", e.arrivo || "", e.valide || 0, (e.ospiti || []).join(", "), e.rossOk ? "sì" : "",
+  ].map(cell).join(";")));
+  zip.file(`registro_${meseKey}.csv`, "﻿" + righe.join("\r\n"));
+  let contratti = 0, byte = 0;
+  for (const e of del) {
+    for (const url of e.contratti || []) {
+      try {
+        const r = await fetch(url);
+        if (!r.ok) continue;
+        const buf = Buffer.from(await r.arrayBuffer());
+        byte += buf.length;
+        if (byte > 15 * 1024 * 1024) break; // limite prudente per l'allegato email
+        const nome = decodeURIComponent((url.split("/").pop() || "contratto.pdf").split("?")[0]);
+        zip.file("contratti/" + nome, buf);
+        contratti++;
+      } catch (err) { /* un contratto non scaricato non blocca il fascicolo */ }
+    }
+  }
+  const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  return { buffer, soggiorni: del.length, contratti };
+}
+async function inviaFascicolo(conn, meseKey) {
+  const dest = process.env.FASCICOLO_EMAIL || process.env.GMAIL_USER;
+  if (!dest) return { ok: false, error: "Nessuna email configurata (GMAIL_USER)" };
+  const f = await costruisciFascicolo(conn, meseKey);
+  if (!f) return { ok: false, error: `Nessun soggiorno con arrivo in ${meseKey}` };
+  const [aaaa, mm] = meseKey.split("-");
+  const nomeMese = `${MESI_IT[+mm - 1]} ${aaaa}`;
+  const esito = await inviaEmailConAllegato({
+    to: dest,
+    subject: `📦 Fascicolo KeyFlow · ${nomeMese}`,
+    testo: `In allegato il fascicolo di ${nomeMese}: registro delle schedine (${f.soggiorni} soggiorn${f.soggiorni === 1 ? "o" : "i"}) e ${f.contratti} contratt${f.contratti === 1 ? "o" : "i"} firmati.\n\nGenerato automaticamente da KeyFlow.`,
+    allegatoNome: `fascicolo_keyflow_${meseKey}.zip`,
+    allegatoBuffer: f.buffer,
+  });
+  return esito.ok ? { ok: true, soggiorni: f.soggiorni, contratti: f.contratti } : esito;
+}
 
 // scadenza semplificata: il giorno DOPO l'arrivo, a fine giornata (ora italiana) —
 // coerente con l'obbligo di comunicazione entro 24 ore, con un margine pratico.
@@ -38,6 +96,18 @@ module.exports = async (req, res) => {
   if (req.method === "POST") {
     if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
     if (!conn) return res.status(200).json({ configurato: false });
+    // fascicolo mensile a richiesta dal gestionale
+    if ((req.body || {}).azione === "fascicolo") {
+      try {
+        const mese = String(req.body.mese || "");
+        if (!/^\d{4}-\d{2}$/.test(mese)) return res.status(400).json({ error: "Mese non valido (usa aaaa-mm)" });
+        const esito = await inviaFascicolo(conn, mese);
+        if (!esito.ok) return res.status(400).json({ error: esito.error || "Invio non riuscito" });
+        return res.status(200).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
     try {
       const { lista = [] } = req.body || {};
       const pulita = lista
@@ -101,6 +171,21 @@ module.exports = async (req, res) => {
     }
   } catch (e) { /* ROSS_STRUTTURE assente o malformata */ }
 
+  // 4) fascicolo mensile automatico: il giorno 1 manda via email lo zip del mese precedente
+  let fascicolo = null;
+  try {
+    if (conn) {
+      const partiRoma = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
+        .formatToParts(new Date()).reduce((a, p) => (a[p.type] = p.value, a), {});
+      if (+partiRoma.day === 1) {
+        const prec = new Date(+partiRoma.year, +partiRoma.month - 2, 1); // mese precedente
+        const meseKey = `${prec.getFullYear()}-${String(prec.getMonth() + 1).padStart(2, "0")}`;
+        fascicolo = await inviaFascicolo(conn, meseKey);
+        if (fascicolo.ok) avvisi.push(`📦 Fascicolo di ${MESI_IT[prec.getMonth()]} inviato via email: registro + ${fascicolo.contratti} contratti.`);
+      }
+    }
+  } catch (e) { /* fascicolo non riuscito: resta disponibile a richiesta dal gestionale */ }
+
   for (const testo of avvisi) {
     try {
       await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
@@ -110,5 +195,5 @@ module.exports = async (req, res) => {
       });
     } catch (e) { /* notifica non riuscita: riproverà domani */ }
   }
-  return res.status(200).json({ ok: true, inviati: avvisi.length });
+  return res.status(200).json({ ok: true, inviati: avvisi.length, fascicolo });
 };
