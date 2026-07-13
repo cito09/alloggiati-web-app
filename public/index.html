@@ -188,6 +188,8 @@
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:8px; padding:9px 11px; margin-top:10px}
   .storico-item{padding:9px 0; border-bottom:1px solid var(--line)}
   .storico-item:last-child{border-bottom:none}
+  .todo-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line)}
+  .todo-row:last-child{border-bottom:none; padding-bottom:2px}
   .gruppo-head{margin:22px 0 6px; padding:10px 14px; border-radius:12px; background:rgba(90,160,242,.12);
     border:1px solid rgba(90,160,242,.25); font-size:16px; font-weight:800; letter-spacing:.5px;
     display:flex; align-items:center; gap:10px; text-transform:uppercase}
@@ -322,6 +324,10 @@
 <div class="wrap">
 
   <div class="page" id="page-oggi">
+    <div class="card" id="oggiTodoCard">
+      <h2><span class="n">📌</span> Da fare <span id="oggiTodoBadge" class="pill err" style="display:none"></span></h2>
+      <div id="oggiTodo"><div class="muted" style="font-size:13px">…</div></div>
+    </div>
     <div class="card" id="oggiSituazioneCard">
       <h2><span class="n">📊</span> Situazione</h2>
       <div id="oggiStato"></div>
@@ -12873,16 +12879,37 @@ function mostraTab(t){
 /* ===== scheda Oggi: riepilogo ===== */
 function aggiornaOggi(){
   const w=$('#oggiStato'); if(!w)return;
-  const nPend=checkinPending.length;
+  // "Da fare": i check-in arrivati, ordinati per data di arrivo (chi arriva prima in cima),
+  // con l'azione a un tocco: Registra (lo carica nella prenotazione) o Da inviare.
+  const todo=$('#oggiTodo');
+  if(todo){
+    const parseArr=a=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(a||'');return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():Infinity;};
+    const voci=checkinPending.slice().sort((a,b)=>parseArr(a.arrivo)-parseArr(b.arrivo)||((b.ts||0)-(a.ts||0)));
+    const oggi0=new Date(); oggi0.setHours(0,0,0,0);
+    todo.innerHTML=voci.length?voci.map(v=>{
+      const nomi=(v.ospiti||[]).map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ')||'(senza nome)';
+      const ts=parseArr(v.arrivo);
+      const diff=isFinite(ts)?Math.round((ts-oggi0)/864e5):null;
+      const quando=diff===0?'<b style="color:var(--amber)">🔔 arriva OGGI</b>'
+        :diff===1?'<b>arriva domani</b>'
+        :diff!==null&&diff<0?('arrivato il '+escText(v.arrivo))
+        :v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare';
+      const azione=v.presa
+        ?`<button class="btn ghost sm" style="flex:0 0 auto" onclick="mostraTab('registra')">📤 Da inviare</button>`
+        :`<button class="btn primary sm" style="flex:0 0 auto" onclick="accettaCheckin('${v.id}')">➕ Registra</button>`;
+      return `<div class="todo-row">
+        <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(nomi)}</b><br>
+          <span class="muted">${quando}${v.strutturaNome?' · '+escText(v.strutturaNome):''}</span></div>
+        ${azione}</div>`;
+    }).join(''):'<div class="muted" style="font-size:13px">✅ Tutto fatto: nessun check-in da gestire.</div>';
+    const bd=$('#oggiTodoBadge');
+    if(bd){ if(voci.length){bd.textContent=voci.length; bd.style.display='';} else bd.style.display='none'; }
+  }
   const ultimo=storico.find(e=>e.tipo==='inviata');
   const ultimoTxt=ultimo
     ?`${new Date(ultimo.ts).toLocaleDateString('it-IT')} · ${escText(ultimo.struttura||'')} (${ultimo.valide} schedin${ultimo.valide===1?'a':'e'})`
     :'nessuno ancora';
   w.innerHTML=`
-    <div class="oggi-row" onclick="mostraTab('ospiti')">
-      <span>📥 Ospiti in attesa</span>
-      ${nPend?`<span class="pill err">${nPend} da gestire</span>`:'<span class="pill ok">nessuno</span>'}
-    </div>
     <div class="oggi-row" onclick="mostraTab('archivio')">
       <span>🕘 Ultimo invio in Questura</span>
       <span class="muted" style="text-align:right">${ultimoTxt}</span>
