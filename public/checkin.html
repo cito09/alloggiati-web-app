@@ -1095,9 +1095,14 @@ async function descriptorDa(dataUrl){
 }
 let _descDocCache=null;
 async function descriptorDocumento(){
-  // volto sulla foto del documento del capogruppo (ospite 1): prova ogni immagine caricata
+  // volto SOLO sul documento del titolare della prenotazione (guests[0]).
+  // Si usa _docImg, cioè le foto attribuite a QUESTA persona: mai le foto orfane
+  // (illeggibili) né i documenti di altri ospiti. Così il selfie viene confrontato
+  // esclusivamente con il documento di chi è stato indicato come titolare.
   if(_descDocCache!==null) return _descDocCache.desc;
-  for(const src of (guests[0]&&guests[0].imgs)||[]){
+  const t0=guests[0]||{};
+  const srcs=(t0._docImg&&t0._docImg.length)?t0._docImg:(t0.imgs||[]);
+  for(const src of srcs){
     if(String(src).startsWith('data:application/pdf')) continue;
     try{ const d=await descriptorDa(src); if(d){ _descDocCache={desc:d}; return d; } }catch(e){/* prova la prossima */}
   }
@@ -1191,7 +1196,7 @@ function aggiornaNotti(){
 }
 function italianToDate(gg){ const m=(gg||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?new Date(+m[3],+m[2]-1,+m[1]):null; }
 
-function nuovoOspite(){ return {id:uid(), imgs:[], cognome:'',nome:'',sesso:'',dataNascita:'',comuneNascita:'',statoNascita:'',cittadinanza:'',tipoDoc:'',numeroDoc:'',luogoRilascio:'', _busy:false, _warn:[]}; }
+function nuovoOspite(){ return {id:uid(), imgs:[], _docImg:[], cognome:'',nome:'',sesso:'',dataNascita:'',comuneNascita:'',statoNascita:'',cittadinanza:'',tipoDoc:'',numeroDoc:'',luogoRilascio:'', _busy:false, _warn:[]}; }
 function addGuest(){ guests.push(nuovoOspite()); render(); }
 function rmGuest(id){ guests=guests.filter(g=>g.id!==id); render(); }
 function getG(id){ return guests.find(g=>g.id===id); }
@@ -1300,9 +1305,12 @@ async function estraiDati(id){
       // Le immagini non attribuite a nessuno (illeggibili) restano sul primo ospite, per non perderle.
       const orfane=imgs.filter(im=>!imgAssegnate.has(im));
       applicaEstratto(g,raccolti[0]);
+      // _docImg = SOLO il documento di questo ospite (per la verifica selfie). imgs = tutte le foto
+      // per l'invio, comprese le orfane (illeggibili), che però NON entrano nel confronto biometrico.
+      g._docImg=(raccolti[0]._imgs||[]).slice();
       g.imgs=[...(raccolti[0]._imgs||[]), ...orfane];
       guests=guests.filter((x,i)=>i===0||x.cognome||x.nome||(x.imgs||[]).length);
-      for(let k=1;k<raccolti.length;k++){ const ng=nuovoOspite(); applicaEstratto(ng,raccolti[k]); ng.imgs=(raccolti[k]._imgs||[]).slice(); guests.push(ng); }
+      for(let k=1;k<raccolti.length;k++){ const ng=nuovoOspite(); applicaEstratto(ng,raccolti[k]); ng._docImg=(raccolti[k]._imgs||[]).slice(); ng.imgs=(raccolti[k]._imgs||[]).slice(); guests.push(ng); }
       _descDocCache=null;
       g._busy=false;
       toast(raccolti.length>1 ? raccolti.length+' '+t('toast_multi_read') : t('toast_data_read'));
@@ -1311,6 +1319,7 @@ async function estraiDati(id){
     }
     const j=await apiExtract(g.imgs,'documento');
     applicaEstratto(g,j);
+    g._docImg=(g.imgs||[]).slice();   // documento di questo ospite (per la verifica selfie)
     g._busy=false;
     toast(t('toast_data_read'));
     mostraPasso('verifica');
