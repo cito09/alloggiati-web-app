@@ -12997,8 +12997,9 @@ function eventiCalendario(){
     const notti=parseInt(rec.slice(12,14),10)||0;
     const nome=(e.ospiti&&e.ospiti[0])||'ospite';
     const extra=(e.ospiti&&e.ospiti.length>1)?` (+${e.ospiti.length-1})`:'';
-    add(arr,'a',nome+extra,e.struttura);
-    if(notti){ const par=new Date(arr); par.setDate(par.getDate()+notti); add(par,'p',nome+extra,e.struttura); }
+    const nomeStr=(typeof nomeStrutturaCanonico==='function')?nomeStrutturaCanonico(e.struttura):e.struttura;
+    add(arr,'a',nome+extra,nomeStr);
+    if(notti){ const par=new Date(arr); par.setDate(par.getDate()+notti); add(par,'p',nome+extra,nomeStr); }
   });
   return ev;
 }
@@ -13040,13 +13041,23 @@ function calSposta(n){ calMese.setMonth(calMese.getMonth()+n); calSelDay=''; ren
 function calSeleziona(k){ calSelDay=(calSelDay===k?'':k); renderCalendario(); }
 
 /* ===== statistiche (pagina Archivio) ===== */
+// una struttura può cambiare nome nel tempo (es. "Canazei" → "Alba Loft House"):
+// i vecchi nomi salvati nello storico vengono riagganciati alla struttura attuale
+// riconoscendola dall'id (es. il nome contiene "canazei" → struttura con id "canazei").
+function nomeStrutturaCanonico(n){
+  n=String(n||'').trim(); if(!n)return n;
+  if(struttureList.some(x=>x.nome===n))return n;
+  const low=n.toLowerCase();
+  const perId=struttureList.find(x=>x.id&&low.includes(String(x.id).toLowerCase()));
+  return perId?perId.nome:n;
+}
 let statsAnno=0;
 function statSoggiorno(e){
   const rec=(e.records||[])[0]; if(!rec||rec.length!==168)return null;
   const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(e.arrivo||rec.slice(2,12).trim()); if(!m)return null;
   const notti=parseInt(rec.slice(12,14),10)||0;
   const ospiti=e.records.length;
-  return {anno:+m[3], mese:+m[2], notti, ospiti, presenze:notti*ospiti, struttura:e.struttura||'—',
+  return {anno:+m[3], mese:+m[2], notti, ospiti, presenze:notti*ospiti, struttura:nomeStrutturaCanonico(e.struttura)||'—',
     nazioni:e.records.filter(r=>r.length===168).map(r=>r.slice(125,134).trim()).filter(Boolean)};
 }
 function renderStatistiche(){
