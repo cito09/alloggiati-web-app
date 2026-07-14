@@ -1140,7 +1140,7 @@ async function verificaSelfie(){
       // nessun volto nel selfie: chiediamo di rifarlo (max 2 volte), poi si prosegue comunque
       aggiornaProgresso(100,''); await pausa(200); nascondiProgresso();
       deVisu.esito='volto_non_rilevato';
-      aggiornaDevisuUI(deVisu.tentativi>=2?'done':'noface');
+      aggiornaDevisuUI(statoDevisu());
       return;
     }
     aggiornaProgresso(66,t2('verif_doc')); await pausa(360);
@@ -1150,39 +1150,59 @@ async function verificaSelfie(){
     else {
       const dist=faceapi.euclideanDistance(dDoc,dSelfie);
       deVisu.distanza=Math.round(dist*100)/100;
-      deVisu.esito = dist<=0.6 ? 'verificata' : 'non_corrispondente';
+      let esito = dist<=0.6 ? 'verificata' : 'non_corrispondente';
+      // cross-check: il selfie deve somigliare al TITOLARE più che a qualunque altro ospite.
+      // Se il volto di un altro documento è più vicino, la verifica non passa (probabile
+      // selfie fatto dalla persona sbagliata).
+      if(esito==='verificata'){
+        for(const altro of guests.slice(1)){
+          for(const src of (altro&&altro._docImg)||[]){
+            if(String(src).startsWith('data:application/pdf')) continue;
+            try{ const dA=await descriptorDa(src);
+              if(dA && faceapi.euclideanDistance(dA,dSelfie)<dist){ esito='non_corrispondente'; break; }
+            }catch(e){/* documento illeggibile: si ignora */}
+          }
+          if(esito!=='verificata')break;
+        }
+      }
+      deVisu.esito=esito;
     }
     aggiornaProgresso(100,t2('verif_done_bar')); await pausa(380);
     nascondiProgresso();
-    // per l'ospite mostriamo sempre "verifica terminata": l'esito (corrisponde / da ricontrollare)
-    // è un dato riservato che compare SOLO nel gestionale dell'host.
-    aggiornaDevisuUI('done');
+    aggiornaDevisuUI(statoDevisu());
   }catch(e){
     deVisu.esito='non_disponibile'; deVisu.ts=Date.now();
     nascondiProgresso();
-    aggiornaDevisuUI('done');
+    aggiornaDevisuUI('nd');
   }
+}
+// esito -> stato UI per l'ospite (senza mai mostrare la foto)
+function statoDevisu(){
+  if(deVisu.esito==='verificata')return 'ok';
+  if(deVisu.esito==='non_corrispondente')return deVisu.tentativi>=2?'manual':'ko';
+  if(deVisu.esito==='volto_non_rilevato')return deVisu.tentativi>=2?'manual':'noface';
+  return 'nd';
 }
 function aggiornaDevisuUI(stato){
   const b=$('#devisuBtn'); if(b) b.style.display=deVisu.selfie?'none':'';
   const box=$('#devisuStato'); if(!box)return;
   // IMPORTANTE: il selfie NON viene mai mostrato all'ospite, per non dare l'impressione che
-  // resti salvato sul suo telefono. Serve solo all'host, che lo vede nel proprio gestionale.
-  if(stato==='noface'){
-    box.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-top:12px">
-        <div style="flex:1;font-size:14px;color:var(--err)">⚠️ ${t('devisu_noface')}</div></div>
-      <button class="btn ghost" style="margin-top:10px" onclick="selfieScatta()">📸 ${t('devisu_retry')}</button>`;
-    return;
-  }
-  if(stato==='done'){
-    box.innerHTML=`<div style="margin-top:14px;text-align:center;padding:20px 14px;background:rgba(45,198,83,.10);border:1px solid var(--ok);border-radius:16px">
-        <div style="font-size:42px;line-height:1">✅</div>
-        <div style="font-weight:800;font-size:20px;margin-top:8px">${t2('verif_done_title')}</div>
-        <div class="muted" style="font-size:13px;margin-top:4px">${t2('verif_done_sub')}</div>
-      </div>`;
-    return;
-  }
-  box.innerHTML='';
+  // resti salvato sul suo telefono. L'esito invece è onesto: se i volti non corrispondono
+  // l'ospite lo vede e può riprovare (max 2 tentativi, poi conferma manuale dell'host).
+  const pannello=(bordo,sfondo,icona,titolo,sotto)=>`
+    <div style="margin-top:14px;text-align:center;padding:20px 14px;background:${sfondo};border:1px solid ${bordo};border-radius:16px">
+      <div style="font-size:42px;line-height:1">${icona}</div>
+      <div style="font-weight:800;font-size:20px;margin-top:8px">${titolo}</div>
+      ${sotto?`<div class="muted" style="font-size:13px;margin-top:4px">${sotto}</div>`:''}
+    </div>`;
+  if(stato==='ok') box.innerHTML=pannello('var(--ok)','rgba(45,198,83,.10)','✅',t('devisu_ok'),t2('verif_done_sub'));
+  else if(stato==='ko') box.innerHTML=pannello('var(--err)','rgba(239,71,111,.10)','⚠️',t('devisu_ko'),'')
+    +`<button class="btn ghost" style="margin-top:10px" onclick="selfieScatta()">📸 ${t('devisu_retry')}</button>`;
+  else if(stato==='noface') box.innerHTML=pannello('var(--err)','rgba(239,71,111,.10)','⚠️',t('devisu_noface'),'')
+    +`<button class="btn ghost" style="margin-top:10px" onclick="selfieScatta()">📸 ${t('devisu_retry')}</button>`;
+  else if(stato==='manual') box.innerHTML=pannello('var(--ok)','rgba(45,198,83,.08)','🤝',t('devisu_manual'),t2('verif_done_sub'));
+  else if(stato==='nd') box.innerHTML=pannello('var(--line)','var(--surface2)','ℹ️',t2('verif_done_title'),t('devisu_nd'));
+  else box.innerHTML='';
 }
 function aggiornaNotti(){
   const info=$('#nottiInfo'); if(!info)return;
@@ -1535,10 +1555,7 @@ function renderSelfie(root){
     </div>
     <button class="btn primary big" onclick="avantiSelfie()">${t('btn_next')} →</button>
     <button class="btn ghost" onclick="indietroDaSelfie()">${t('btn_back')}</button>`;
-  if(deVisu.selfie){
-    // se serviva rifare il selfie (nessun volto, meno di 2 tentativi) lo richiediamo, altrimenti "verifica terminata"
-    aggiornaDevisuUI(deVisu.esito==='volto_non_rilevato'&&deVisu.tentativi<2?'noface':'done');
-  }
+  if(deVisu.selfie){ aggiornaDevisuUI(statoDevisu()); }
 }
 function avantiSelfie(){
   if(!deVisu.selfie){ toast(t('devisu_required')); return; }
