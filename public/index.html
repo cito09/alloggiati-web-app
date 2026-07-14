@@ -464,7 +464,10 @@
         • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
         • <b>Pernottamenti</b> = notti occupate dall'appartamento.<br>
         • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre.</div>
-      <textarea id="isCsv" rows="5" placeholder="Incolla qui tutto il contenuto del file reservations.csv…" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical"></textarea>
+      <input type="file" id="isFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="isCaricaFile(event)">
+      <button class="btn ghost" style="margin-top:10px" onclick="document.getElementById('isFile').click()">📎 Carica il file CSV di Airbnb</button>
+      <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">— oppure incolla qui sotto il contenuto —</div>
+      <textarea id="isCsv" rows="4" placeholder="Incolla qui tutto il contenuto del file reservations.csv…" style="width:100%;margin-top:6px;background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical"></textarea>
       <button class="btn primary" style="margin-top:10px" onclick="isCalcolaNew()">Calcola nota</button>
       <div id="isResult" style="margin-top:12px"></div>
       <div id="isStoricoBox" style="margin-top:16px"></div>
@@ -13230,6 +13233,13 @@ function isNotaTesto(res, mesiOn){
 // Regole fisse del Comune di Bologna (FAQ): tutti gli ospiti (D.4) e soggiorno a cavallo nel mese di check-out (D.5).
 function isOpt(){ return { persone:'tutti', split:'checkout', listing:window.__isListing||'' }; }
 function isCalcolaNew(){ window.__isListing=null; isCalcola(); }
+function isCaricaFile(ev){
+  const f=ev&&ev.target&&ev.target.files&&ev.target.files[0]; if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{ const ta=$('#isCsv'); if(ta)ta.value=String(rd.result||''); ev.target.value=''; toast('File caricato: '+f.name); isCalcolaNew(); };
+  rd.onerror=()=>{ toast('Non riesco a leggere il file'); ev.target.value=''; };
+  rd.readAsText(f);
+}
 function isPickListing(i){ window.__isListing=(i<0||!window.__isListings)?'':window.__isListings[i]; isCalcola(); }
 function isCalcola(){
   const ta=$('#isCsv'), out=$('#isResult'); const text=ta?ta.value:'';
