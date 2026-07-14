@@ -853,14 +853,22 @@ function t(key){ return (T[lang]||T.it)[key]; }
 // stringhe del passo "titolare della prenotazione": tenute in un dizionario a parte
 // per non intervenire sui grandi oggetti T (una riga per lingua, delicati da editare).
 const T2={
-  it:{ titolare_title:'Chi è il titolare della prenotazione?', titolare_spoiler:'Sul titolare scelto verrà fatta la verifica d\'identità con selfie e sarà l\'intestatario del contratto. Assicurati di scegliere la persona giusta.', titolare_hint:'Tocca il nome di chi ha effettuato la prenotazione.', titolare_for:'Verifica identità per' },
-  en:{ titolare_title:'Who is the booking holder?', titolare_spoiler:'The selected holder will do the selfie identity check and will be named on the rental contract. Make sure you pick the right person.', titolare_hint:'Tap the name of the person who made the booking.', titolare_for:'Identity check for' },
-  fr:{ titolare_title:'Qui est le titulaire de la réservation ?', titolare_spoiler:'Le titulaire choisi effectuera la vérification d\'identité par selfie et figurera sur le contrat de location. Assurez-vous de choisir la bonne personne.', titolare_hint:'Touchez le nom de la personne qui a réservé.', titolare_for:'Vérification d\'identité pour' },
-  es:{ titolare_title:'¿Quién es el titular de la reserva?', titolare_spoiler:'El titular elegido hará la verificación de identidad con selfie y figurará en el contrato de alquiler. Asegúrate de elegir a la persona correcta.', titolare_hint:'Toca el nombre de quien hizo la reserva.', titolare_for:'Verificación de identidad para' },
-  de:{ titolare_title:'Wer ist der Buchungsinhaber?', titolare_spoiler:'Der ausgewählte Inhaber macht die Selfie-Identitätsprüfung und steht im Mietvertrag. Bitte die richtige Person auswählen.', titolare_hint:'Tippen Sie auf den Namen der Person, die gebucht hat.', titolare_for:'Identitätsprüfung für' },
-  ro:{ titolare_title:'Cine este titularul rezervării?', titolare_spoiler:'Titularul ales va face verificarea de identitate cu selfie și va figura în contractul de închiriere. Asigurați-vă că alegeți persoana corectă.', titolare_hint:'Atingeți numele persoanei care a făcut rezervarea.', titolare_for:'Verificare identitate pentru' },
-  pt:{ titolare_title:'Quem é o titular da reserva?', titolare_spoiler:'O titular escolhido fará a verificação de identidade com selfie e constará no contrato de locação. Certifique-se de escolher a pessoa certa.', titolare_hint:'Toque no nome de quem fez a reserva.', titolare_for:'Verificação de identidade para' },
-  pl:{ titolare_title:'Kto jest osobą rezerwującą?', titolare_spoiler:'Wybrana osoba przejdzie weryfikację tożsamości selfie i zostanie wpisana w umowie najmu. Upewnij się, że wybierasz właściwą osobę.', titolare_hint:'Dotknij imienia osoby, która dokonała rezerwacji.', titolare_for:'Weryfikacja tożsamości dla' },
+  it:{ titolare_title:'Chi è il titolare della prenotazione?', titolare_spoiler:'Sul titolare scelto verrà fatta la verifica d\'identità con selfie e sarà l\'intestatario del contratto. Assicurati di scegliere la persona giusta.', titolare_hint:'Tocca il nome di chi ha effettuato la prenotazione.', titolare_for:'Verifica identità per',
+    verif_title:'Verifica dell\'identità', verif_prep:'Preparo la verifica…', verif_selfie:'Analizzo il selfie…', verif_doc:'Leggo il volto sul documento…', verif_compare:'Confronto i volti…', verif_done_bar:'Completata', verif_done_title:'Verifica terminata', verif_done_sub:'Grazie, puoi continuare.' },
+  en:{ titolare_title:'Who is the booking holder?', titolare_spoiler:'The selected holder will do the selfie identity check and will be named on the rental contract. Make sure you pick the right person.', titolare_hint:'Tap the name of the person who made the booking.', titolare_for:'Identity check for',
+    verif_title:'Identity check', verif_prep:'Preparing the check…', verif_selfie:'Analysing the selfie…', verif_doc:'Reading the face on the document…', verif_compare:'Comparing the faces…', verif_done_bar:'Done', verif_done_title:'Check complete', verif_done_sub:'Thank you, you can continue.' },
+  fr:{ titolare_title:'Qui est le titulaire de la réservation ?', titolare_spoiler:'Le titulaire choisi effectuera la vérification d\'identité par selfie et figurera sur le contrat de location. Assurez-vous de choisir la bonne personne.', titolare_hint:'Touchez le nom de la personne qui a réservé.', titolare_for:'Vérification d\'identité pour',
+    verif_title:'Vérification d\'identité', verif_prep:'Préparation de la vérification…', verif_selfie:'Analyse du selfie…', verif_doc:'Lecture du visage sur le document…', verif_compare:'Comparaison des visages…', verif_done_bar:'Terminé', verif_done_title:'Vérification terminée', verif_done_sub:'Merci, vous pouvez continuer.' },
+  es:{ titolare_title:'¿Quién es el titular de la reserva?', titolare_spoiler:'El titular elegido hará la verificación de identidad con selfie y figurará en el contrato de alquiler. Asegúrate de elegir a la persona correcta.', titolare_hint:'Toca el nombre de quien hizo la reserva.', titolare_for:'Verificación de identidad para',
+    verif_title:'Verificación de identidad', verif_prep:'Preparando la verificación…', verif_selfie:'Analizando el selfie…', verif_doc:'Leyendo el rostro del documento…', verif_compare:'Comparando los rostros…', verif_done_bar:'Completada', verif_done_title:'Verificación terminada', verif_done_sub:'Gracias, puedes continuar.' },
+  de:{ titolare_title:'Wer ist der Buchungsinhaber?', titolare_spoiler:'Der ausgewählte Inhaber macht die Selfie-Identitätsprüfung und steht im Mietvertrag. Bitte die richtige Person auswählen.', titolare_hint:'Tippen Sie auf den Namen der Person, die gebucht hat.', titolare_for:'Identitätsprüfung für',
+    verif_title:'Identitätsprüfung', verif_prep:'Prüfung wird vorbereitet…', verif_selfie:'Selfie wird analysiert…', verif_doc:'Gesicht auf dem Dokument wird gelesen…', verif_compare:'Gesichter werden verglichen…', verif_done_bar:'Fertig', verif_done_title:'Prüfung abgeschlossen', verif_done_sub:'Danke, Sie können fortfahren.' },
+  ro:{ titolare_title:'Cine este titularul rezervării?', titolare_spoiler:'Titularul ales va face verificarea de identitate cu selfie și va figura în contractul de închiriere. Asigurați-vă că alegeți persoana corectă.', titolare_hint:'Atingeți numele persoanei care a făcut rezervarea.', titolare_for:'Verificare identitate pentru',
+    verif_title:'Verificarea identității', verif_prep:'Se pregătește verificarea…', verif_selfie:'Se analizează selfie-ul…', verif_doc:'Se citește chipul de pe document…', verif_compare:'Se compară chipurile…', verif_done_bar:'Gata', verif_done_title:'Verificare finalizată', verif_done_sub:'Mulțumim, puteți continua.' },
+  pt:{ titolare_title:'Quem é o titular da reserva?', titolare_spoiler:'O titular escolhido fará a verificação de identidade com selfie e constará no contrato de locação. Certifique-se de escolher a pessoa certa.', titolare_hint:'Toque no nome de quem fez a reserva.', titolare_for:'Verificação de identidade para',
+    verif_title:'Verificação de identidade', verif_prep:'A preparar a verificação…', verif_selfie:'A analisar a selfie…', verif_doc:'A ler o rosto no documento…', verif_compare:'A comparar os rostos…', verif_done_bar:'Concluída', verif_done_title:'Verificação terminada', verif_done_sub:'Obrigado, pode continuar.' },
+  pl:{ titolare_title:'Kto jest osobą rezerwującą?', titolare_spoiler:'Wybrana osoba przejdzie weryfikację tożsamości selfie i zostanie wpisana w umowie najmu. Upewnij się, że wybierasz właściwą osobę.', titolare_hint:'Dotknij imienia osoby, która dokonała rezerwacji.', titolare_for:'Weryfikacja tożsamości dla',
+    verif_title:'Weryfikacja tożsamości', verif_prep:'Przygotowuję weryfikację…', verif_selfie:'Analizuję selfie…', verif_doc:'Odczytuję twarz z dokumentu…', verif_compare:'Porównuję twarze…', verif_done_bar:'Gotowe', verif_done_title:'Weryfikacja zakończona', verif_done_sub:'Dziękujemy, możesz kontynuować.' },
 };
 function t2(key){ return (T2[lang]||T2.it)[key]; }
 // bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
@@ -1111,40 +1119,65 @@ async function onSelfieFiles(files){
   }catch(e){ toast(t('cam_error')); return; }
   verificaSelfie();
 }
+// overlay di avanzamento della verifica (riusa lo stesso overlay della lettura documenti)
+function mostraVerifProgress(){ const o=$('#progressOverlay'); if(!o)return; $('#progTitle').textContent=t2('verif_title'); aggiornaProgresso(0,''); o.classList.add('show'); }
 async function verificaSelfie(){
   deVisu.tentativi++;
-  aggiornaDevisuUI('checking');
+  const pausa=ms=>new Promise(r=>setTimeout(r,ms));
+  mostraVerifProgress();
   try{
+    aggiornaProgresso(12,t2('verif_prep'));
     await caricaFaceApi();
+    aggiornaProgresso(40,t2('verif_selfie')); await pausa(320);
     const dSelfie=await descriptorDa(deVisu.selfie);
     deVisu.ts=Date.now();
-    if(!dSelfie){ deVisu.esito='volto_non_rilevato'; aggiornaDevisuUI(deVisu.tentativi>=2?'manual':'noface'); return; }
+    if(!dSelfie){
+      // nessun volto nel selfie: chiediamo di rifarlo (max 2 volte), poi si prosegue comunque
+      aggiornaProgresso(100,''); await pausa(200); nascondiProgresso();
+      deVisu.esito='volto_non_rilevato';
+      aggiornaDevisuUI(deVisu.tentativi>=2?'done':'noface');
+      return;
+    }
+    aggiornaProgresso(66,t2('verif_doc')); await pausa(360);
     const dDoc=await descriptorDocumento();
-    if(!dDoc){ deVisu.esito='documento_non_confrontabile'; aggiornaDevisuUI('nd'); return; }
-    const dist=faceapi.euclideanDistance(dDoc,dSelfie);
-    deVisu.distanza=Math.round(dist*100)/100;
-    if(dist<=0.6){ deVisu.esito='verificata'; aggiornaDevisuUI('ok'); }
-    else { deVisu.esito='non_corrispondente'; aggiornaDevisuUI(deVisu.tentativi>=2?'manual':'ko'); }
+    aggiornaProgresso(88,t2('verif_compare')); await pausa(320);
+    if(!dDoc){ deVisu.esito='documento_non_confrontabile'; }
+    else {
+      const dist=faceapi.euclideanDistance(dDoc,dSelfie);
+      deVisu.distanza=Math.round(dist*100)/100;
+      deVisu.esito = dist<=0.6 ? 'verificata' : 'non_corrispondente';
+    }
+    aggiornaProgresso(100,t2('verif_done_bar')); await pausa(380);
+    nascondiProgresso();
+    // per l'ospite mostriamo sempre "verifica terminata": l'esito (corrisponde / da ricontrollare)
+    // è un dato riservato che compare SOLO nel gestionale dell'host.
+    aggiornaDevisuUI('done');
   }catch(e){
     deVisu.esito='non_disponibile'; deVisu.ts=Date.now();
-    aggiornaDevisuUI('nd');
+    nascondiProgresso();
+    aggiornaDevisuUI('done');
   }
 }
 function aggiornaDevisuUI(stato){
   const b=$('#devisuBtn'); if(b) b.style.display=deVisu.selfie?'none':'';
   const box=$('#devisuStato'); if(!box)return;
-  const thumbSelfie=deVisu.selfie?`<img src="${deVisu.selfie}" style="width:64px;height:64px;object-fit:cover;border-radius:12px;border:2px solid var(--line)">`:'';
-  const riga=(colore,icona,msg,retry)=>`
-    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">${thumbSelfie}
-      <div style="flex:1;font-size:14px;color:${colore}">${icona} ${msg}</div></div>
-    ${retry?`<button class="btn ghost" style="margin-top:10px" onclick="selfieScatta()">📸 ${t('devisu_retry')}</button>`:''}`;
-  if(stato==='checking') box.innerHTML=`<div class="muted" style="margin-top:10px"><span class="spin"></span> ${t('devisu_checking')}</div>`;
-  else if(stato==='ok') box.innerHTML=riga('var(--ok)','✅',t('devisu_ok'),false);
-  else if(stato==='ko') box.innerHTML=riga('var(--err)','⚠️',t('devisu_ko'),true);
-  else if(stato==='noface') box.innerHTML=riga('var(--err)','⚠️',t('devisu_noface'),true);
-  else if(stato==='manual') box.innerHTML=riga('var(--ok)','🤝',t('devisu_manual'),false);
-  else if(stato==='nd') box.innerHTML=riga('var(--muted)','ℹ️',t('devisu_nd'),false);
-  else box.innerHTML='';
+  // IMPORTANTE: il selfie NON viene mai mostrato all'ospite, per non dare l'impressione che
+  // resti salvato sul suo telefono. Serve solo all'host, che lo vede nel proprio gestionale.
+  if(stato==='noface'){
+    box.innerHTML=`<div style="display:flex;align-items:center;gap:12px;margin-top:12px">
+        <div style="flex:1;font-size:14px;color:var(--err)">⚠️ ${t('devisu_noface')}</div></div>
+      <button class="btn ghost" style="margin-top:10px" onclick="selfieScatta()">📸 ${t('devisu_retry')}</button>`;
+    return;
+  }
+  if(stato==='done'){
+    box.innerHTML=`<div style="margin-top:14px;text-align:center;padding:20px 14px;background:rgba(45,198,83,.10);border:1px solid var(--ok);border-radius:16px">
+        <div style="font-size:42px;line-height:1">✅</div>
+        <div style="font-weight:800;font-size:20px;margin-top:8px">${t2('verif_done_title')}</div>
+        <div class="muted" style="font-size:13px;margin-top:4px">${t2('verif_done_sub')}</div>
+      </div>`;
+    return;
+  }
+  box.innerHTML='';
 }
 function aggiornaNotti(){
   const info=$('#nottiInfo'); if(!info)return;
@@ -1494,9 +1527,8 @@ function renderSelfie(root){
     <button class="btn primary big" onclick="avantiSelfie()">${t('btn_next')} →</button>
     <button class="btn ghost" onclick="indietroDaSelfie()">${t('btn_back')}</button>`;
   if(deVisu.selfie){
-    const mappa={verificata:'ok', non_corrispondente:(deVisu.tentativi>=2?'manual':'ko'),
-      volto_non_rilevato:(deVisu.tentativi>=2?'manual':'noface'), documento_non_confrontabile:'nd', non_disponibile:'nd'};
-    aggiornaDevisuUI(mappa[deVisu.esito]||'nd');
+    // se serviva rifare il selfie (nessun volto, meno di 2 tentativi) lo richiediamo, altrimenti "verifica terminata"
+    aggiornaDevisuUI(deVisu.esito==='volto_non_rilevato'&&deVisu.tentativi<2?'noface':'done');
   }
 }
 function avantiSelfie(){

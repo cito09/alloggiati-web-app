@@ -499,6 +499,10 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<div id="fotoLightbox" onclick="chiudiFoto()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.9);align-items:center;justify-content:center;padding:16px;cursor:zoom-out">
+  <img id="fotoLightboxImg" src="" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.6)">
+</div>
+
 <script src="shared.js"></script>
 <script>
 /* ===== accesso gestionale (codice ADMIN_CODE) ===== */
@@ -11872,6 +11876,10 @@ const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
 function normKey(s){return (s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'').trim();}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+/* anteprima foto a schermo intero: clic su una foto con classe "zoomable" (documenti/selfie nella coda) */
+function apriFoto(url){ const o=$('#fotoLightbox'), im=$('#fotoLightboxImg'); if(!o||!im||!url)return; im.src=url; o.style.display='flex'; document.body.style.overflow='hidden'; }
+function chiudiFoto(){ const o=$('#fotoLightbox'); if(o)o.style.display='none'; const im=$('#fotoLightboxImg'); if(im)im.src=''; document.body.style.overflow=''; }
+document.addEventListener('click',e=>{ const im=e.target&&e.target.closest&&e.target.closest('img.zoomable'); if(im){ e.preventDefault(); apriFoto(im.src); } });
 function padR(v,len){v=(v==null?'':String(v));if(v.length>len)v=v.slice(0,len);return v+' '.repeat(len-v.length);}
 function padNum(v,len){v=(v==null?'':String(v)).replace(/\D/g,'');if(v.length>len)v=v.slice(-len);return '0'.repeat(len-v.length)+v;}
 
@@ -12525,7 +12533,7 @@ function renderCheckinPending(soloLista){
       <div class="storico-meta">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
-      ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img src="${u}">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img src="${v.deVisu.selfieUrl}" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
+      ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img src="${u}" class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img src="${v.deVisu.selfieUrl}" class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
       ${v.contrattoUrl?`<div style="margin-top:8px"><a class="btn ghost sm btn-link" href="${v.contrattoUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn ${v.presa?'ghost':'primary'} sm" style="flex:1" onclick="accettaCheckin('${v.id}')">${v.presa?'↺ Riaggiungi alla prenotazione':'✓ Aggiungi alla prenotazione'}</button>
