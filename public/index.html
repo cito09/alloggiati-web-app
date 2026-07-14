@@ -460,26 +460,13 @@
     <div class="card" id="isCard">
       <h2><span class="n">🏛️</span> GEIS · nota Airbnb</h2>
       <div class="muted" style="font-size:12px;margin-top:2px">Incolla il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS.</div>
-      <div class="muted" style="font-size:11px;margin-top:4px">Segue le regole del Comune di Bologna (FAQ): si dichiara il <b>numero di ospiti</b> e di <b>pernottamenti</b> per mese (sez. D.4) e un soggiorno a cavallo di due mesi va contato tutto nel <b>mese di check-out</b> (sez. D.5). Per la locazione breve Airbnb versa già l'imposta, quindi si contano tutti gli ospiti.</div>
+      <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
+        • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
+        • <b>Pernottamenti</b> = notti occupate dall'appartamento.<br>
+        • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre.</div>
       <textarea id="isCsv" rows="5" placeholder="Incolla qui tutto il contenuto del file reservations.csv…" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical"></textarea>
       <button class="btn primary" style="margin-top:10px" onclick="isCalcolaNew()">Calcola nota</button>
       <div id="isResult" style="margin-top:12px"></div>
-      <details style="margin-top:12px">
-        <summary class="muted" style="cursor:pointer;font-size:13px">⚙️ Opzioni di calcolo</summary>
-        <label style="margin-top:8px">Chi conta come «soggetto»</label>
-        <select id="isPersone">
-          <option value="tutti">Tutti gli ospiti (adulti + bambini + neonati)</option>
-          <option value="no-neonati">Adulti + bambini (neonati esclusi)</option>
-          <option value="adulti">Solo adulti (i minori di 14 anni sono esenti)</option>
-        </select>
-        <label>Prenotazioni a cavallo di due mesi</label>
-        <select id="isSplit">
-          <option value="checkout">Intero soggiorno nel mese di check-out — regola del Comune (consigliato)</option>
-          <option value="arrivo">Dividi le notti per mese · ospiti nel mese di arrivo</option>
-          <option value="ogni-mese">Dividi le notti per mese · ospiti in ogni mese in cui dormono</option>
-        </select>
-        <div class="muted" style="font-size:11.5px;margin-top:6px">Il Comune (FAQ D.5) chiede di registrare l'intero soggiorno nel mese in cui l'ospite parte/paga: es. 28/09→02/10 = tutte le notti a ottobre. Le altre due opzioni dividono invece le notti mese per mese, se preferisci.</div>
-      </details>
       <div id="isStoricoBox" style="margin-top:16px"></div>
     </div>
     <div class="card" id="statsCard">
@@ -13165,9 +13152,11 @@ function esportaStoricoCsv(){
    FAQ Comune di Bologna D.4: "riportare nel campo note il numero di ospiti e di pernottamenti
    relativi ad ogni mese" -> si dichiarano TUTTI gli ospiti (non i soli paganti: i minori di 14
    anni sono esenti - FAQ A.3 - ma qui si conta il totale, perché per Airbnb versa la piattaforma).
-   soggetti = numero di ospiti · pernottamenti = notti occupate dall'appartamento (non notti·persona).
-   Prenotazioni a cavallo di due mesi: default = intero soggiorno nel mese di check-out, come chiede
-   il Comune (FAQ D.5). Opzioni alternative: dividere le notti per mese (arrivo / ogni-mese). */
+   soggetti = numero di ospiti, TUTTI (adulti+bambini+neonati, FAQ D.4) · pernottamenti = notti
+   occupate dall'appartamento (non notti·persona). Prenotazioni a cavallo di due mesi: intero
+   soggiorno nel mese di check-out, come chiede il Comune (FAQ D.5). Queste regole sono fisse
+   nell'interfaccia (nessuna opzione); isCompute mantiene comunque le modalità 'arrivo'/'ogni-mese'
+   per eventuale riuso futuro. */
 const IS_MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 let isUltimo=null;          // ultimo calcolo: {res, mesiOn:Set, listing}
 window.__isListing=null;    // annuncio scelto quando il CSV ne contiene più d'uno (null = non ancora scelto, '' = tutti)
@@ -13238,17 +13227,14 @@ function isNotaTesto(res, mesiOn){
   return 'AIRBNB: '+keys.map(k=>{const[y,m]=k.split('-');const nome=IS_MESI[+m-1]+(anni.size>1?' '+y:'');
     return nome+' '+(res.sogg[k]||0)+' soggetti/'+(res.nights[k]||0)+' pernottamenti';}).join(' - ');
 }
-function isOpt(){ return {
-  persone:(($('#isPersone')||{}).value)||'tutti',
-  split:(($('#isSplit')||{}).value)||'checkout',
-  listing:window.__isListing||'' }; }
+// Regole fisse del Comune di Bologna (FAQ): tutti gli ospiti (D.4) e soggiorno a cavallo nel mese di check-out (D.5).
+function isOpt(){ return { persone:'tutti', split:'checkout', listing:window.__isListing||'' }; }
 function isCalcolaNew(){ window.__isListing=null; isCalcola(); }
 function isPickListing(i){ window.__isListing=(i<0||!window.__isListings)?'':window.__isListings[i]; isCalcola(); }
 function isCalcola(){
   const ta=$('#isCsv'), out=$('#isResult'); const text=ta?ta.value:'';
   if(!text.trim()){ out.innerHTML='<div class="muted">Incolla prima il CSV esportato da Airbnb.</div>'; return; }
   const opt=isOpt();
-  try{ localStorage.setItem('isPersone',opt.persone); localStorage.setItem('isSplit',opt.split); }catch(e){}
   let rows, res;
   try{ rows=isParseCSV(text); res=isCompute(rows,opt); }
   catch(e){ out.innerHTML='<div style="color:var(--err);font-size:13px">'+escText(e.message)+'</div>'; return; }
@@ -13304,11 +13290,6 @@ function isRenderStorico(){
             <button class="btn ghost sm" style="width:auto;padding:5px 10px" onclick="isEliminaStorico(${x.ts})">🗑</button>
           </span></div></div>`).join('');
 }
-function isRestoreOpzioni(){
-  const p=localStorage.getItem('isPersone'); if(p&&$('#isPersone'))$('#isPersone').value=p;
-  const s=localStorage.getItem('isSplit'); if(s&&$('#isSplit'))$('#isSplit').value=s;
-}
-
 /* ===== pannello impostazioni ===== */
 function toggleSettings(){
   $('#settingsOverlay').classList.add('open');
@@ -13471,7 +13452,6 @@ function apriCard(id){
   wireChangeCodeForm();
   renderStorico();
   syncStoricoFromServer();
-  isRestoreOpzioni();
   isRenderStorico();
   loadCheckinLink();
   loadCheckinPending();
