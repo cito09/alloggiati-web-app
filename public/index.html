@@ -473,6 +473,7 @@
     <div class="card" id="isCard">
       <h2><span class="n">🏛️</span> Imposta di soggiorno · nota Airbnb</h2>
       <div class="muted" style="font-size:12px;margin-top:2px">Incolla il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS. Le prenotazioni a cavallo di due mesi vengono divise notte per notte.</div>
+      <div class="muted" style="font-size:11px;margin-top:4px">La nota dichiara il <b>numero di ospiti</b> e di <b>pernottamenti</b> per mese (FAQ Comune, sez. D.4): per la locazione breve Airbnb versa già l'imposta, quindi si contano tutti gli ospiti, non solo i paganti.</div>
       <textarea id="isCsv" rows="5" placeholder="Incolla qui tutto il contenuto del file reservations.csv…" style="width:100%;margin-top:10px;background:var(--surface2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:12px;font-family:ui-monospace,Menlo,Consolas,monospace;resize:vertical"></textarea>
       <details style="margin-top:8px">
         <summary class="muted" style="cursor:pointer;font-size:13px">⚙️ Opzioni di calcolo</summary>
@@ -482,12 +483,13 @@
           <option value="no-neonati">Adulti + bambini (neonati esclusi)</option>
           <option value="adulti">Solo adulti</option>
         </select>
-        <label>Ospiti di una prenotazione a cavallo di due mesi</label>
+        <label>Prenotazioni a cavallo di due mesi</label>
         <select id="isSplit">
-          <option value="arrivo">Contali solo nel mese di arrivo (consigliato)</option>
-          <option value="ogni-mese">Contali in ogni mese in cui dormono</option>
+          <option value="arrivo">Notti divise per mese · ospiti nel mese di arrivo (consigliato)</option>
+          <option value="ogni-mese">Notti divise per mese · ospiti in ogni mese in cui dormono</option>
+          <option value="checkout">Intero soggiorno nel mese di check-out (regola fiscale Comune, FAQ D.5)</option>
         </select>
-        <div class="muted" style="font-size:11.5px;margin-top:6px">Le <b>notti</b> (pernottamenti) vengono sempre divise per mese, a prescindere da questa scelta.</div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px">Con le prime due, le <b>notti</b> (pernottamenti) sono sempre divise per mese (es. 31/03→03/04 = 1 notte a marzo, 2 ad aprile). La terza mette tutto — notti e ospiti — nel mese di partenza, come richiede il Comune per il calcolo dell'imposta (per Airbnb, dove versa la piattaforma, di solito basta la prima).</div>
       </details>
       <button class="btn primary" style="margin-top:10px" onclick="isCalcolaNew()">Calcola nota</button>
       <div id="isResult" style="margin-top:12px"></div>
@@ -13160,8 +13162,12 @@ function esportaStoricoCsv(){
    a versare l'imposta: il gestore si limita a DICHIARARE i dati nel campo Note della
    comunicazione GEIS, nel formato ufficiale (email Comune di Bologna 03/10/2024):
    "AIRBNB: gennaio 47 soggetti/25 pernottamenti - febbraio 38 soggetti/22 pernottamenti - ...".
+   FAQ Comune di Bologna D.4: "riportare nel campo note il numero di ospiti e di pernottamenti
+   relativi ad ogni mese" -> si dichiarano TUTTI gli ospiti (non i soli paganti: i minori di 14
+   anni sono esenti - FAQ A.3 - ma qui si conta il totale, perché per Airbnb versa la piattaforma).
    soggetti = numero di ospiti · pernottamenti = notti occupate dall'appartamento (non notti·persona).
-   Le prenotazioni a cavallo di due mesi si dividono notte per notte (una notte al mese in cui cade). */
+   Prenotazioni a cavallo di due mesi: default = notti divise per mese ("relativi ad ogni mese");
+   opzione 'checkout' = intero soggiorno nel mese di partenza (regola fiscale FAQ D.5). */
 const IS_MESI=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 let isUltimo=null;          // ultimo calcolo: {res, mesiOn:Set, listing}
 window.__isListing=null;    // annuncio scelto quando il CSV ne contiene più d'uno (null = non ancora scelto, '' = tutti)
@@ -13207,13 +13213,20 @@ function isCompute(rows, opt){
     const ad=parseInt(row[iAd],10)||0, ba=iBa>=0?(parseInt(row[iBa],10)||0):0, ne=iNe>=0?(parseInt(row[iNe],10)||0):0;
     const persone = opt.persone==='adulti'?ad : opt.persone==='no-neonati'?(ad+ba) : (ad+ba+ne);
     usate++;
-    const touched=new Set();
-    for(let d=new Date(start); d<end; d.setDate(d.getDate()+1)){
-      const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-      nights[k]=(nights[k]||0)+1; touched.add(k);
+    if(opt.split==='checkout'){
+      // regola FAQ D.5 del Comune: l'intero soggiorno (tutte le notti e gli ospiti) va nel mese di check-out
+      let nn=0; for(let d=new Date(start); d<end; d.setDate(d.getDate()+1))nn++;
+      const ck=end.getFullYear()+'-'+String(end.getMonth()+1).padStart(2,'0');
+      nights[ck]=(nights[ck]||0)+nn; sogg[ck]=(sogg[ck]||0)+persone;
+    } else {
+      const touched=new Set();
+      for(let d=new Date(start); d<end; d.setDate(d.getDate()+1)){
+        const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+        nights[k]=(nights[k]||0)+1; touched.add(k);
+      }
+      if(opt.split==='ogni-mese'){ touched.forEach(k=>{sogg[k]=(sogg[k]||0)+persone;}); }
+      else { const ak=start.getFullYear()+'-'+String(start.getMonth()+1).padStart(2,'0'); sogg[ak]=(sogg[ak]||0)+persone; }
     }
-    if(opt.split==='ogni-mese'){ touched.forEach(k=>{sogg[k]=(sogg[k]||0)+persone;}); }
-    else { const ak=start.getFullYear()+'-'+String(start.getMonth()+1).padStart(2,'0'); sogg[ak]=(sogg[ak]||0)+persone; }
   }
   const keys=[...new Set([...Object.keys(nights),...Object.keys(sogg)])].sort();
   return {keys, nights, sogg, listings:Object.keys(listings), scartate, usate};
