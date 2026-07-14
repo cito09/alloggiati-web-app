@@ -850,6 +850,19 @@ const T={
 };
 let lang=localStorage.getItem('keyflow_lang')||null;
 function t(key){ return (T[lang]||T.it)[key]; }
+// stringhe del passo "titolare della prenotazione": tenute in un dizionario a parte
+// per non intervenire sui grandi oggetti T (una riga per lingua, delicati da editare).
+const T2={
+  it:{ titolare_title:'Chi è il titolare della prenotazione?', titolare_spoiler:'Sul titolare scelto verrà fatta la verifica d\'identità con selfie e sarà l\'intestatario del contratto. Assicurati di scegliere la persona giusta.', titolare_hint:'Tocca il nome di chi ha effettuato la prenotazione.', titolare_for:'Verifica identità per' },
+  en:{ titolare_title:'Who is the booking holder?', titolare_spoiler:'The selected holder will do the selfie identity check and will be named on the rental contract. Make sure you pick the right person.', titolare_hint:'Tap the name of the person who made the booking.', titolare_for:'Identity check for' },
+  fr:{ titolare_title:'Qui est le titulaire de la réservation ?', titolare_spoiler:'Le titulaire choisi effectuera la vérification d\'identité par selfie et figurera sur le contrat de location. Assurez-vous de choisir la bonne personne.', titolare_hint:'Touchez le nom de la personne qui a réservé.', titolare_for:'Vérification d\'identité pour' },
+  es:{ titolare_title:'¿Quién es el titular de la reserva?', titolare_spoiler:'El titular elegido hará la verificación de identidad con selfie y figurará en el contrato de alquiler. Asegúrate de elegir a la persona correcta.', titolare_hint:'Toca el nombre de quien hizo la reserva.', titolare_for:'Verificación de identidad para' },
+  de:{ titolare_title:'Wer ist der Buchungsinhaber?', titolare_spoiler:'Der ausgewählte Inhaber macht die Selfie-Identitätsprüfung und steht im Mietvertrag. Bitte die richtige Person auswählen.', titolare_hint:'Tippen Sie auf den Namen der Person, die gebucht hat.', titolare_for:'Identitätsprüfung für' },
+  ro:{ titolare_title:'Cine este titularul rezervării?', titolare_spoiler:'Titularul ales va face verificarea de identitate cu selfie și va figura în contractul de închiriere. Asigurați-vă că alegeți persoana corectă.', titolare_hint:'Atingeți numele persoanei care a făcut rezervarea.', titolare_for:'Verificare identitate pentru' },
+  pt:{ titolare_title:'Quem é o titular da reserva?', titolare_spoiler:'O titular escolhido fará a verificação de identidade com selfie e constará no contrato de locação. Certifique-se de escolher a pessoa certa.', titolare_hint:'Toque no nome de quem fez a reserva.', titolare_for:'Verificação de identidade para' },
+  pl:{ titolare_title:'Kto jest osobą rezerwującą?', titolare_spoiler:'Wybrana osoba przejdzie weryfikację tożsamości selfie i zostanie wpisana w umowie najmu. Upewnij się, że wybierasz właściwą osobę.', titolare_hint:'Dotknij imienia osoby, która dokonała rezerwacji.', titolare_for:'Weryfikacja tożsamości dla' },
+};
+function t2(key){ return (T2[lang]||T2.it)[key]; }
 // bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
 // mostrerebbe le emoji-bandiera come sigle di due lettere (IT, GB, FR, ES).
 const FLAGS={
@@ -1231,7 +1244,7 @@ async function estraiDati(id){
       // documenti) mostrando l'avanzamento; poi uniamo fronte/retro dello stesso ospite.
       const imgs=g.imgs.slice();
       mostraProgresso();
-      const raccolti=[]; const perChiave={};
+      const raccolti=[]; const perChiave={}; const imgAssegnate=new Set();
       const norm=s=>String(s||'').trim().toUpperCase().replace(/\s+/g,' ');
       for(let i=0;i<imgs.length;i++){
         aggiornaProgresso(i/imgs.length*100, `${t('progress_reading_doc')} ${i+1} ${t('progress_of')} ${imgs.length}`);
@@ -1239,8 +1252,9 @@ async function estraiDati(id){
           const j=await apiExtract([imgs[i]],'auto');
           (j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome)).forEach(o=>{
             const key=norm(o.cognome)+'|'+norm(o.nome);
-            if(perChiave[key]) unisciOspite(perChiave[key],o);
-            else { perChiave[key]=o; raccolti.push(o); }
+            if(perChiave[key]){ unisciOspite(perChiave[key],o); if(!perChiave[key]._imgs.includes(imgs[i]))perChiave[key]._imgs.push(imgs[i]); }
+            else { o._imgs=[imgs[i]]; perChiave[key]=o; raccolti.push(o); }
+            imgAssegnate.add(imgs[i]);
           });
         }catch(e){/* un documento illeggibile non blocca gli altri */}
       }
@@ -1248,9 +1262,15 @@ async function estraiDati(id){
       await new Promise(r=>setTimeout(r,350));
       nascondiProgresso();
       if(!raccolti.length){ g._busy=false; toast(t('toast_no_doc')); render(); return; }
+      // ogni ospite riconosciuto tiene la/e propria/e foto documento; così poi la verifica
+      // selfie e il contratto seguono davvero la persona giusta (il titolare della prenotazione).
+      // Le immagini non attribuite a nessuno (illeggibili) restano sul primo ospite, per non perderle.
+      const orfane=imgs.filter(im=>!imgAssegnate.has(im));
       applicaEstratto(g,raccolti[0]);
+      g.imgs=[...(raccolti[0]._imgs||[]), ...orfane];
       guests=guests.filter((x,i)=>i===0||x.cognome||x.nome||(x.imgs||[]).length);
-      for(let k=1;k<raccolti.length;k++){ const ng=nuovoOspite(); applicaEstratto(ng,raccolti[k]); guests.push(ng); }
+      for(let k=1;k<raccolti.length;k++){ const ng=nuovoOspite(); applicaEstratto(ng,raccolti[k]); ng.imgs=(raccolti[k]._imgs||[]).slice(); guests.push(ng); }
+      _descDocCache=null;
       g._busy=false;
       toast(raccolti.length>1 ? raccolti.length+' '+t('toast_multi_read') : t('toast_data_read'));
       gIdx=0; mostraPasso('verifica');
@@ -1277,7 +1297,7 @@ function fw(g,k){ return (g._warn||[]).includes(k) ? 'field-warn' : ''; }
 function natoInItalia(g){ return String(g.statoNascita||'').trim().toUpperCase()==='ITALIA'; }
 function setStatoNascita(id,val){ const g=getG(id); g.statoNascita=val; if(!natoInItalia(g)) g.comuneNascita=''; render(); }
 
-function stepIndex(){ return passo==='date'?0 : passo==='foto'?1 : (passo==='verifica'||passo==='altro')?2 : passo==='selfie'?3 : 4; }
+function stepIndex(){ return passo==='date'?0 : passo==='foto'?1 : (passo==='verifica'||passo==='altro')?2 : (passo==='titolare'||passo==='selfie')?3 : 4; }
 
 function render(){
   const root=$('#stepBody'); if(!root||!lang)return;
@@ -1296,6 +1316,7 @@ function render(){
   else if(passo==='foto') renderFoto(root);
   else if(passo==='verifica') renderVerifica(root);
   else if(passo==='altro') renderAltro(root);
+  else if(passo==='titolare') renderTitolare(root);
   else if(passo==='selfie') renderSelfie(root);
   else renderInvio(root);
 
@@ -1417,10 +1438,47 @@ function renderAltro(root){
       <div style="font-weight:800; font-size:18px">${t('guest_added')}</div>
       <div class="muted" style="margin:8px 0 18px">${t('add_more_q')}</div>
       <button class="btn ghost" onclick="aggiungiAltroOspite()">${t('btn_add_guest')}</button>
-      <button class="btn primary big" style="margin-top:10px" onclick="mostraPasso('selfie')">${t('btn_no_continue')} →</button>
+      <button class="btn primary big" style="margin-top:10px" onclick="avantiAltro()">${t('btn_no_continue')} →</button>
     </div>`;
 }
 function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1; mostraPasso('foto'); }
+// con più ospiti chiedo chi è il titolare; con uno solo si salta e si va al selfie
+function avantiAltro(){ mostraPasso(guests.filter(g=>g.cognome||g.nome).length>1?'titolare':'selfie'); }
+
+/* ---- passo 3c: chi è il titolare della prenotazione? (solo con più ospiti) ----
+   Il titolare scelto viene portato in prima posizione: contratto, capogruppo delle
+   schedine e verifica selfie de visu seguono guests[0], quindi tutto resta coerente. */
+let titolareIdx=0;
+function renderTitolare(root){
+  const validi=guests.filter(g=>g.cognome||g.nome);
+  if(validi.length<2){ mostraPasso('selfie'); return; }
+  if(titolareIdx>=validi.length) titolareIdx=0;
+  root.innerHTML=`
+    <div class="card">
+      <div class="steplbl">👑 ${t2('titolare_title')}</div>
+      <div class="warn-box" style="margin-top:8px">📸 ${t2('titolare_spoiler')}</div>
+      <div class="hint" style="margin-top:8px">${t2('titolare_hint')}</div>
+      <div style="margin-top:12px">
+        ${validi.map((g,i)=>`
+          <label onclick="titolareIdx=${i};render()" style="display:flex;align-items:center;gap:11px;padding:13px 14px;margin-bottom:8px;border:2px solid ${i===titolareIdx?'var(--amber)':'var(--line)'};border-radius:14px;background:${i===titolareIdx?'rgba(245,180,40,.09)':'var(--surface2)'};cursor:pointer">
+            <input type="radio" name="titolare" ${i===titolareIdx?'checked':''} style="width:auto;accent-color:var(--amber)">
+            <span style="font-size:15px">👤 <b>${g.cognome||''} ${g.nome||''}</b></span>
+          </label>`).join('')}
+      </div>
+    </div>
+    <button class="btn primary big" onclick="confermaTitolare()">${t('btn_next')} →</button>
+    <button class="btn ghost" style="margin-top:10px" onclick="mostraPasso('altro')">${t('btn_back')}</button>`;
+}
+function confermaTitolare(){
+  const validi=guests.filter(g=>g.cognome||g.nome);
+  const titolare=validi[titolareIdx]; if(!titolare){ mostraPasso('selfie'); return; }
+  const cambiato = validi[0]!==titolare;
+  // porta il titolare in testa all'elenco ospiti
+  guests=guests.filter(g=>g!==titolare); guests.unshift(titolare); gIdx=0;
+  // se il titolare è cambiato, il volto di riferimento e l'eventuale selfie già fatto non valgono più
+  if(cambiato){ _descDocCache=null; deVisu={selfie:null, esito:'', distanza:null, tentativi:0, ts:0}; }
+  mostraPasso('selfie');
+}
 
 /* ---- passo 4: verifica identità (selfie de visu) ---- */
 function renderSelfie(root){
@@ -1428,12 +1486,13 @@ function renderSelfie(root){
     <div class="card">
       <div class="steplbl">🪪 ${t('devisu_title')}</div>
       <div class="muted" style="line-height:1.55;font-size:13px">${t('devisu_hint')}</div>
+      ${guests.filter(g=>g.cognome||g.nome).length>1&&guests[0]?`<div style="margin-top:8px;font-size:14px">👑 ${t2('titolare_for')}: <b>${guests[0].cognome||''} ${guests[0].nome||''}</b></div>`:''}
       <input id="selfieInput" type="file" accept="image/*" capture="user" style="display:none" onchange="onSelfieFiles(this.files);this.value=''">
       <button class="btn primary big" id="devisuBtn" style="margin-top:14px;${deVisu.selfie?'display:none':''}" onclick="selfieScatta()">📸 ${t('devisu_btn')}</button>
       <div id="devisuStato"></div>
     </div>
     <button class="btn primary big" onclick="avantiSelfie()">${t('btn_next')} →</button>
-    <button class="btn ghost" onclick="mostraPasso('altro')">${t('btn_back')}</button>`;
+    <button class="btn ghost" onclick="indietroDaSelfie()">${t('btn_back')}</button>`;
   if(deVisu.selfie){
     const mappa={verificata:'ok', non_corrispondente:(deVisu.tentativi>=2?'manual':'ko'),
       volto_non_rilevato:(deVisu.tentativi>=2?'manual':'noface'), documento_non_confrontabile:'nd', non_disponibile:'nd'};
@@ -1444,6 +1503,7 @@ function avantiSelfie(){
   if(!deVisu.selfie){ toast(t('devisu_required')); return; }
   mostraPasso('invio');
 }
+function indietroDaSelfie(){ mostraPasso(guests.filter(g=>g.cognome||g.nome).length>1?'titolare':'altro'); }
 
 /* ---- passo 4: riepilogo e invio ---- */
 /* ===== contratto di locazione turistica (solo se la struttura è configurata) ===== */
