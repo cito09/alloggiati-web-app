@@ -7,7 +7,7 @@
 //        foto (Vercel Blob) i contratti firmati e le foto documenti non più presenti in coda.
 //        Il nome file del contratto contiene arrivo e nome dell'ospite; le foto vengono
 //        riagganciate per vicinanza temporale (stesso invio di check-in).
-const { list } = require("@vercel/blob");
+const { list, rename } = require("@vercel/blob");
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
 const { leggiBlob, isBlobUrl } = require("./_blob");
@@ -172,6 +172,47 @@ module.exports = async (req, res) => {
         coda = coda.map((v) => (v.id === id ? { ...v, presa: true } : v));
         await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
         return res.status(200).json({ configurato: true, coda });
+      }
+
+      if (azione === "privatizza") {
+        // rende PRIVATI i file già caricati come pubblici (foto/selfie/contratti dei check-in passati).
+        // rename() = copia privata + cancella l'originale SOLO se la copia riesce (nessun file perso).
+        // A lotti per non superare il timeout: il gestionale richiama finché "restano" > 0.
+        if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(400).json({ error: "Archivio foto (Blob) non configurato" });
+        const LOTTO = 20;
+        const pubblici = [];
+        let cursor;
+        do {
+          const r = await list({ limit: 1000, cursor });
+          for (const b of r.blobs) if (/\.public\.blob\.vercel-storage\.com\//i.test(b.url)) pubblici.push(b);
+          cursor = r.hasMore ? r.cursor : null;
+        } while (cursor);
+
+        const lotto = pubblici.slice(0, LOTTO);
+        const mappa = {};
+        for (const b of lotto) {
+          try {
+            const nuovo = await rename(b.url, b.pathname, { access: "private", addRandomSuffix: true });
+            mappa[b.url] = nuovo.url;
+          } catch (e) { /* questo file resta pubblico: verrà ritentato al giro successivo */ }
+        }
+        const migrati = Object.keys(mappa).length;
+        if (migrati) {
+          const sostituisci = (v) => {
+            if (typeof v === "string") return mappa[v] || v;
+            if (Array.isArray(v)) return v.map(sostituisci);
+            if (v && typeof v === "object") { const o = {}; for (const k in v) o[k] = sostituisci(v[k]); return o; }
+            return v;
+          };
+          // aggiorna i riferimenti agli URL nei tre archivi server: coda, scartati, storico
+          for (const K of [KEY, KEY_SCARTATI, "storico_schedine"]) {
+            try {
+              const raw = await redisCmd(conn, ["GET", K]);
+              if (raw) { const upd = sostituisci(JSON.parse(raw)); await redisCmd(conn, ["SET", K, JSON.stringify(upd)]); }
+            } catch (e) { /* un archivio non aggiornato non blocca gli altri */ }
+          }
+        }
+        return res.status(200).json({ configurato: true, migrati, restano: pubblici.length - migrati, mappa });
       }
 
       if (azione === "ripristina") {
