@@ -11876,10 +11876,38 @@ const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
 function normKey(s){return (s||'').toString().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9]/g,'').trim();}
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+/* ===== foto/contratti privati su Vercel Blob =====
+   I file del self check-in ora sono PRIVATI: non si aprono da link diretto. Il gestionale li
+   carica passando dal proxy autenticato /api/checkin-pending?img=... (che verifica il codice
+   d'accesso). I file vecchi, pubblici (host *.public.blob…), restano caricati direttamente. */
+const isBlobPrivato=u=>/blob\.vercel-storage\.com\//i.test(String(u||''))&&!/\.public\.blob\.vercel-storage\.com\//i.test(String(u||''));
+// attributo per un <img>: 'data-blob' se privato (verrà risolto via proxy), altrimenti 'src' diretto
+function fotoSrc(u){ return isBlobPrivato(u) ? `data-blob="${u}"` : `src="${u}"`; }
+function fotoHref(u){ return isBlobPrivato(u) ? `data-blob="${u}"` : `href="${u}"`; }
+async function caricaBlobProtetti(scope){
+  const nodi=(scope||document).querySelectorAll('[data-blob]:not([data-blobload])');
+  for(const el of nodi){
+    el.setAttribute('data-blobload','1');
+    const url=el.getAttribute('data-blob');
+    try{
+      const r=await fetch('/api/checkin-pending?img='+encodeURIComponent(url),{headers:adminHeaders()});
+      if(!r.ok)throw new Error('http '+r.status);
+      const obj=URL.createObjectURL(await r.blob());
+      if(el.tagName==='IMG') el.src=obj; else el.href=obj;
+    }catch(e){ el.removeAttribute('data-blobload'); /* riproverà al prossimo giro */ }
+  }
+}
+let _blobT;
+function osservaBlobProtetti(){
+  try{ new MutationObserver(()=>{ clearTimeout(_blobT); _blobT=setTimeout(()=>caricaBlobProtetti(document),60); })
+    .observe(document.body,{childList:true,subtree:true}); }catch(e){}
+  caricaBlobProtetti(document);
+}
 /* anteprima foto a schermo intero: clic su una foto con classe "zoomable" (documenti/selfie nella coda) */
 function apriFoto(url){ const o=$('#fotoLightbox'), im=$('#fotoLightboxImg'); if(!o||!im||!url)return; im.src=url; o.style.display='flex'; document.body.style.overflow='hidden'; }
 function chiudiFoto(){ const o=$('#fotoLightbox'); if(o)o.style.display='none'; const im=$('#fotoLightboxImg'); if(im)im.src=''; document.body.style.overflow=''; }
-document.addEventListener('click',e=>{ const im=e.target&&e.target.closest&&e.target.closest('img.zoomable'); if(im){ e.preventDefault(); apriFoto(im.src); } });
+function apriContrattoBlob(el){ const u=el.href; if(u&&u.startsWith('blob:'))window.open(u,'_blank'); return false; }
+document.addEventListener('click',e=>{ const im=e.target&&e.target.closest&&e.target.closest('img.zoomable'); if(im&&im.src){ e.preventDefault(); apriFoto(im.src); } });
 function padR(v,len){v=(v==null?'':String(v));if(v.length>len)v=v.slice(0,len);return v+' '.repeat(len-v.length);}
 function padNum(v,len){v=(v==null?'':String(v)).replace(/\D/g,'');if(v.length>len)v=v.slice(-len);return '0'.repeat(len-v.length)+v;}
 
@@ -12029,7 +12057,7 @@ function renderStorico(){
     const contratti=(e.contratti||[]);
     const allegati=`
       ${foto.length?`<div class="storico-sub">📎 Documenti inviati (${foto.length})</div>
-        <div class="thumbs" style="margin-top:6px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<a href="${u}" target="_blank" rel="noopener"><img src="${u}"></a>`}</div>`).join('')}</div>`:''}
+        <div class="thumbs" style="margin-top:6px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}</div>`:''}
       ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" href="${u}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
     `;
     return `<div class="storico-item">
@@ -12192,7 +12220,7 @@ function render(){
 function thumb(src,onRm){
   const d=document.createElement('div');d.className='thumb';
   const isPdf=String(src).startsWith('data:application/pdf')||/\.pdf(\?|$)/i.test(String(src));
-  d.innerHTML=`${isPdf?'<div class="thumb-pdf">📄<span>PDF</span></div>':`<img src="${src}">`}<button class="rm">×</button>`;
+  d.innerHTML=`${isPdf?'<div class="thumb-pdf">📄<span>PDF</span></div>':`<img ${fotoSrc(src)}>`}<button class="rm">×</button>`;
   d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
 function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*';i.multiple=true;i.style.display='none';i.onchange=e=>{cb(e.target.files);i.value='';};l.appendChild(i);return l;}
 // drag&drop su un contenitore di miniature (prenotazione o ospite); 'onFiles' riceve la FileList
@@ -12533,8 +12561,8 @@ function renderCheckinPending(soloLista){
       <div class="storico-meta">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
-      ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a href="${u}" target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img src="${u}" class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img src="${v.deVisu.selfieUrl}" class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
-      ${v.contrattoUrl?`<div style="margin-top:8px"><a class="btn ghost sm btn-link" href="${v.contrattoUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
+      ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img ${fotoSrc(v.deVisu.selfieUrl)} class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
+      ${v.contrattoUrl?`<div style="margin-top:8px"><a class="btn ghost sm btn-link" ${fotoHref(v.contrattoUrl)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn ${v.presa?'ghost':'primary'} sm" style="flex:1" onclick="accettaCheckin('${v.id}')">${v.presa?'↺ Riaggiungi alla prenotazione':'✓ Aggiungi alla prenotazione'}</button>
         <button class="btn ghost sm" onclick="scartaCheckin('${v.id}')">Scarta</button>
@@ -13482,6 +13510,7 @@ function apriCard(id){
   syncStoricoFromServer();
   isRenderStorico();
   isWireDrop();
+  osservaBlobProtetti();
   loadCheckinLink();
   loadCheckinPending();
   addBooking();

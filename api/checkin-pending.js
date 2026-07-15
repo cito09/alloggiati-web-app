@@ -10,6 +10,7 @@
 const { list } = require("@vercel/blob");
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
+const { leggiBlob, isBlobUrl } = require("./_blob");
 
 const KEY = "checkin_pending";
 // URL (foto/contratti/selfie) delle voci ELIMINATE dalla coda: il recupero non deve
@@ -110,6 +111,24 @@ async function ripristinaDaBlob(coda, scartati) {
 
 module.exports = async (req, res) => {
   if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
+
+  // Proxy foto/contratti: i file del check-in sono privati (non apribili da link diretto).
+  // Il gestionale li richiede qui — solo dopo checkAdmin — e noi li rileggiamo col token e li
+  // restituiamo. Così documenti e selfie non sono più pubblici, ma tu li vedi comunque.
+  if (req.method === "GET" && req.query && req.query.img) {
+    const url = String(req.query.img || "");
+    if (!isBlobUrl(url)) return res.status(400).json({ error: "url non valido" });
+    try {
+      const r = await leggiBlob(url);
+      if (!r) return res.status(404).json({ error: "file non trovato" });
+      res.setHeader("Content-Type", r.contentType || (/\.pdf(\?|$)/i.test(url) ? "application/pdf" : "image/jpeg"));
+      res.setHeader("Cache-Control", "private, max-age=300");
+      return res.status(200).send(r.buffer);
+    } catch (e) {
+      return res.status(502).json({ error: "errore lettura file" });
+    }
+  }
+
   const conn = upstash();
   if (!conn) return res.status(200).json({ configurato: false, coda: [] });
 

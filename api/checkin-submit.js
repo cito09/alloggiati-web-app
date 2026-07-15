@@ -113,7 +113,7 @@ module.exports = async (req, res) => {
           const buf = toBuffer(immagini[i]);
           const isPdf = String(immagini[i]).startsWith("data:application/pdf");
           const nomeFile = `checkin/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${i}.${isPdf ? "pdf" : "jpg"}`;
-          const blob = await put(nomeFile, buf, { access: "public", contentType: isPdf ? "application/pdf" : "image/jpeg" });
+          const blob = await put(nomeFile, buf, { access: "private", contentType: isPdf ? "application/pdf" : "image/jpeg" });
           fotoUrls.push(blob.url);
         } catch (e) {
           /* una foto non caricata non deve bloccare le altre: l'host la vedrà mancante e potrà richiederla */
@@ -131,7 +131,7 @@ module.exports = async (req, res) => {
       let selfieUrl = "";
       try {
         const blobSelfie = await put(`devisu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, toBuffer(dv.selfie), {
-          access: "public",
+          access: "private",
           contentType: "image/jpeg",
         });
         selfieUrl = blobSelfie.url;
@@ -187,7 +187,7 @@ module.exports = async (req, res) => {
           // salva il contratto su Blob, così resta nell'archivio della prenotazione (non solo via email)
           try {
             const blobPdf = await put(`contratti/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeFilePdf}`, pdfBuffer, {
-              access: "public",
+              access: "private",
               contentType: "application/pdf",
             });
             contrattoUrl = blobPdf.url;

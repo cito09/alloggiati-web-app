@@ -31,11 +31,15 @@ ${haTesto ? `- Il messaggio di testo spesso contiene una lista di dati per ospit
 
 // accetta sia data-URL (foto caricate dal browser) sia URL http(s) (foto gia' su Vercel Blob,
 // es. quelle arrivate dal self check-in): in quel caso le scarica e le converte lato server.
+const { leggiBlob } = require("./_blob");
 async function toBlock(d) {
   if (/^https?:\/\//i.test(d)) {
-    const r = await fetch(d);
-    const buf = Buffer.from(await r.arrayBuffer());
-    const media = r.headers.get("content-type") || "image/jpeg";
+    // foto/contratti del check-in ora sono privati: si rileggono col token (leggiBlob
+    // gestisce sia i blob privati sia quelli pubblici/vecchi)
+    const got = await leggiBlob(d);
+    if (!got) throw new Error("file non leggibile");
+    const buf = got.buffer;
+    const media = got.contentType || "image/jpeg";
     if (media.includes("pdf") || /\.pdf(\?|$)/i.test(d)) {
       return { type: "document", source: { type: "base64", media_type: "application/pdf", data: buf.toString("base64") } };
     }

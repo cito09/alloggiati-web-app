@@ -50,9 +50,9 @@ async function costruisciFascicolo(conn, meseKey) {
   for (const e of del) {
     for (const url of e.contratti || []) {
       try {
-        const r = await fetch(url);
-        if (!r.ok) continue;
-        const buf = Buffer.from(await r.arrayBuffer());
+        const got = await require("./_blob").leggiBlob(url);
+        if (!got) continue;
+        const buf = got.buffer;
         byte += buf.length;
         if (byte > 15 * 1024 * 1024) break; // limite prudente per l'allegato email
         const nome = decodeURIComponent((url.split("/").pop() || "contratto.pdf").split("?")[0]);
