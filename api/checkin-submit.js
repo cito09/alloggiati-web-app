@@ -6,7 +6,7 @@
 // - salva la voce nella coda 'checkin_pending' (Upstash), che l'host revisiona e conferma a mano
 // - non invia MAI nulla alla Questura da qui: resta sempre una richiesta di verifica per l'host
 // - avvisa l'host con una notifica push (ntfy.sh, se NTFY_TOPIC è configurato)
-const { put } = require("@vercel/blob");
+const { salvaBlob } = require("./_blob");
 const { upstash, redisCmd } = require("./_kv");
 const { getStrutture } = require("./_alloggiati");
 const { getContrattoStruttura, testoContratto, firmaLabel } = require("./_contratto");
@@ -113,7 +113,7 @@ module.exports = async (req, res) => {
           const buf = toBuffer(immagini[i]);
           const isPdf = String(immagini[i]).startsWith("data:application/pdf");
           const nomeFile = `checkin/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${i}.${isPdf ? "pdf" : "jpg"}`;
-          const blob = await put(nomeFile, buf, { access: "private", contentType: isPdf ? "application/pdf" : "image/jpeg" });
+          const blob = await salvaBlob(nomeFile, buf, isPdf ? "application/pdf" : "image/jpeg");
           fotoUrls.push(blob.url);
         } catch (e) {
           /* una foto non caricata non deve bloccare le altre: l'host la vedrà mancante e potrà richiederla */
@@ -130,10 +130,7 @@ module.exports = async (req, res) => {
     if (dv && dv.selfie) {
       let selfieUrl = "";
       try {
-        const blobSelfie = await put(`devisu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, toBuffer(dv.selfie), {
-          access: "private",
-          contentType: "image/jpeg",
-        });
+        const blobSelfie = await salvaBlob(`devisu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, toBuffer(dv.selfie), "image/jpeg");
         selfieUrl = blobSelfie.url;
       } catch (e) {
         /* selfie non salvato: la verifica resta registrata con il solo esito */
@@ -186,10 +183,7 @@ module.exports = async (req, res) => {
           const nomeFilePdf = `contratto_${dati.arrivo}_${nomeOspiteFile}.pdf`;
           // salva il contratto su Blob, così resta nell'archivio della prenotazione (non solo via email)
           try {
-            const blobPdf = await put(`contratti/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeFilePdf}`, pdfBuffer, {
-              access: "private",
-              contentType: "application/pdf",
-            });
+            const blobPdf = await salvaBlob(`contratti/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeFilePdf}`, pdfBuffer, "application/pdf");
             contrattoUrl = blobPdf.url;
           } catch (e) {
             /* salvataggio non riuscito: il contratto parte comunque via email, non blocca il check-in */
