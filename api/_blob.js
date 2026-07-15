@@ -28,15 +28,12 @@ async function streamToBuffer(stream) {
 // Ritorna { buffer, contentType } oppure null se non trovato.
 async function leggiBlob(url) {
   if (isPrivateBlob(url)) {
+    // get() su store privato: ritorna { stream, blob, statusCode } (doc Vercel Blob).
     const r = await get(url, { access: "private" });
-    if (!r) return null;
+    if (!r || (r.statusCode && r.statusCode !== 200)) return null;
     const buffer = await streamToBuffer(r.stream);
-    let contentType = "";
-    try {
-      const h = r.headers;
-      contentType = h ? (typeof h.get === "function" ? h.get("content-type") : h["content-type"]) : "";
-    } catch (e) { /* header non disponibili: si deduce dall'estensione a valle */ }
-    return { buffer, contentType: contentType || "" };
+    const contentType = (r.blob && r.blob.contentType) || "";
+    return { buffer, contentType };
   }
   // blob pubblico o URL esterno: fetch normale
   const r = await fetch(url);
