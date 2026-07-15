@@ -11930,20 +11930,27 @@ async function privatizzaVecchie(){
   const msg=$('#privatizzaMsg'), btn=$('#privatizzaBtn');
   if(!confirm('Rendere PRIVATI i file già caricati (foto documenti, selfie e contratti dei check-in passati)?\n\nÈ un\'operazione una tantum e sicura: ogni file viene ricopiato come privato e l\'originale pubblico viene rimosso solo a copia riuscita. Può richiedere qualche minuto.'))return;
   if(btn)btn.disabled=true;
-  const mappaTot={}; let tot=0;
+  const mappaTot={}; let tot=0; let ultima=null;
   try{
     for(let giro=0; giro<2000; giro++){
       if(msg)msg.textContent=`Rendo privati i file… ${tot} finora`;
       const r=await fetch('/api/checkin-pending',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'privatizza'})});
-      const d=await r.json();
+      const d=await r.json(); ultima=d;
       if(!r.ok)throw new Error(d.error||'Errore');
+      // il servizio non crea file privati: mi fermo e lo dico chiaramente
+      if(d.privateNonSupportato){
+        if(msg)msg.innerHTML=`⚠️ <b>Il tuo store Vercel Blob non crea file privati</b> (il file di prova è tornato pubblico:<br><span style="font-size:10px;word-break:break-all">${escText(d.esempioNuovo||'')}</span>).<br>Serve abilitare l'accesso privato sul Blob store (o potrebbe non essere disponibile sul piano attuale). Nessun file è stato toccato.`;
+        toast('File privati non supportati dallo store');
+        return;
+      }
       Object.assign(mappaTot, d.mappa||{});
       tot += d.migrati||0;
       if(!d.migrati) break; // finito, oppure i rimanenti danno errore: si evita il loop infinito
     }
     applicaMappaFoto(mappaTot);
-    if(msg)msg.textContent = tot ? `✓ ${tot} file resi privati. Ora quei link non si aprono più senza il tuo accesso.` : 'Nessun file pubblico da convertire: sono già tutti privati.';
-    toast(tot?tot+' file resi privati':'Già tutti privati');
+    const err = ultima&&ultima.errore ? ` (alcuni non riusciti: ${escText(ultima.errore)})` : '';
+    if(msg)msg.textContent = tot ? `✓ ${tot} file resi privati${err}. Ora quei link non si aprono più senza il tuo accesso.` : `Nessun file convertito${ultima&&ultima.pubbliciTotali?` (trovati ${ultima.pubbliciTotali} pubblici`+(ultima.errore?`, errore: ${ultima.errore}`:'')+`)`:': sono già tutti privati'}.`;
+    toast(tot?tot+' file resi privati':'Nessun file convertito');
   }catch(e){ if(msg)msg.textContent='Errore: '+e.message; }
   finally{ if(btn)btn.disabled=false; }
 }

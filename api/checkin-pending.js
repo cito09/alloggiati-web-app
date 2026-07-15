@@ -7,7 +7,7 @@
 //        foto (Vercel Blob) i contratti firmati e le foto documenti non più presenti in coda.
 //        Il nome file del contratto contiene arrivo e nome dell'ospite; le foto vengono
 //        riagganciate per vicinanza temporale (stesso invio di check-in).
-const { list, rename } = require("@vercel/blob");
+const { list } = require("@vercel/blob");
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
 const { leggiBlob, isBlobUrl } = require("./_blob");
@@ -176,10 +176,12 @@ module.exports = async (req, res) => {
 
       if (azione === "privatizza") {
         // rende PRIVATI i file già caricati come pubblici (foto/selfie/contratti dei check-in passati).
-        // rename() = copia privata + cancella l'originale SOLO se la copia riesce (nessun file perso).
-        // A lotti per non superare il timeout: il gestionale richiama finché "restano" > 0.
+        // Strategia sicura + diagnostica: leggo il file pubblico, lo ricarico con put(access:'private')
+        // — l'unico modo che forza davvero l'accesso — e cancello l'originale SOLO dopo. Se il put
+        // restituisce ancora un URL pubblico, il servizio NON supporta i file privati: mi fermo e lo segnalo.
         if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(400).json({ error: "Archivio foto (Blob) non configurato" });
-        const LOTTO = 20;
+        const { put, del } = require("@vercel/blob");
+        const LOTTO = 10;
         const pubblici = [];
         let cursor;
         do {
@@ -190,11 +192,23 @@ module.exports = async (req, res) => {
 
         const lotto = pubblici.slice(0, LOTTO);
         const mappa = {};
+        let primoErrore = "", esempioNuovo = "";
         for (const b of lotto) {
           try {
-            const nuovo = await rename(b.url, b.pathname, { access: "private", addRandomSuffix: true });
+            const resp = await fetch(b.url);                     // l'originale è pubblico: si legge con un fetch
+            if (!resp.ok) throw new Error("lettura originale HTTP " + resp.status);
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const isPdf = /\.pdf$/i.test(b.pathname);
+            const nuovo = await put(b.pathname, buf, { access: "private", addRandomSuffix: true, contentType: isPdf ? "application/pdf" : "image/jpeg" });
+            if (!esempioNuovo) esempioNuovo = nuovo.url;
+            if (/\.public\.blob\.vercel-storage\.com\//i.test(nuovo.url)) {
+              // il servizio ha comunque creato un file PUBBLICO: la modalità privata non è attiva.
+              try { await del(nuovo.url); } catch (e) { /* pulizia del doppione */ }
+              return res.status(200).json({ configurato: true, migrati: 0, restano: pubblici.length, privateNonSupportato: true, esempioNuovo: nuovo.url });
+            }
             mappa[b.url] = nuovo.url;
-          } catch (e) { /* questo file resta pubblico: verrà ritentato al giro successivo */ }
+            try { await del(b.url); } catch (e) { /* originale non cancellato: resterà, si ritenta dopo */ }
+          } catch (e) { if (!primoErrore) primoErrore = String((e && e.message) || e); }
         }
         const migrati = Object.keys(mappa).length;
         if (migrati) {
@@ -212,7 +226,7 @@ module.exports = async (req, res) => {
             } catch (e) { /* un archivio non aggiornato non blocca gli altri */ }
           }
         }
-        return res.status(200).json({ configurato: true, migrati, restano: pubblici.length - migrati, mappa });
+        return res.status(200).json({ configurato: true, migrati, restano: pubblici.length - migrati, mappa, pubbliciTotali: pubblici.length, esempioNuovo, errore: primoErrore });
       }
 
       if (azione === "ripristina") {
