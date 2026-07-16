@@ -3,9 +3,9 @@
 //
 // GET  → promemoria automatici via ntfy, chiamato una volta al giorno dal cron di Vercel
 //        (vercel.json → crons, ore 08:00 UTC ≈ 9/10 di mattina in Italia). Avvisa se:
-//        1) ci sono check-in ospiti fermi in coda da più di 24 ore (non ancora accettati)
-//        2) ci sono prenotazioni accettate ma NON ANCORA INVIATE alla Questura, con la
-//           scadenza (giorno dopo l'arrivo) che scade oggi o è già passata
+//        1) è il giorno di arrivo (o un giorno successivo) di una prenotazione NON ancora
+//           registrata in Questura — con pallino colorato per struttura (🟢 Canazei/Alba,
+//           🔴 Bologna/Falegnami); si ripete ogni giorno finché non viene registrata
 //        3) è il giorno 3 del mese e c'è almeno una struttura Ross1000 (file da caricare entro il 5)
 //        Se NTFY_TOPIC non è configurato non fa nulla. Con CRON_SECRET impostato, accetta
 //        solo le chiamate del cron di Vercel (header Authorization: Bearer <segreto>).
@@ -90,6 +90,25 @@ function scadenzaDaArrivo(arrivoStr) {
   return new Date(arrivo.getTime() + 2 * 86400000 - 1000); // arrivo + 2 giorni - 1s
 }
 
+// pallino colorato per distinguere la struttura nelle notifiche:
+// 🟢 Alba Loft House (Canazei) · 🔴 Falegnami House (Bologna) · 🔵 altre
+function emojiStruttura(nome, id) {
+  const s = (String(id || "") + " " + String(nome || "")).toLowerCase();
+  if (/canazei|alba/.test(s)) return "🟢";
+  if (/bologna|falegnami/.test(s)) return "🔴";
+  return "🔵";
+}
+// giorni tra l'arrivo (GG/MM/AAAA) e oggi in fuso Italia: 0 = oggi, >0 = già passato, <0 = futuro, null = data non valida
+function giorniDaArrivoOggi(arrivoStr) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(arrivoStr || "");
+  if (!m) return null;
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date()).reduce((a, x) => ((a[x.type] = x.value), a), {});
+  const oggi = Date.UTC(+p.year, +p.month - 1, +p.day);
+  const arr = Date.UTC(+m[3], +m[2] - 1, +m[1]);
+  return Math.round((oggi - arr) / 86400000);
+}
+
 module.exports = async (req, res) => {
   const conn = upstash();
 
@@ -131,32 +150,40 @@ module.exports = async (req, res) => {
 
   const avvisi = [];
 
-  // 1) check-in ospiti in attesa da più di 24 ore (non ancora accettati nella prenotazione)
+  // 1) PROMEMORIA CHECK-IN per struttura: dal giorno di arrivo in poi, per ogni prenotazione
+  //    NON ancora registrata in Questura. Il giorno dell'arrivo avvisa "oggi è il check-in";
+  //    se resta da registrare, ripete l'avviso ogni giorno successivo finché non è fatta.
+  //    Fonti: prenotazioni accettate ma non inviate (bookings_pending) + check-in self-service
+  //    non ancora aggiunti a una prenotazione (checkin_pending non "presa").
   try {
     if (conn) {
-      const raw = await redisCmd(conn, ["GET", "checkin_pending"]);
-      const coda = raw ? JSON.parse(raw) : [];
-      const vecchi = coda.filter((v) => Date.now() - (v.ts || 0) > 24 * 3600e3);
-      if (vecchi.length) {
-        avvisi.push(`${vecchi.length} check-in ospit${vecchi.length === 1 ? "e" : "i"} in attesa da più di 24 ore: aprili nel gestionale e registrali in Questura.`);
-      }
-    }
-  } catch (e) { /* archivio non configurato: nessun avviso su questa parte */ }
+      const daRegistrare = [];
+      const visti = new Set();
+      const aggiungi = (arrivo, strutturaNome, strutturaId, nomi) => {
+        const lista = (nomi || []).filter(Boolean);
+        const key = `${strutturaNome || ""}|${arrivo || ""}|${(lista[0] || "").toUpperCase()}`;
+        if (visti.has(key)) return;
+        visti.add(key);
+        daRegistrare.push({ arrivo, strutturaNome, strutturaId, nomi: lista });
+      };
+      // a) prenotazioni accettate ma non ancora inviate (sincronizzate dal gestionale)
+      const rawB = await redisCmd(conn, ["GET", KEY_PENDENTI]);
+      (rawB ? JSON.parse(rawB) : []).forEach((b) => aggiungi(b.arrivo, b.strutturaNome, "", b.ospiti || []));
+      // b) check-in self-service non ancora aggiunti a una prenotazione
+      const rawC = await redisCmd(conn, ["GET", "checkin_pending"]);
+      (rawC ? JSON.parse(rawC) : []).filter((v) => !v.presa).forEach((v) =>
+        aggiungi(v.arrivo, v.strutturaNome, v.strutturaId, (v.ospiti || []).map((o) => `${o.cognome || ""} ${o.nome || ""}`.trim())));
 
-  // 2) prenotazioni accettate ma non ancora inviate, con scadenza oggi o già passata
-  try {
-    if (conn) {
-      const raw = await redisCmd(conn, ["GET", KEY_PENDENTI]);
-      const lista = raw ? JSON.parse(raw) : [];
-      const oggi = Date.now();
-      for (const b of lista) {
-        const scad = scadenzaDaArrivo(b.arrivo);
-        if (!scad) continue;
-        const nomi = (b.ospiti || []).filter(Boolean).join(", ") || "ospiti senza nome";
-        if (scad.getTime() < oggi) {
-          avvisi.push(`⚠️ SCADUTA: le schedine di ${nomi}${b.strutturaNome ? " (" + b.strutturaNome + ")" : ""}, arrivo ${b.arrivo}, non risultano ancora inviate alla Questura. Invia appena possibile.`);
-        } else if (scad.getTime() - oggi < 24 * 3600e3) {
-          avvisi.push(`⏰ Scade oggi: invia le schedine di ${nomi}${b.strutturaNome ? " (" + b.strutturaNome + ")" : ""}, arrivo ${b.arrivo}, alla Questura.`);
+      for (const r of daRegistrare) {
+        const g = giorniDaArrivoOggi(r.arrivo);
+        if (g === null || g < 0) continue; // data non valida o arrivo ancora futuro
+        const emoji = emojiStruttura(r.strutturaNome, r.strutturaId);
+        const struttura = r.strutturaNome || "struttura da verificare";
+        const nomi = r.nomi.join(", ") || "ospiti senza nome";
+        if (g === 0) {
+          avvisi.push(`${emoji} ${struttura} — OGGI è il check-in di ${nomi}. Ricordati di registrarli in Questura.`);
+        } else {
+          avvisi.push(`⚠️ ${emoji} ${struttura} — ${nomi} (arrivo ${r.arrivo}) non ancora registrati in Questura. Fallo appena puoi.`);
         }
       }
     }
