@@ -327,6 +327,33 @@
       </div>
     </details>
 
+    <details class="settings-section" id="isCard">
+      <summary><span class="n">🏛️</span> GEIS · nota Airbnb</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px">Carica il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS.</div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
+          • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
+          • <b>Pernottamenti</b> = notti occupate dall'appartamento.<br>
+          • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre.</div>
+        <input type="file" id="isFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="isCaricaFile(event)">
+        <button class="btn primary" style="margin-top:10px" onclick="document.getElementById('isFile').click()">📎 Carica il file CSV di Airbnb</button>
+        <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">…oppure <b>trascina qui il file</b></div>
+        <div id="isResult" style="margin-top:12px"></div>
+        <div id="isStoricoBox" style="margin-top:16px"></div>
+      </div>
+    </details>
+
+    <details class="settings-section" id="privacyCard">
+      <summary><span class="n">🔒</span> Privacy file</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px">I file dei <b>nuovi</b> check-in (foto documenti, selfie, contratti) sono già <b>privati</b>: apribili solo da qui, con il tuo accesso. I file caricati <b>prima</b> di questa modifica erano pubblici: con il pulsante qui sotto li rendi privati anche loro (operazione una tantum e sicura, i file non si perdono).</div>
+        <button class="btn ghost" id="diagnosiBtn" style="margin-top:10px" onclick="verificaArchivioFoto()">🔍 Verifica configurazione</button>
+        <div id="diagnosiMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+        <button class="btn ghost" id="privatizzaBtn" style="margin-top:10px" onclick="privatizzaVecchie()">🔒 Rendi privati i file già caricati</button>
+        <div id="privatizzaMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+      </div>
+    </details>
+
     <details class="settings-section">
       <summary><span class="n">ℹ️</span> Stato configurazione</summary>
       <div class="settings-body">
@@ -484,19 +511,6 @@
   </div><!-- /page-ospiti -->
 
   <div class="page" id="page-archivio">
-    <div class="card" id="isCard">
-      <h2><span class="n">🏛️</span> GEIS · nota Airbnb</h2>
-      <div class="muted" style="font-size:12px;margin-top:2px">Carica il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS.</div>
-      <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
-        • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
-        • <b>Pernottamenti</b> = notti occupate dall'appartamento.<br>
-        • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre.</div>
-      <input type="file" id="isFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="isCaricaFile(event)">
-      <button class="btn primary" style="margin-top:10px" onclick="document.getElementById('isFile').click()">📎 Carica il file CSV di Airbnb</button>
-      <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">…oppure <b>trascina qui il file</b></div>
-      <div id="isResult" style="margin-top:12px"></div>
-      <div id="isStoricoBox" style="margin-top:16px"></div>
-    </div>
     <div class="card" id="statsCard">
       <h2><span class="n">📊</span> Statistiche</h2>
       <div id="statsBody"><div class="muted">Ancora nessun dato.</div></div>
@@ -509,14 +523,6 @@
         <button class="btn ghost sm" onclick="esportaStoricoCsv()">⬇ CSV</button>
       </div>
       <div id="storicoList" style="margin-top:10px"></div>
-    </div>
-    <div class="card" id="privacyCard">
-      <h2><span class="n">🔒</span> Privacy file</h2>
-      <div class="muted" style="font-size:12px;margin-top:2px">I file dei <b>nuovi</b> check-in (foto documenti, selfie, contratti) sono già <b>privati</b>: apribili solo da qui, con il tuo accesso. I file caricati <b>prima</b> di questa modifica erano pubblici: con il pulsante qui sotto li rendi privati anche loro (operazione una tantum e sicura, i file non si perdono).</div>
-      <button class="btn ghost" id="diagnosiBtn" style="margin-top:10px" onclick="verificaArchivioFoto()">🔍 Verifica configurazione</button>
-      <div id="diagnosiMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
-      <button class="btn ghost" id="privatizzaBtn" style="margin-top:10px" onclick="privatizzaVecchie()">🔒 Rendi privati i file già caricati</button>
-      <div id="privatizzaMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
     </div>
   </div><!-- /page-archivio -->
 </div>
@@ -13627,7 +13633,7 @@ function wireChangeCodeForm(){
 }
 
 /* ===== schede stile app: tocca il titolo per aprire/chiudere, lo stato viene ricordato ===== */
-const CARD_CHIUSE_DEFAULT={previewCard:1, checkinLinkCard:1, oggiCalendarioCard:1, statsCard:1, privacyCard:1};
+const CARD_CHIUSE_DEFAULT={previewCard:1, checkinLinkCard:1, oggiCalendarioCard:1, statsCard:1};
 function initCardToggles(){
   document.querySelectorAll('.wrap .card[id]').forEach(card=>{
     const h2=card.querySelector(':scope>h2'); if(!h2)return;
