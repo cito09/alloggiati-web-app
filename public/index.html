@@ -13141,20 +13141,30 @@ function aggiornaOggi(){
     const voci=checkinPending.slice().sort((a,b)=>parseArr(a.arrivo)-parseArr(b.arrivo)||((b.ts||0)-(a.ts||0)));
     const oggi0=new Date(); oggi0.setHours(0,0,0,0);
     todo.innerHTML=voci.length?voci.map(v=>{
-      const nomi=(v.ospiti||[]).map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ')||'(senza nome)';
+      // anteprima essenziale: SOLO il titolare della prenotazione (primo ospite) + 👤 quanti sono
+      const primo=(v.ospiti||[])[0]||{};
+      const titolare=[primo.cognome,primo.nome].filter(Boolean).join(' ')||'(senza nome)';
       const ts=parseArr(v.arrivo);
       const diff=isFinite(ts)?Math.round((ts-oggi0)/864e5):null;
       const quando=diff===0?'<b style="color:var(--amber)">🔔 arriva OGGI</b>'
         :diff===1?'<b>arriva domani</b>'
         :diff!==null&&diff<0?('arrivato il '+escText(v.arrivo))
         :v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare';
-      const azione=v.presa
-        ?`<button class="btn ghost sm" style="flex:0 0 auto" onclick="mostraTab('registra')">📤 Da inviare</button>`
-        :`<button class="btn primary sm" style="flex:0 0 auto" onclick="accettaCheckin('${v.id}')">➕ Registra</button>`;
+      // tre stati del pulsante:
+      //  - non presa                          -> ➕ Registra (aggiunge alla prenotazione)
+      //  - presa e ANCORA in lavorazione      -> 📤 Da inviare (vai a Registra)
+      //  - presa ma lavorazione persa (reload)-> ↺ Riaggiungi (la ricarica da capo; prima
+      //    restava "Da inviare" ma portava a una schermata vuota, senza via d'uscita)
+      const inLavorazione=v.presa&&bookings.length&&((bookings[bookings.length-1]._pendingIds||[]).includes(v.id));
+      const azione=!v.presa
+        ?`<button class="btn primary sm" style="flex:0 0 auto" onclick="accettaCheckin('${v.id}')">➕ Registra</button>`
+        :inLavorazione
+          ?`<button class="btn ghost sm" style="flex:0 0 auto" onclick="mostraTab('registra')">📤 Da inviare</button>`
+          :`<button class="btn ghost sm" style="flex:0 0 auto" onclick="accettaCheckin('${v.id}')">↺ Riaggiungi</button>`;
       // stesso colore-struttura usato in Ospiti in attesa e Storico, per riconoscerla al volo
       const sIn=v.strutturaNome?strutturaInfo(v.strutturaNome):null;
       return `<div class="todo-row"${sIn?` style="border-left:3px solid ${sIn.colore};padding-left:9px"`:''}>
-        <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(nomi)}</b> <span class="muted" style="white-space:nowrap">👤 ${(v.ospiti||[]).length}</span><br>
+        <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(titolare)}</b> <span class="muted" style="white-space:nowrap">👤 ${(v.ospiti||[]).length}</span><br>
           <span class="muted">${quando}${v.strutturaNome?` · <span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span></div>
         ${azione}</div>`;
     }).join(''):'<div class="muted" style="font-size:13px">✅ Tutto fatto: nessun check-in da gestire.</div>';
