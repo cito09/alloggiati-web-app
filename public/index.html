@@ -12672,7 +12672,7 @@ function renderCheckinPending(soloLista){
         return `<div class="checkin-card" onclick="apriDettaglioCheckin('${v.id}')">
           <div class="cc-info">
             <div class="cc-nomi">${escText(nomi)}</div>
-            <div class="cc-meta"><span>${v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare'}</span>${icone?`<span class="cc-icons">${icone}</span>`:''}</div>
+            <div class="cc-meta"><span>${v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare'}</span><span>👤 ${(v.ospiti||[]).length}</span>${icone?`<span class="cc-icons">${icone}</span>`:''}</div>
           </div>
           <button class="cc-quick" onclick="event.stopPropagation();accettaCheckin('${v.id}')" title="${v.presa?'Riaggiungi alla prenotazione':'Aggiungi alla prenotazione'}">${v.presa?'↺':'✓'}</button>
         </div>`;
