@@ -10,7 +10,7 @@
 const { list } = require("@vercel/blob");
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
-const { leggiBlob, isBlobUrl } = require("./_blob");
+const { leggiBlob, salvaBlob, eliminaBlob, isBlobUrl, isPrivateBlob, HA_STORE_PRIVATO } = require("./_blob");
 
 const KEY = "checkin_pending";
 // URL (foto/contratti/selfie) delle voci ELIMINATE dalla coda: il recupero non deve
@@ -174,13 +174,25 @@ module.exports = async (req, res) => {
         return res.status(200).json({ configurato: true, coda });
       }
 
+      if (azione === "diagnosi") {
+        // controllo rapido dell'archivio foto: dice se lo store privato è configurato e
+        // dove finiscono DAVVERO i nuovi file (fa un mini-upload di prova e lo cancella).
+        const out = { configurato: true, privatoConfigurato: HA_STORE_PRIVATO, tokenPubblico: !!process.env.BLOB_READ_WRITE_TOKEN };
+        try {
+          const test = await salvaBlob("diagnosi/test.txt", Buffer.from("ok"), "text/plain");
+          out.testUrl = test.url;
+          out.testPrivato = isPrivateBlob(test.url);
+          try { await eliminaBlob(test.url); } catch (e) { /* file di prova non cancellato: innocuo */ }
+        } catch (e) { out.testErrore = String((e && e.message) || e); }
+        return res.status(200).json(out);
+      }
+
       if (azione === "privatizza") {
-        // rende PRIVATI i file già caricati come pubblici (foto/selfie/contratti dei check-in passati).
-        // Strategia sicura + diagnostica: leggo il file pubblico, lo ricarico con put(access:'private')
-        // — l'unico modo che forza davvero l'accesso — e cancello l'originale SOLO dopo. Se il put
-        // restituisce ancora un URL pubblico, il servizio NON supporta i file privati: mi fermo e lo segnalo.
+        // sposta i file PUBBLICI già caricati (vecchio store) nel NUOVO store privato:
+        // legge l'originale pubblico, lo ricarica come privato (salvaBlob usa il token del nuovo
+        // store) e cancella l'originale SOLO dopo. A lotti, richiamato finché restano file.
         if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(400).json({ error: "Archivio foto (Blob) non configurato" });
-        const { put, del } = require("@vercel/blob");
+        if (!HA_STORE_PRIVATO) return res.status(400).json({ error: "Lo store privato non è ancora collegato: crea lo store Blob con accesso Private, spunta il token (BLOB_PRIVATE_READ_WRITE_TOKEN) e rifai il deploy." });
         const LOTTO = 10;
         const pubblici = [];
         let cursor;
@@ -199,15 +211,15 @@ module.exports = async (req, res) => {
             if (!resp.ok) throw new Error("lettura originale HTTP " + resp.status);
             const buf = Buffer.from(await resp.arrayBuffer());
             const isPdf = /\.pdf$/i.test(b.pathname);
-            const nuovo = await put(b.pathname, buf, { access: "private", addRandomSuffix: true, contentType: isPdf ? "application/pdf" : "image/jpeg" });
+            const nuovo = await salvaBlob(b.pathname, buf, isPdf ? "application/pdf" : "image/jpeg");
             if (!esempioNuovo) esempioNuovo = nuovo.url;
-            if (/\.public\.blob\.vercel-storage\.com\//i.test(nuovo.url)) {
-              // il servizio ha comunque creato un file PUBBLICO: la modalità privata non è attiva.
-              try { await del(nuovo.url); } catch (e) { /* pulizia del doppione */ }
+            if (!isPrivateBlob(nuovo.url)) {
+              // il file di prova è tornato pubblico: lo store privato non sta funzionando, fermarsi.
+              try { await eliminaBlob(nuovo.url); } catch (e) { /* pulizia del doppione */ }
               return res.status(200).json({ configurato: true, migrati: 0, restano: pubblici.length, privateNonSupportato: true, esempioNuovo: nuovo.url });
             }
             mappa[b.url] = nuovo.url;
-            try { await del(b.url); } catch (e) { /* originale non cancellato: resterà, si ritenta dopo */ }
+            try { await eliminaBlob(b.url); } catch (e) { /* originale non cancellato: resterà, si ritenta dopo */ }
           } catch (e) { if (!primoErrore) primoErrore = String((e && e.message) || e); }
         }
         const migrati = Object.keys(mappa).length;

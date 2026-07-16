@@ -11,12 +11,21 @@ const { get, put } = require("@vercel/blob");
 const TOKEN_PRIVATO = process.env.BLOB_PRIVATE_READ_WRITE_TOKEN || process.env.PRIVATE_READ_WRITE_TOKEN || process.env.PRIVATE_BLOB_READ_WRITE_TOKEN || "";
 const HA_STORE_PRIVATO = !!TOKEN_PRIVATO;
 
-const RE_BLOB = /^https:\/\/[a-z0-9-]+\.(?:public\.)?blob\.vercel-storage\.com\//i;
+// gli store PUBBLICI usano host *.public.blob.vercel-storage.com, quelli PRIVATI
+// *.private.blob.vercel-storage.com (doc Vercel). Il regex accetta entrambi.
+const RE_BLOB = /^https:\/\/[a-z0-9-]+\.(?:public\.|private\.)?blob\.vercel-storage\.com\//i;
 const RE_PUBLIC = /\.public\.blob\.vercel-storage\.com\//i;
 
 function isBlobUrl(u) { return RE_BLOB.test(String(u || "")); }
 // privato = è un blob del nostro store ma NON sull'host pubblico
 function isPrivateBlob(u) { return isBlobUrl(u) && !RE_PUBLIC.test(String(u)); }
+
+// elimina un file scegliendo il token giusto (store privato o pubblico)
+async function eliminaBlob(url) {
+  const { del } = require("@vercel/blob");
+  if (isPrivateBlob(url) && TOKEN_PRIVATO) return del(url, { token: TOKEN_PRIVATO });
+  return del(url);
+}
 
 async function streamToBuffer(stream) {
   if (!stream) return Buffer.alloc(0);
@@ -57,4 +66,4 @@ async function leggiBlob(url) {
   return { buffer, contentType: r.headers.get("content-type") || "" };
 }
 
-module.exports = { leggiBlob, salvaBlob, isBlobUrl, isPrivateBlob, HA_STORE_PRIVATO };
+module.exports = { leggiBlob, salvaBlob, eliminaBlob, isBlobUrl, isPrivateBlob, HA_STORE_PRIVATO };

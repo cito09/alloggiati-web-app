@@ -486,6 +486,8 @@
     <div class="card" id="privacyCard">
       <h2><span class="n">🔒</span> Privacy file</h2>
       <div class="muted" style="font-size:12px;margin-top:2px">I file dei <b>nuovi</b> check-in (foto documenti, selfie, contratti) sono già <b>privati</b>: apribili solo da qui, con il tuo accesso. I file caricati <b>prima</b> di questa modifica erano pubblici: con il pulsante qui sotto li rendi privati anche loro (operazione una tantum e sicura, i file non si perdono).</div>
+      <button class="btn ghost" id="diagnosiBtn" style="margin-top:10px" onclick="verificaArchivioFoto()">🔍 Verifica configurazione</button>
+      <div id="diagnosiMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
       <button class="btn ghost" id="privatizzaBtn" style="margin-top:10px" onclick="privatizzaVecchie()">🔒 Rendi privati i file già caricati</button>
       <div id="privatizzaMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
     </div>
@@ -11926,6 +11928,22 @@ function applicaMappaFoto(mappa){
   try{ renderStorico(); }catch(e){}
   try{ render(); }catch(e){}
 }
+/* controllo rapido: lo store privato è collegato? dove finiscono i nuovi file? */
+async function verificaArchivioFoto(){
+  const msg=$('#diagnosiMsg'), btn=$('#diagnosiBtn');
+  if(btn)btn.disabled=true; if(msg)msg.textContent='Controllo l\'archivio foto…';
+  try{
+    const r=await fetch('/api/checkin-pending',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'diagnosi'})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Errore');
+    const righe=[];
+    righe.push(d.privatoConfigurato?'✅ Store privato collegato (token presente).':'❌ Store privato NON collegato: manca BLOB_PRIVATE_READ_WRITE_TOKEN (crea lo store Private con la spunta del token e rifai il deploy).');
+    if(d.testErrore) righe.push('❌ Upload di prova fallito: '+escText(d.testErrore));
+    else if(d.testUrl) righe.push(d.testPrivato?'✅ Upload di prova riuscito: i nuovi file sono PRIVATI.':'⚠️ Upload di prova riuscito ma il file è PUBBLICO (va sul vecchio store).');
+    if(msg)msg.innerHTML=righe.join('<br>');
+  }catch(e){ if(msg)msg.textContent='Errore: '+e.message; }
+  finally{ if(btn)btn.disabled=false; }
+}
 async function privatizzaVecchie(){
   const msg=$('#privatizzaMsg'), btn=$('#privatizzaBtn');
   if(!confirm('Rendere PRIVATI i file già caricati (foto documenti, selfie e contratti dei check-in passati)?\n\nÈ un\'operazione una tantum e sicura: ogni file viene ricopiato come privato e l\'originale pubblico viene rimosso solo a copia riuscita. Può richiedere qualche minuto.'))return;
@@ -12607,6 +12625,7 @@ function renderCheckinPending(soloLista){
       <div class="storico-head"><span>check-in ${escText(quando)}</span>${v.presa?' <span class="pill wait">🕓 in prenotazione, da inviare</span>':''}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}${v.deVisu?(v.deVisu.esito==='verificata'?' <span class="pill ok">🪪 identità verificata</span>':v.deVisu.esito==='non_corrispondente'?' <span class="pill err">🪪 selfie da ricontrollare</span>':' <span class="pill wait">🪪 selfie allegato</span>'):''}${conteggiDoppioni[chiaveDoppione(v)]>1?' <span class="pill err">⚠️ possibile doppione</span>':''}</div>
       <div class="storico-meta">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
+      ${v.uploadErrori&&v.uploadErrori.length?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">⚠️ Alcune foto NON sono state salvate (${v.uploadErrori.length}): ${escText(v.uploadErrori[0])}${v.uploadErrori.length>1?' …':''} — chiedi all'ospite di rimandarle.</div>`:''}
       ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
       ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img ${fotoSrc(v.deVisu.selfieUrl)} class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
       ${v.contrattoUrl?`<div style="margin-top:8px"><a class="btn ghost sm btn-link" ${fotoHref(v.contrattoUrl)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}

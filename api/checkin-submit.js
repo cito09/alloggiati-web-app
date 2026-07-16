@@ -6,7 +6,7 @@
 // - salva la voce nella coda 'checkin_pending' (Upstash), che l'host revisiona e conferma a mano
 // - non invia MAI nulla alla Questura da qui: resta sempre una richiesta di verifica per l'host
 // - avvisa l'host con una notifica push (ntfy.sh, se NTFY_TOPIC è configurato)
-const { salvaBlob } = require("./_blob");
+const { salvaBlob, HA_STORE_PRIVATO } = require("./_blob");
 const { upstash, redisCmd } = require("./_kv");
 const { getStrutture } = require("./_alloggiati");
 const { getContrattoStruttura, testoContratto, firmaLabel } = require("./_contratto");
@@ -95,7 +95,7 @@ module.exports = async (req, res) => {
 
   const conn = upstash();
   if (!conn) return res.status(500).json({ error: "Archivio non configurato (Upstash KV)" });
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !HA_STORE_PRIVATO) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
 
   try {
     const { arrivo, partenza, notti, struttura, lang = "it", ospiti = [] } = req.body || {};
@@ -105,7 +105,10 @@ module.exports = async (req, res) => {
     const strutturaInfo = getStrutture().find((s) => s.id === struttura);
 
     const ospitiSalvati = [];
+    const uploadErrori = []; // errori di caricamento foto/selfie: registrati e mostrati all'host (mai silenziosi)
+    let nOspite = 0;
     for (const o of validi) {
+      nOspite++;
       const immagini = Array.isArray(o.immagini) ? o.immagini : [];
       const fotoUrls = [];
       for (let i = 0; i < immagini.length; i++) {
@@ -116,7 +119,8 @@ module.exports = async (req, res) => {
           const blob = await salvaBlob(nomeFile, buf, isPdf ? "application/pdf" : "image/jpeg");
           fotoUrls.push(blob.url);
         } catch (e) {
-          /* una foto non caricata non deve bloccare le altre: l'host la vedrà mancante e potrà richiederla */
+          // una foto non caricata non blocca le altre, ma l'errore resta visibile all'host
+          uploadErrori.push(`foto ${i + 1} ospite ${nOspite}: ${String((e && e.message) || e)}`);
         }
       }
       const { immagini: _omit, ...campi } = o;
@@ -133,7 +137,8 @@ module.exports = async (req, res) => {
         const blobSelfie = await salvaBlob(`devisu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, toBuffer(dv.selfie), "image/jpeg");
         selfieUrl = blobSelfie.url;
       } catch (e) {
-        /* selfie non salvato: la verifica resta registrata con il solo esito */
+        // selfie non salvato: la verifica resta registrata con il solo esito, ma l'errore è visibile
+        uploadErrori.push(`selfie: ${String((e && e.message) || e)}`);
       }
       deVisuSalvata = {
         esito: String(dv.esito || "non_disponibile"),
@@ -234,6 +239,7 @@ module.exports = async (req, res) => {
       contrattoErrore,
       contrattoUrl,
       deVisu: deVisuSalvata,
+      uploadErrori: uploadErrori.length ? uploadErrori.slice(0, 10) : undefined,
     };
 
     let raw;
