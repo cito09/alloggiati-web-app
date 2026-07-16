@@ -218,6 +218,25 @@
   .gruppo-head.warn{background:rgba(255,183,3,.10); border-color:rgba(255,183,3,.30)}
   .gruppo-head .cnt{font-size:12px; font-weight:700; background:rgba(90,160,242,.18); color:var(--blue);
     border-radius:20px; padding:2px 9px; text-transform:none}
+  /* colonne per struttura: una accanto all'altra quando c'è spazio, impilate sul telefono.
+     Ogni colonna ha un accento colore diverso (verde/rosso/…) per riconoscere la struttura a colpo d'occhio. */
+  .struttura-grid{display:grid; grid-template-columns:1fr; gap:16px}
+  @media (min-width:640px){ .struttura-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))} }
+  .struttura-col{background:var(--surface); border:1px solid var(--line); border-top:3px solid var(--accent,var(--blue));
+    border-radius:14px; padding:12px}
+  .struttura-col-head{display:flex; align-items:center; gap:8px; font-size:14.5px; font-weight:800}
+  .struttura-col-head .dot{width:10px; height:10px; border-radius:50%; background:var(--accent,var(--blue)); flex:0 0 auto}
+  .struttura-col-head .cnt{margin-left:auto; font-size:12px; font-weight:700; background:var(--surface2); color:var(--muted);
+    border-radius:20px; padding:2px 9px}
+  .checkin-card{background:var(--surface2); border:1px solid var(--line); border-left:3px solid var(--accent,var(--blue));
+    border-radius:10px; padding:10px 12px; margin-top:9px; cursor:pointer; display:flex; align-items:center; gap:10px}
+  .checkin-card:active{transform:scale(.985)}
+  .checkin-card .cc-info{flex:1; min-width:0}
+  .checkin-card .cc-nomi{font-size:13.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .checkin-card .cc-meta{font-size:11.5px; color:var(--muted); margin-top:2px; display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  .checkin-card .cc-icons{font-size:12px; display:flex; gap:3px; flex:0 0 auto}
+  .checkin-card .cc-quick{flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:none; cursor:pointer;
+    background:linear-gradient(135deg,#ffce54,var(--amber)); color:#23170a; font-size:16px; display:flex; align-items:center; justify-content:center}
   .storico-head{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px}
   .storico-meta{font-size:12px; color:var(--muted); margin-top:2px}
   .storico-ospiti{font-size:12px; margin-top:2px}
@@ -340,6 +359,14 @@
     <div id="recuperoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
     <div id="recuperoLista" style="margin-top:8px"></div>
   </div>
+</div>
+
+<div class="pagina-piena" id="checkinDettaglioOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiDettaglioCheckin()" style="width:auto">← Indietro</button>
+    <h2>👤 Dettaglio check-in</h2>
+  </div>
+  <div class="pp-body" id="checkinDettaglioBody"></div>
 </div>
 
 <div class="wrap">
@@ -12107,6 +12134,7 @@ function renderStorico(){
     const quando=new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>':'');
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
+    const sInfo=e.struttura?strutturaInfo(e.struttura):null;
     const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null].filter(Boolean).map(escText).join(' · ');
     const aperto=storicoAperto.has(e.ts);
     const dettaglio=(e.records&&e.records.length)?`
@@ -12125,10 +12153,10 @@ function renderStorico(){
         <div class="thumbs" style="margin-top:6px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}</div>`:''}
       ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" ${fotoHref(u)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
     `;
-    return `<div class="storico-item">
+    return `<div class="storico-item"${sInfo?` style="border-left:3px solid ${sInfo.colore};padding-left:9px;margin-left:-1px"`:''}>
       <div class="storico-head"><span>${escText(quando)}</span>
         <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rimuoviStorico(${e.ts})">🗑</button></span></div>
-      <div class="storico-meta">${meta}</div>
+      <div class="storico-meta">${sInfo?`<span style="color:${sInfo.colore}">${sInfo.emoji}</span> `:''}${meta}</div>
       ${e.ospiti&&e.ospiti.length?`<div class="storico-ospiti">${escText(e.ospiti.join(', '))}</div>`:''}
       ${allegati}
       ${dettaglio}
@@ -12581,6 +12609,12 @@ function parseArrivoTs(a){ // 'gg/mm/aaaa' -> timestamp (senza arrivo: in fondo 
   return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():Infinity;
 }
 function nomeVoce(v){ return (v.ospiti||[]).map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', '); }
+// doppioni nella coda: stesso capogruppo + stessa data di arrivo in più voci (usato sia
+// nella griglia compatta sia nel dettaglio a schermo intero)
+function checkinChiaveDoppione(v){ const o=(v.ospiti||[])[0]||{}; const nm=(String(o.cognome||'')+' '+String(o.nome||'')).trim().toUpperCase(); return nm&&v.arrivo?nm+'|'+v.arrivo:''; }
+function checkinConteggiDoppioni(){ const c={}; checkinPending.forEach(v=>{const k=checkinChiaveDoppione(v); if(k)c[k]=(c[k]||0)+1;}); return c; }
+function checkinStrutturaInfo(v){ return (v.strutturaNome&&!v.recuperato) ? strutturaInfo(v.strutturaNome) : {emoji:'⚠️', colore:'var(--amber)'}; }
+
 function renderCheckinPending(soloLista){
   const w=$('#checkinList'); const badge=$('#checkinBadge'); if(!w)return;
   if(badge){ if(checkinPending.length){badge.textContent=checkinPending.length;badge.style.display='';} else badge.style.display='none'; }
@@ -12601,7 +12635,9 @@ function renderCheckinPending(soloLista){
   const chiave=v=>checkinSort==='checkin'?-(v.ts||0):checkinSort==='nome'?nomeVoce(v).toLowerCase():parseArrivoTs(v.arrivo);
   voci.sort((a,b)=>{ const ka=chiave(a),kb=chiave(b); return ka<kb?-1:ka>kb?1:(b.ts||0)-(a.ts||0); });
 
-  // raggruppa per struttura, ben distinte; le voci senza struttura (es. recuperate) in un gruppo a parte
+  // raggruppa per struttura, ben distinte; le voci senza struttura (es. recuperate) in un gruppo a parte.
+  // Ogni struttura diventa una COLONNA colorata (fianco a fianco quando c'è spazio, impilate sul
+  // telefono), con dentro card compatte: un colpo d'occhio su chi arriva, il dettaglio si apre al tocco.
   const gruppi=[];
   voci.forEach(v=>{
     const nome=(v.strutturaNome&&!v.recuperato)?v.strutturaNome:(v.recuperato?'⚠️ Recuperati — struttura da verificare':'⚠️ Struttura da verificare');
@@ -12610,32 +12646,69 @@ function renderCheckinPending(soloLista){
     g.voci.push(v);
   });
 
-  // doppioni nella coda: stesso capogruppo + stessa data di arrivo in più voci
-  const chiaveDoppione=v=>{const o=(v.ospiti||[])[0]||{};const nm=(String(o.cognome||'')+' '+String(o.nome||'')).trim().toUpperCase();return nm&&v.arrivo?nm+'|'+v.arrivo:'';};
-  const conteggiDoppioni={};
-  checkinPending.forEach(v=>{const k=chiaveDoppione(v); if(k)conteggiDoppioni[k]=(conteggiDoppioni[k]||0)+1;});
+  const conteggiDoppioni=checkinConteggiDoppioni();
 
-  w.innerHTML=gruppi.map(g=>
-    `<div class="gruppo-head${g.warn?' warn':''}">🏠 ${escText(g.nome)} <span class="cnt">${g.voci.length}</span></div>`+
-    g.voci.map(v=>{
-    const quando=new Date(v.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    const nomi=v.ospiti.map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', ');
-    const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
-    return `<div class="storico-item">
-      <div class="storico-head"><span>check-in ${escText(quando)}</span>${v.presa?' <span class="pill wait">🕓 in prenotazione, da inviare</span>':''}${v.contrattoRichiesto?(v.contrattoInviato?' <span class="pill ok">📝 contratto inviato</span>':' <span class="pill err">📝 contratto non inviato</span>'):''}${v.deVisu?(v.deVisu.esito==='verificata'?' <span class="pill ok">🪪 identità verificata</span>':v.deVisu.esito==='non_corrispondente'?' <span class="pill err">🪪 selfie da ricontrollare</span>':' <span class="pill wait">🪪 selfie allegato</span>'):''}${conteggiDoppioni[chiaveDoppione(v)]>1?' <span class="pill err">⚠️ possibile doppione</span>':''}</div>
-      <div class="storico-meta">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
-      ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
-      ${v.uploadErrori&&v.uploadErrori.length?`<div style="color:var(--err);font-size:11.5px;margin-top:3px">⚠️ Alcune foto NON sono state salvate (${v.uploadErrori.length}): ${escText(v.uploadErrori[0])}${v.uploadErrori.length>1?' …':''} — chiedi all'ospite di rimandarle.</div>`:''}
-      ${nomi?`<div class="storico-ospiti">${escText(nomi)}</div>`:''}
-      ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:8px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img ${fotoSrc(v.deVisu.selfieUrl)} class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
-      ${v.contrattoUrl?`<div style="margin-top:8px"><a class="btn ghost sm btn-link" ${fotoHref(v.contrattoUrl)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn ${v.presa?'ghost':'primary'} sm" style="flex:1" onclick="accettaCheckin('${v.id}')">${v.presa?'↺ Riaggiungi alla prenotazione':'✓ Aggiungi alla prenotazione'}</button>
-        <button class="btn ghost sm" onclick="scartaCheckin('${v.id}')">Scarta</button>
-      </div>
-      ${v.presa?'<div class="muted" style="font-size:11px;margin-top:6px">Sparirà da qui automaticamente dopo l\'invio ufficiale alla Questura (o il download .txt).</div>':''}
+  w.innerHTML='<div class="struttura-grid">'+gruppi.map(g=>{
+    const info=g.warn?{emoji:'⚠️',colore:'var(--amber)'}:strutturaInfo(g.nome);
+    return `<div class="struttura-col" style="--accent:${info.colore}">
+      <div class="struttura-col-head"><span class="dot"></span>${escText(g.nome)}<span class="cnt">${g.voci.length}</span></div>
+      ${g.voci.map(v=>{
+        const nomi=nomeVoce(v)||'(senza nome)';
+        const doppio=conteggiDoppioni[checkinChiaveDoppione(v)]>1;
+        const icone=[
+          v.presa?'🕓':'',
+          v.contrattoRichiesto?(v.contrattoInviato?'📝':'📝⚠️'):'',
+          v.deVisu?(v.deVisu.esito==='verificata'?'🪪':v.deVisu.esito==='non_corrispondente'?'🪪⚠️':'🪪'):'',
+          (v.uploadErrori&&v.uploadErrori.length)?'📷⚠️':'',
+          doppio?'⚠️doppione':''
+        ].filter(Boolean).join(' ');
+        return `<div class="checkin-card" onclick="apriDettaglioCheckin('${v.id}')">
+          <div class="cc-info">
+            <div class="cc-nomi">${escText(nomi)}</div>
+            <div class="cc-meta"><span>${v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare'}</span>${icone?`<span class="cc-icons">${icone}</span>`:''}</div>
+          </div>
+          <button class="cc-quick" onclick="event.stopPropagation();accettaCheckin('${v.id}')" title="${v.presa?'Riaggiungi alla prenotazione':'Aggiungi alla prenotazione'}">${v.presa?'↺':'✓'}</button>
+        </div>`;
+      }).join('')}
     </div>`;
-  }).join('')).join('');
+  }).join('')+'</div>';
+}
+/* ---- dettaglio a schermo intero di un check-in in attesa (tocco su una card compatta) ---- */
+function apriDettaglioCheckin(id){
+  const v=checkinPending.find(x=>x.id===id); if(!v)return;
+  const body=$('#checkinDettaglioBody'); if(!body)return;
+  const quando=new Date(v.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const nomi=nomeVoce(v);
+  const foto=v.ospiti.flatMap(o=>o.fotoUrls||[]);
+  const doppio=checkinConteggiDoppioni()[checkinChiaveDoppione(v)]>1;
+  const info=checkinStrutturaInfo(v);
+  body.innerHTML=`
+    <div class="card" style="border-top:3px solid ${info.colore}">
+      <div style="font-weight:800;font-size:15.5px;display:flex;align-items:center;gap:8px">${info.emoji} ${escText(v.strutturaNome||'struttura da verificare')}</div>
+      <div class="storico-head" style="margin-top:10px"><span>check-in ${escText(quando)}</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        ${v.presa?'<span class="pill wait">🕓 in prenotazione, da inviare</span>':''}
+        ${v.contrattoRichiesto?(v.contrattoInviato?'<span class="pill ok">📝 contratto inviato</span>':'<span class="pill err">📝 contratto non inviato</span>'):''}
+        ${v.deVisu?(v.deVisu.esito==='verificata'?'<span class="pill ok">🪪 identità verificata</span>':v.deVisu.esito==='non_corrispondente'?'<span class="pill err">🪪 selfie da ricontrollare</span>':'<span class="pill wait">🪪 selfie allegato</span>'):''}
+        ${doppio?'<span class="pill err">⚠️ possibile doppione</span>':''}
+      </div>
+      <div class="storico-meta" style="margin-top:8px">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
+      ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:12px;margin-top:6px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
+      ${v.uploadErrori&&v.uploadErrori.length?`<div style="color:var(--err);font-size:12px;margin-top:6px">⚠️ Alcune foto NON sono state salvate (${v.uploadErrori.length}): ${escText(v.uploadErrori[0])}${v.uploadErrori.length>1?' …':''} — chiedi all'ospite di rimandarle.</div>`:''}
+      ${nomi?`<div class="storico-ospiti" style="margin-top:8px;font-size:13.5px">${escText(nomi)}</div>`:''}
+      ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:10px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img ${fotoSrc(v.deVisu.selfieUrl)} class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
+      ${v.contrattoUrl?`<div style="margin-top:10px"><a class="btn ghost sm btn-link" ${fotoHref(v.contrattoUrl)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn ${v.presa?'ghost':'primary'}" style="flex:1" onclick="accettaCheckin('${v.id}',true)">${v.presa?'↺ Riaggiungi alla prenotazione':'✓ Aggiungi alla prenotazione'}</button>
+        <button class="btn ghost" onclick="scartaCheckin('${v.id}',true)">Scarta</button>
+      </div>
+      ${v.presa?'<div class="muted" style="font-size:11px;margin-top:8px">Sparirà da qui automaticamente dopo l\'invio ufficiale alla Questura (o il download .txt).</div>':''}
+    </div>`;
+  const ov=$('#checkinDettaglioOverlay'); if(ov){ ov.classList.add('open'); document.body.style.overflow='hidden'; }
+}
+function chiudiDettaglioCheckin(){
+  const ov=$('#checkinDettaglioOverlay'); if(ov)ov.classList.remove('open');
+  document.body.style.overflow='';
 }
 function rimuoviCheckinPendingLocal(id,definitivo){
   // definitivo=true (schedine inviate alla Questura, pulizia dal pannello recupero): la voce
@@ -12648,10 +12721,10 @@ function rimuoviCheckinPendingLocal(id,definitivo){
     .then(data=>{ if(data.configurato&&Array.isArray(data.coda)){ checkinPending=data.coda; renderCheckinPending(); } })
     .catch(()=>{/* offline: resta comunque rimossa in locale */});
 }
-function accettaCheckin(id){
+function accettaCheckin(id,dalDettaglio){
   const v=checkinPending.find(x=>x.id===id); if(!v)return;
   const b=bookingAttivo();
-  if((b._pendingIds||[]).includes(id)){ toast('Già aggiunta alla prenotazione corrente'); mostraTab('registra'); return; }
+  if((b._pendingIds||[]).includes(id)){ toast('Già aggiunta alla prenotazione corrente'); mostraTab('registra'); if(dalDettaglio)chiudiDettaglioCheckin(); return; }
   if(v.arrivo && !b.arrivo) b.arrivo=v.arrivo;
   if(v.notti && !b.notti) b.notti=v.notti;
   if(v.strutturaId){
@@ -12685,10 +12758,12 @@ function accettaCheckin(id){
   mostraTab('registra'); // porta alla scheda di lavoro, dove ora c'è l'ospite appena aggiunto
   toast(`${nuovi.length} ospit${nuovi.length===1?'e':'i'} aggiunt${nuovi.length===1?'o':'i'} dal check-in`);
   const lbl=$('#step2lbl'); if(lbl)lbl.scrollIntoView({behavior:'smooth',block:'start'});
+  if(dalDettaglio)chiudiDettaglioCheckin();
 }
-function scartaCheckin(id){
+function scartaCheckin(id,dalDettaglio){
   if(!confirm('Scartare questo check-in? Non verrà aggiunto alla prenotazione.'))return;
   rimuoviCheckinPendingLocal(id);
+  if(dalDettaglio)chiudiDettaglioCheckin();
 }
 async function runIntake(){
   const testoEl=$('#intakeText'); const testo=testoEl?testoEl.value.trim():'';
@@ -12837,6 +12912,20 @@ async function scaricaRicevuta(){
   }catch(e){toast('Ricevuta: '+e.message);}
 }
 let struttureList=[];
+/* ===== colore per struttura: per riconoscerla a colpo d'occhio (Ospiti in attesa, Storico).
+   Canazei/Alba = verde, Bologna/Falegnami = rosso (stessi colori già usati nelle notifiche
+   push); altre eventuali strutture prendono un colore stabile da una piccola tavolozza,
+   scelto in base al nome (stesso nome = sempre stesso colore). ===== */
+const PALETTE_STRUTTURE=['#5aa0f2','#a78bfa','#f472b6','#22c1c3','#ffb703'];
+function strutturaChiave(nomeOrId){ return String(nomeOrId||'').toLowerCase(); }
+function strutturaInfo(nomeOrId){
+  const s=strutturaChiave(nomeOrId);
+  if(/canazei|alba/.test(s)) return {emoji:'🟢', colore:'#2dc653'};
+  if(/bologna|falegnami/.test(s)) return {emoji:'🔴', colore:'#ef476f'};
+  if(!s) return {emoji:'🔵', colore:PALETTE_STRUTTURE[0]};
+  let h=0; for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;
+  return {emoji:'🔵', colore:PALETTE_STRUTTURE[h%PALETTE_STRUTTURE.length]};
+}
 async function loadStrutture(){
   try{const r=await fetch('/api/strutture');const data=await r.json();
     const list=(data.strutture||[]);
