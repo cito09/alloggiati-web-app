@@ -12123,7 +12123,7 @@ function renderStorico(){
     const allegati=`
       ${foto.length?`<div class="storico-sub">📎 Documenti inviati (${foto.length})</div>
         <div class="thumbs" style="margin-top:6px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}</div>`:''}
-      ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" href="${u}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
+      ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" ${fotoHref(u)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
     `;
     return `<div class="storico-item">
       <div class="storico-head"><span>${escText(quando)}</span>
