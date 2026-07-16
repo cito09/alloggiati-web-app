@@ -13151,9 +13151,11 @@ function aggiornaOggi(){
       const azione=v.presa
         ?`<button class="btn ghost sm" style="flex:0 0 auto" onclick="mostraTab('registra')">📤 Da inviare</button>`
         :`<button class="btn primary sm" style="flex:0 0 auto" onclick="accettaCheckin('${v.id}')">➕ Registra</button>`;
-      return `<div class="todo-row">
-        <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(nomi)}</b><br>
-          <span class="muted">${quando}${v.strutturaNome?' · '+escText(v.strutturaNome):''}</span></div>
+      // stesso colore-struttura usato in Ospiti in attesa e Storico, per riconoscerla al volo
+      const sIn=v.strutturaNome?strutturaInfo(v.strutturaNome):null;
+      return `<div class="todo-row"${sIn?` style="border-left:3px solid ${sIn.colore};padding-left:9px"`:''}>
+        <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(nomi)}</b> <span class="muted" style="white-space:nowrap">👤 ${(v.ospiti||[]).length}</span><br>
+          <span class="muted">${quando}${v.strutturaNome?` · <span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span></div>
         ${azione}</div>`;
     }).join(''):'<div class="muted" style="font-size:13px">✅ Tutto fatto: nessun check-in da gestire.</div>';
     const bd=$('#oggiTodoBadge');
