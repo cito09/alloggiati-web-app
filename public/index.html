@@ -330,6 +330,16 @@
       </div>
     </details>
 
+    <details class="settings-section" id="ricevuteCard">
+      <summary><span class="n">🧾</span> Ricevute Questura</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px">Scarica la ricevuta PDF del portale Alloggiati Web anche se hai dimenticato di farlo al momento dell'invio. Senza data scarico l'<b>ultima disponibile</b> (cerco fino a 7 giorni indietro); se ti serve un giorno preciso, sceglilo qui sotto.</div>
+        <label>Giorno preciso (facoltativo)</label>
+        <input type="date" id="ricevutaData">
+        <div id="ricevuteBtns"></div>
+      </div>
+    </details>
+
     <details class="settings-section" id="isCard">
       <summary><span class="n">🏛️</span> GEIS · nota Airbnb</summary>
       <div class="settings-body">
@@ -12907,17 +12917,21 @@ async function invia(){apriCard('invioCard');
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
   }
 }
-async function scaricaRicevuta(){
+// senza argomenti (dopo un invio): struttura corrente, ultima ricevuta disponibile.
+// con strutturaId (dalle Impostazioni): quella struttura + eventuale giorno scelto nel campo data.
+async function scaricaRicevuta(strutturaId){
   toast('Recupero ricevuta…');
   try{
+    const giorno=strutturaId?(($('#ricevutaData')||{}).value||undefined):undefined;
     const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
-      body:JSON.stringify({struttura:currentStruttura()})});
+      body:JSON.stringify({struttura:strutturaId||currentStruttura(), data:giorno})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
     const bin=atob(data.pdfBase64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
     const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
-    const a=document.createElement('a');a.href=url;a.download=`ricevuta_${data.data}.pdf`;a.click();URL.revokeObjectURL(url);
-    toast('Ricevuta del '+data.data.split('-').reverse().join('/')+' scaricata');
+    const a=document.createElement('a');a.href=url;a.download=`ricevuta_${data.data}${strutturaId?'_'+strutturaId:''}.pdf`;a.click();URL.revokeObjectURL(url);
+    const s=struttureList.find(x=>x.id===strutturaId);
+    toast('Ricevuta del '+data.data.split('-').reverse().join('/')+(s?' · '+s.nome:'')+' scaricata');
   }catch(e){toast('Ricevuta: '+e.message);}
 }
 let struttureList=[];
@@ -12949,6 +12963,12 @@ async function loadStrutture(){
       const sel2=$('#settingsStrutturaSel');
       if(sel2){ sel2.innerHTML=opts; sel2.onchange=()=>setStrutturaPreferita(sel2.value); sel2.closest('.settings-section').style.display=''; }
     }
+    // Impostazioni → Ricevute Questura: un pulsante per struttura, col suo colore
+    const rb=$('#ricevuteBtns');
+    if(rb) rb.innerHTML=list.map(s=>{
+      const info=strutturaInfo(s.nome||s.id);
+      return `<button class="btn ghost" style="width:100%;margin-top:8px" onclick="scaricaRicevuta('${escText(s.id)}')"><span style="color:${info.colore}">●</span>&nbsp; Ricevuta ${escText(s.nome||s.id)}</button>`;
+    }).join('');
     aggiornaRossUI();
     aggiornaOggi();
   }catch(e){/* offline: i pulsanti mostreranno l'errore al click */}
