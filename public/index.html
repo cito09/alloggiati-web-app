@@ -374,8 +374,8 @@
           <input type="text" id="driveUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
           <label>Parola segreta (la stessa scritta nello script)</label>
           <input type="password" id="driveSecret" autocomplete="off">
-          <label>Nome cartella su Drive (facoltativo)</label>
-          <input type="text" id="driveCartella" placeholder="KeyFlow Ricevute" autocomplete="off">
+          <div id="driveCartelle"></div>
+          <div class="muted" style="font-size:11.5px;margin-top:6px">Ogni struttura ha la <b>sua cartella separata</b>. Se lasci vuoto, la creo io con il nome della struttura.</div>
           <button class="btn primary" style="width:100%;margin-top:12px" onclick="salvaDriveConfig()">💾 Salva e attiva</button>
           <button class="btn ghost sm" id="driveOffBtn" style="width:100%;margin-top:8px;display:none" onclick="rimuoviDriveConfig()">Disattiva salvataggio su Drive</button>
           <div id="driveMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
@@ -12991,21 +12991,36 @@ async function caricaDriveConfig(){
     const st=$('#driveStato');
     if(cfg&&cfg.url){
       $('#driveUrl').value=cfg.url;
-      $('#driveCartella').value=cfg.cartella||'';
       $('#driveSecret').placeholder='(già salvata — riscrivila solo per cambiarla)';
-      if(st)st.innerHTML='<span style="color:var(--ok)">● Attivo</span> — le ricevute vengono salvate anche su Drive'+(cfg.cartella?` nella cartella «${escText(cfg.cartella)}»`:' nella cartella «KeyFlow Ricevute»');
+      struttureList.forEach(s=>{
+        const inp=$('#driveCartella_'+s.id);
+        if(inp)inp.value=(cfg.cartelle&&cfg.cartelle[s.id])||'';
+      });
+      if(st){
+        const righe=struttureList.map(s=>{
+          const info=strutturaInfo(s.nome||s.id);
+          const cart=(cfg.cartelle&&cfg.cartelle[s.id])||('Ricevute '+(s.nome||s.id));
+          return `<div><span style="color:${info.colore}">●</span> ${escText(s.nome||s.id)} → cartella «${escText(cart)}»</div>`;
+        }).join('');
+        st.innerHTML='<span style="color:var(--ok)">● Attivo</span> — ogni ricevuta scaricata finisce anche su Drive:'+righe;
+      }
       const off=$('#driveOffBtn'); if(off)off.style.display='';
     }else if(st){ st.innerHTML='<span style="color:var(--muted)">○ Non attivo</span>'; }
   }catch(e){/* offline: si riproverà alla prossima apertura */ _driveConfigCaricata=false;}
 }
 async function salvaDriveConfig(){
   const m=$('#driveMsg');
-  const url=($('#driveUrl').value||'').trim(), secret=($('#driveSecret').value||'').trim(), cartella=($('#driveCartella').value||'').trim();
+  const url=($('#driveUrl').value||'').trim(), secret=($('#driveSecret').value||'').trim();
+  const cartelle={};
+  struttureList.forEach(s=>{
+    const inp=$('#driveCartella_'+s.id);
+    if(inp&&inp.value.trim())cartelle[s.id]=inp.value.trim();
+  });
   if(!url){ if(m)m.textContent='Manca l\'indirizzo della web app (punto 5 delle istruzioni).'; return; }
   if(m)m.textContent='Salvo…';
   try{
     const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
-      body:JSON.stringify({azione:'driveSet', url, secret, cartella})});
+      body:JSON.stringify({azione:'driveSet', url, secret, cartelle})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
     if(m)m.innerHTML='<span style="color:var(--ok)">✓ Salvato.</span> Alla prossima ricevuta scaricata trovi la copia su Drive. Fai subito una prova con uno dei pulsanti qui sopra!';
@@ -13017,7 +13032,8 @@ async function rimuoviDriveConfig(){
   try{
     const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'driveSet', url:''})});
     if(!r.ok){const d=await r.json();throw new Error(d.error||'Errore');}
-    $('#driveUrl').value='';$('#driveSecret').value='';$('#driveSecret').placeholder='';$('#driveCartella').value='';
+    $('#driveUrl').value='';$('#driveSecret').value='';$('#driveSecret').placeholder='';
+    struttureList.forEach(s=>{const inp=$('#driveCartella_'+s.id);if(inp)inp.value='';});
     const off=$('#driveOffBtn'); if(off)off.style.display='none';
     const st=$('#driveStato'); if(st)st.innerHTML='<span style="color:var(--muted)">○ Non attivo</span>';
     const m=$('#driveMsg'); if(m)m.textContent='Disattivato.';
@@ -13062,6 +13078,13 @@ async function loadStrutture(){
     if(rb) rb.innerHTML=list.map(s=>{
       const info=strutturaInfo(s.nome||s.id);
       return `<button class="btn ghost" style="width:100%;margin-top:8px" onclick="scaricaRicevuta('${escText(s.id)}')"><span style="color:${info.colore}">●</span>&nbsp; Ricevuta ${escText(s.nome||s.id)}</button>`;
+    }).join('');
+    // …e un campo cartella Drive per ogni struttura (cartelle separate)
+    const dc=$('#driveCartelle');
+    if(dc) dc.innerHTML=list.map(s=>{
+      const info=strutturaInfo(s.nome||s.id);
+      return `<label><span style="color:${info.colore}">●</span> Cartella Drive per ${escText(s.nome||s.id)} (facoltativo)</label>
+        <input type="text" id="driveCartella_${escText(s.id)}" placeholder="Ricevute ${escText(s.nome||s.id)}" autocomplete="off">`;
     }).join('');
     aggiornaRossUI();
     aggiornaOggi();

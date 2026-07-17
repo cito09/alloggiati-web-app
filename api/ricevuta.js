@@ -19,13 +19,13 @@ async function leggiConfigDrive() {
 
 // manda il PDF allo script Google dell'utente, che lo salva nella sua cartella Drive.
 // Non deve mai far fallire il download: ritorna sempre un esito {ok} o {ok:false, errore}.
-async function salvaSuDrive(cfg, nomeFile, pdfBase64) {
+async function salvaSuDrive(cfg, nomeFile, pdfBase64, cartella) {
   try {
     const r = await fetch(cfg.url, {
       method: "POST",
       // text/plain: le web app di Apps Script accettano POST semplici senza preflight CORS
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ secret: cfg.secret || "", nomeFile, base64: pdfBase64, cartella: cfg.cartella || "" }),
+      body: JSON.stringify({ secret: cfg.secret || "", nomeFile, base64: pdfBase64, cartella: cartella || "" }),
       redirect: "follow", // Apps Script risponde con un redirect 302 verso il contenuto
     });
     const txt = await r.text();
@@ -41,12 +41,12 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   try {
-    const { data, struttura, azione, url, secret, cartella } = req.body || {};
+    const { data, struttura, azione, url, secret, cartelle } = req.body || {};
 
     // --- configurazione Google Drive (letta/salvata nell'archivio, vale su tutti i dispositivi) ---
     if (azione === "driveGet") {
       const cfg = await leggiConfigDrive();
-      return res.status(200).json({ config: cfg ? { url: cfg.url, cartella: cfg.cartella || "", haSecret: !!cfg.secret } : null });
+      return res.status(200).json({ config: cfg ? { url: cfg.url, cartelle: cfg.cartelle || {}, haSecret: !!cfg.secret } : null });
     }
     if (azione === "driveSet") {
       const conn = upstash();
@@ -56,7 +56,15 @@ module.exports = async (req, res) => {
         return res.status(400).json({ error: "L'indirizzo deve essere quello della web app di Apps Script (inizia con https://script.google.com/macros/…)" });
       }
       const vecchia = (await leggiConfigDrive()) || {};
-      const cfg = { url: String(url), secret: secret ? String(secret) : (vecchia.secret || ""), cartella: cartella ? String(cartella) : "" };
+      // cartelle = { idStruttura: nomeCartella } — una cartella per struttura
+      const pulite = {};
+      if (cartelle && typeof cartelle === "object") {
+        for (const [k, v] of Object.entries(cartelle)) {
+          const nome = String(v || "").trim();
+          if (nome) pulite[String(k)] = nome;
+        }
+      }
+      const cfg = { url: String(url), secret: secret ? String(secret) : (vecchia.secret || ""), cartelle: pulite };
       await redisCmd(conn, ["SET", KEY_DRIVE, JSON.stringify(cfg)]);
       return res.status(200).json({ ok: true });
     }
@@ -87,7 +95,10 @@ module.exports = async (req, res) => {
     const cfg = await leggiConfigDrive();
     if (cfg && cfg.url) {
       const nomeFile = `ricevuta_${giorno}_${(s.nome || s.id || "").replace(/[^\w\- ]+/g, "").trim() || "struttura"}.pdf`;
-      drive = await salvaSuDrive(cfg, nomeFile, pdfBase64);
+      // ogni struttura ha la SUA cartella: quella scelta nelle Impostazioni,
+      // o in mancanza una di default col nome della struttura (mai una cartella condivisa)
+      const cartellaStruttura = (cfg.cartelle && String(cfg.cartelle[s.id] || "").trim()) || `Ricevute ${s.nome || s.id}`;
+      drive = await salvaSuDrive(cfg, nomeFile, pdfBase64, cartellaStruttura);
     }
 
     return res.status(200).json({ data: giorno, pdfBase64, drive });
