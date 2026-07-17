@@ -330,13 +330,56 @@
       </div>
     </details>
 
-    <details class="settings-section" id="ricevuteCard">
+    <details class="settings-section" id="ricevuteCard" ontoggle="if(this.open)caricaDriveConfig()">
       <summary><span class="n">🧾</span> Ricevute Questura</summary>
       <div class="settings-body">
         <div class="muted" style="font-size:12px">Scarica la ricevuta PDF del portale Alloggiati Web anche se hai dimenticato di farlo al momento dell'invio. Senza data scarico l'<b>ultima disponibile</b> (cerco fino a 7 giorni indietro); se ti serve un giorno preciso, sceglilo qui sotto.</div>
         <label>Giorno preciso (facoltativo)</label>
         <input type="date" id="ricevutaData">
         <div id="ricevuteBtns"></div>
+
+        <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+          <div style="font-weight:700;font-size:13px">☁️ Salvataggio automatico su Google Drive</div>
+          <div class="muted" style="font-size:12px;margin-top:4px">Se lo attivi, ogni ricevuta che scarichi viene anche salvata <b>da sola</b> in una cartella del tuo Google Drive. Serve una configurazione una tantum di ~5 minuti (Google non permette a un'app di scrivere sul tuo Drive senza il tuo permesso: questo passaggio è il permesso).</div>
+          <div id="driveStato" class="muted" style="font-size:12px;margin-top:8px"></div>
+          <details style="margin-top:8px">
+            <summary style="font-size:12.5px;font-weight:700;cursor:pointer">📖 Istruzioni passo-passo + codice da copiare</summary>
+            <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:8px 0">
+              <li>Apri <a href="https://script.google.com/home/projects/create" target="_blank" style="color:var(--amber)">script.google.com</a> con il tuo account Google (si apre un progetto nuovo).</li>
+              <li>Cancella il codice che trovi e <b>incolla il codice qui sotto</b> (pulsante Copia).</li>
+              <li>Nella riga <code>var SECRET = 'CAMBIAMI'</code> sostituisci CAMBIAMI con una parola segreta a tua scelta.</li>
+              <li>In alto a destra: <b>Esegui il deployment → Nuovo deployment → tipo "App web"</b>. Imposta <b>Esegui come: me</b> e <b>Chi ha accesso: chiunque</b>, poi Esegui il deployment (Google ti chiederà di autorizzare lo script sul tuo Drive: è il tuo script, autorizza).</li>
+              <li>Copia l'<b>URL dell'app web</b> (inizia con https://script.google.com/macros/…) e incollalo qui sotto insieme alla parola segreta. Salva. Fine!</li>
+            </ol>
+            <textarea id="driveScriptCode" readonly rows="8" style="width:100%;font-family:monospace;font-size:10.5px;background:var(--surface2);color:var(--ink);border:none;border-radius:12px;padding:10px" spellcheck="false">function doPost(e) {
+  var SECRET = 'CAMBIAMI'; // metti qui la tua parola segreta (la stessa che scrivi in KeyFlow)
+  var out = {};
+  try {
+    var req = JSON.parse(e.postData.contents);
+    if (req.secret !== SECRET) throw new Error('parola segreta sbagliata');
+    var nomeCartella = req.cartella || 'KeyFlow Ricevute';
+    var it = DriveApp.getFoldersByName(nomeCartella);
+    var cartella = it.hasNext() ? it.next() : DriveApp.createFolder(nomeCartella);
+    var bytes = Utilities.base64Decode(req.base64);
+    var file = cartella.createFile(Utilities.newBlob(bytes, 'application/pdf', req.nomeFile || 'ricevuta.pdf'));
+    out = { ok: true, nome: file.getName() };
+  } catch (err) {
+    out = { ok: false, errore: String((err && err.message) || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}</textarea>
+            <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="copiaDriveScript()">📋 Copia il codice</button>
+          </details>
+          <label>Indirizzo dell'app web (da Apps Script)</label>
+          <input type="text" id="driveUrl" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
+          <label>Parola segreta (la stessa scritta nello script)</label>
+          <input type="password" id="driveSecret" autocomplete="off">
+          <label>Nome cartella su Drive (facoltativo)</label>
+          <input type="text" id="driveCartella" placeholder="KeyFlow Ricevute" autocomplete="off">
+          <button class="btn primary" style="width:100%;margin-top:12px" onclick="salvaDriveConfig()">💾 Salva e attiva</button>
+          <button class="btn ghost sm" id="driveOffBtn" style="width:100%;margin-top:8px;display:none" onclick="rimuoviDriveConfig()">Disattiva salvataggio su Drive</button>
+          <div id="driveMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+        </div>
       </div>
     </details>
 
@@ -12931,8 +12974,59 @@ async function scaricaRicevuta(strutturaId){
     const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
     const a=document.createElement('a');a.href=url;a.download=`ricevuta_${data.data}${strutturaId?'_'+strutturaId:''}.pdf`;a.click();URL.revokeObjectURL(url);
     const s=struttureList.find(x=>x.id===strutturaId);
-    toast('Ricevuta del '+data.data.split('-').reverse().join('/')+(s?' · '+s.nome:'')+' scaricata');
+    let msg='Ricevuta del '+data.data.split('-').reverse().join('/')+(s?' · '+s.nome:'')+' scaricata';
+    if(data.drive) msg+=data.drive.ok?' ☁️ e salvata su Drive':' (⚠️ Drive: '+data.drive.errore+')';
+    toast(msg);
   }catch(e){toast('Ricevuta: '+e.message);}
+}
+
+/* ===== salvataggio automatico ricevute su Google Drive (config in Impostazioni) ===== */
+let _driveConfigCaricata=false;
+async function caricaDriveConfig(){
+  if(_driveConfigCaricata)return; _driveConfigCaricata=true;
+  try{
+    const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'driveGet'})});
+    const data=await r.json();
+    const cfg=data.config;
+    const st=$('#driveStato');
+    if(cfg&&cfg.url){
+      $('#driveUrl').value=cfg.url;
+      $('#driveCartella').value=cfg.cartella||'';
+      $('#driveSecret').placeholder='(già salvata — riscrivila solo per cambiarla)';
+      if(st)st.innerHTML='<span style="color:var(--ok)">● Attivo</span> — le ricevute vengono salvate anche su Drive'+(cfg.cartella?` nella cartella «${escText(cfg.cartella)}»`:' nella cartella «KeyFlow Ricevute»');
+      const off=$('#driveOffBtn'); if(off)off.style.display='';
+    }else if(st){ st.innerHTML='<span style="color:var(--muted)">○ Non attivo</span>'; }
+  }catch(e){/* offline: si riproverà alla prossima apertura */ _driveConfigCaricata=false;}
+}
+async function salvaDriveConfig(){
+  const m=$('#driveMsg');
+  const url=($('#driveUrl').value||'').trim(), secret=($('#driveSecret').value||'').trim(), cartella=($('#driveCartella').value||'').trim();
+  if(!url){ if(m)m.textContent='Manca l\'indirizzo della web app (punto 5 delle istruzioni).'; return; }
+  if(m)m.textContent='Salvo…';
+  try{
+    const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'driveSet', url, secret, cartella})});
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'Errore');
+    if(m)m.innerHTML='<span style="color:var(--ok)">✓ Salvato.</span> Alla prossima ricevuta scaricata trovi la copia su Drive. Fai subito una prova con uno dei pulsanti qui sopra!';
+    _driveConfigCaricata=false; caricaDriveConfig();
+  }catch(e){ if(m)m.textContent='Errore: '+e.message; }
+}
+async function rimuoviDriveConfig(){
+  if(!confirm('Disattivare il salvataggio automatico su Drive? (i file già salvati restano su Drive)'))return;
+  try{
+    const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'driveSet', url:''})});
+    if(!r.ok){const d=await r.json();throw new Error(d.error||'Errore');}
+    $('#driveUrl').value='';$('#driveSecret').value='';$('#driveSecret').placeholder='';$('#driveCartella').value='';
+    const off=$('#driveOffBtn'); if(off)off.style.display='none';
+    const st=$('#driveStato'); if(st)st.innerHTML='<span style="color:var(--muted)">○ Non attivo</span>';
+    const m=$('#driveMsg'); if(m)m.textContent='Disattivato.';
+  }catch(e){ const m=$('#driveMsg'); if(m)m.textContent='Errore: '+e.message; }
+}
+function copiaDriveScript(){
+  const ta=$('#driveScriptCode'); ta.select();
+  try{ navigator.clipboard.writeText(ta.value).then(()=>toast('Codice copiato ✓')); }
+  catch(e){ document.execCommand('copy'); toast('Codice copiato ✓'); }
 }
 let struttureList=[];
 /* ===== colore per struttura: per riconoscerla a colpo d'occhio (Ospiti in attesa, Storico).
