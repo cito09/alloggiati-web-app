@@ -357,9 +357,17 @@
   try {
     var req = JSON.parse(e.postData.contents);
     if (req.secret !== SECRET) throw new Error('parola segreta sbagliata');
-    var nomeCartella = req.cartella || 'KeyFlow Ricevute';
-    var it = DriveApp.getFoldersByName(nomeCartella);
-    var cartella = it.hasNext() ? it.next() : DriveApp.createFolder(nomeCartella);
+    // la cartella può essere: un LINK di Drive (drive.google.com/.../folders/XYZ),
+    // un ID di cartella, oppure un semplice nome (se non esiste la creo in Il mio Drive)
+    var rif = String(req.cartella || 'KeyFlow Ricevute').trim();
+    var cartella;
+    var link = rif.match(/folders\/([-\w]{10,})/);
+    if (link) cartella = DriveApp.getFolderById(link[1]);
+    else if (/^[-\w]{25,}$/.test(rif)) cartella = DriveApp.getFolderById(rif);
+    else {
+      var it = DriveApp.getFoldersByName(rif);
+      cartella = it.hasNext() ? it.next() : DriveApp.createFolder(rif);
+    }
     var bytes = Utilities.base64Decode(req.base64);
     var file = cartella.createFile(Utilities.newBlob(bytes, 'application/pdf', req.nomeFile || 'ricevuta.pdf'));
     out = { ok: true, nome: file.getName() };
@@ -375,7 +383,7 @@
           <label>Parola segreta (la stessa scritta nello script)</label>
           <input type="password" id="driveSecret" autocomplete="off">
           <div id="driveCartelle"></div>
-          <div class="muted" style="font-size:11.5px;margin-top:6px">Ogni struttura ha la <b>sua cartella separata</b>. Se lasci vuoto, la creo io con il nome della struttura.</div>
+          <div class="muted" style="font-size:11.5px;margin-top:6px">Ogni struttura ha la <b>sua cartella separata</b>. Il modo più sicuro: apri la cartella su Drive e <b>incolla qui il suo link</b> (drive.google.com/…/folders/…). In alternativa scrivi un nome: se non esiste la creo io in "Il mio Drive". Se lasci vuoto, creo «Ricevute <i>nome struttura</i>».</div>
           <button class="btn primary" style="width:100%;margin-top:12px" onclick="salvaDriveConfig()">💾 Salva e attiva</button>
           <button class="btn ghost sm" id="driveOffBtn" style="width:100%;margin-top:8px;display:none" onclick="rimuoviDriveConfig()">Disattiva salvataggio su Drive</button>
           <div id="driveMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
@@ -13083,8 +13091,8 @@ async function loadStrutture(){
     const dc=$('#driveCartelle');
     if(dc) dc.innerHTML=list.map(s=>{
       const info=strutturaInfo(s.nome||s.id);
-      return `<label><span style="color:${info.colore}">●</span> Cartella Drive per ${escText(s.nome||s.id)} (facoltativo)</label>
-        <input type="text" id="driveCartella_${escText(s.id)}" placeholder="Ricevute ${escText(s.nome||s.id)}" autocomplete="off">`;
+      return `<label><span style="color:${info.colore}">●</span> Cartella Drive per ${escText(s.nome||s.id)} (link o nome)</label>
+        <input type="text" id="driveCartella_${escText(s.id)}" placeholder="incolla il link della cartella, o un nome" autocomplete="off">`;
     }).join('');
     aggiornaRossUI();
     aggiornaOggi();
