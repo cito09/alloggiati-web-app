@@ -47,7 +47,7 @@ async function salvaSuDrive(cfg, nomeFile, pdfBase64, cartella) {
     });
     const txt = await r.text();
     let esito; try { esito = JSON.parse(txt); } catch { esito = null; }
-    if (esito && esito.ok) return { ok: true, nome: esito.nome || nomeFile };
+    if (esito && esito.ok) return { ok: true, nome: esito.nome || nomeFile, v: esito.v || 1 };
     // errori tipici di configurazione del deployment, spiegati in chiaro
     if (r.status === 401 || r.status === 403 || /accounts\.google\.com/.test(txt)) {
       return { ok: false, errore: "lo script rifiuta l'accesso: in Apps Script apri Esegui il deployment → Gestisci deployment → ✏️ e imposta \"Chi ha accesso: Chiunque\" (nuova versione). Controlla anche che l'indirizzo finisca con /exec" };
@@ -131,6 +131,11 @@ module.exports = async (req, res) => {
       // o in mancanza una di default col nome della struttura (mai una cartella condivisa)
       const cartellaStruttura = (cfg.cartelle && String(cfg.cartelle[s.id] || "").trim()) || `Ricevute ${s.nome || s.id}`;
       drive = await salvaSuDrive(cfg, nomeFile, pdfBase64, cartellaStruttura);
+      // hai indicato un LINK di cartella ma su Google gira ancora lo script vecchio (v1),
+      // che i link non li capisce: il file è finito in una cartella creata col nome del link.
+      if (drive && drive.ok && drive.v < 2 && /folders\//.test(cartellaStruttura)) {
+        drive.avviso = "Su script.google.com gira ancora la VECCHIA versione dello script, che non capisce i link: il PDF è finito in una cartella sbagliata. Incolla il codice aggiornato e in Gestisci deployment pubblica una NUOVA VERSIONE.";
+      }
     }
 
     return res.status(200).json({ data: giorno, pdfBase64, drive });

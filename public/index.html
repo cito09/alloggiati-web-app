@@ -370,7 +370,7 @@
     }
     var bytes = Utilities.base64Decode(req.base64);
     var file = cartella.createFile(Utilities.newBlob(bytes, 'application/pdf', req.nomeFile || 'ricevuta.pdf'));
-    out = { ok: true, nome: file.getName() };
+    out = { ok: true, v: 2, nome: file.getName() };
   } catch (err) {
     out = { ok: false, errore: String((err && err.message) || err) };
   }
@@ -12978,13 +12978,21 @@ async function scaricaRicevuta(strutturaId){
       body:JSON.stringify({struttura:strutturaId||currentStruttura(), data:giorno})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
-    const bin=atob(data.pdfBase64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
-    const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
-    const a=document.createElement('a');a.href=url;a.download=`ricevuta_${data.data}${strutturaId?'_'+strutturaId:''}.pdf`;a.click();URL.revokeObjectURL(url);
     const s=struttureList.find(x=>x.id===strutturaId);
-    let msg='Ricevuta del '+data.data.split('-').reverse().join('/')+(s?' · '+s.nome:'')+' scaricata';
-    if(data.drive) msg+=data.drive.ok?' ☁️ e salvata su Drive':' (⚠️ Drive: '+data.drive.errore+')';
-    toast(msg);
+    const quando=data.data.split('-').reverse().join('/');
+    if(data.drive&&data.drive.ok){
+      // salvata su Drive: NIENTE download locale (evita la finestra "Salva con nome")
+      toast('☁️ Ricevuta del '+quando+(s?' · '+s.nome:'')+' salvata su Drive');
+      if(data.drive.avviso) alert('⚠️ '+data.drive.avviso);
+    }else{
+      // Drive non attivo (o fallito): scarico in locale come sempre
+      const bin=atob(data.pdfBase64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+      const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
+      const a=document.createElement('a');a.href=url;a.download=`ricevuta_${data.data}${strutturaId?'_'+strutturaId:''}.pdf`;a.click();URL.revokeObjectURL(url);
+      let msg='Ricevuta del '+quando+(s?' · '+s.nome:'')+' scaricata';
+      if(data.drive) msg+=' (⚠️ Drive: '+data.drive.errore+')';
+      toast(msg);
+    }
   }catch(e){toast('Ricevuta: '+e.message);}
 }
 
