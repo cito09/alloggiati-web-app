@@ -7,6 +7,23 @@ const { checkAdmin } = require("./_admin");
 const { upstash, redisCmd } = require("./_kv");
 
 const KEY_DRIVE = "drive_ricevute";
+const KEY_STORICO = "storico_schedine";
+
+// giorno (ora italiana, YYYY-MM-DD) dell'ultimo invio ufficiale registrato nell'Archivio
+// per questa struttura: il portale emette la ricevuta solo per i giorni con un invio,
+// quindi se l'ultimo invio è più vecchio di una settimana è QUESTO il giorno da chiedere.
+async function giornoUltimoInvio(nomeStruttura) {
+  const conn = upstash();
+  if (!conn) return null;
+  try {
+    const raw = await redisCmd(conn, ["GET", KEY_STORICO]);
+    const storico = raw ? JSON.parse(raw) : [];
+    // le voci sono in ordine dal più recente: la prima 'inviata' della struttura è l'ultimo invio
+    const voce = storico.find((v) => v && v.tipo === "inviata" && v.ts && (!nomeStruttura || v.struttura === nomeStruttura));
+    if (!voce) return null;
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(voce.ts));
+  } catch { return null; }
+}
 
 async function leggiConfigDrive() {
   const conn = upstash();
@@ -80,14 +97,25 @@ module.exports = async (req, res) => {
       // nessuna data indicata: come fa il portale, propone l'ultima disponibile.
       // prova oggi (ora italiana) e risale fino a una settimana indietro.
       let ultimoErrore;
+      const giaProvati = [];
       for (let giorniIndietro = 0; giorniIndietro < 7; giorniIndietro++) {
         const g = dataItalia(giorniIndietro);
+        giaProvati.push(g);
         try {
           ({ pdfBase64 } = await ricevuta({ utente: s.utente, token, data: g }));
           giorno = g; break;
         } catch (e) { ultimoErrore = e; }
       }
-      if (!pdfBase64) throw new Error(`Nessuna ricevuta trovata negli ultimi 7 giorni (${ultimoErrore && ultimoErrore.message})`);
+      if (!pdfBase64) {
+        // ultima spiaggia: il giorno dell'ultimo invio registrato in Archivio (può essere
+        // anche molto più vecchio di 7 giorni — es. ricevuta dimenticata da settimane)
+        const g = await giornoUltimoInvio(s.nome);
+        if (g && !giaProvati.includes(g)) {
+          try { ({ pdfBase64 } = await ricevuta({ utente: s.utente, token, data: g })); giorno = g; }
+          catch (e) { ultimoErrore = e; }
+        }
+      }
+      if (!pdfBase64) throw new Error(`Nessuna ricevuta trovata: il portale la emette solo per i giorni in cui hai fatto un invio. Ho provato gli ultimi 7 giorni e il giorno dell'ultimo invio in Archivio. Se conosci il giorno dell'invio, indicalo nel campo data. (${ultimoErrore && ultimoErrore.message})`);
     }
 
     // salvataggio automatico su Drive, se configurato (non blocca mai il download)
