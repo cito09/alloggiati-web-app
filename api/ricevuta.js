@@ -48,6 +48,10 @@ async function salvaSuDrive(cfg, nomeFile, pdfBase64, cartella) {
     const txt = await r.text();
     let esito; try { esito = JSON.parse(txt); } catch { esito = null; }
     if (esito && esito.ok) return { ok: true, nome: esito.nome || nomeFile };
+    // errori tipici di configurazione del deployment, spiegati in chiaro
+    if (r.status === 401 || r.status === 403 || /accounts\.google\.com/.test(txt)) {
+      return { ok: false, errore: "lo script rifiuta l'accesso: in Apps Script apri Esegui il deployment → Gestisci deployment → ✏️ e imposta \"Chi ha accesso: Chiunque\" (nuova versione). Controlla anche che l'indirizzo finisca con /exec" };
+    }
     return { ok: false, errore: (esito && esito.errore) || `risposta inattesa dallo script (${r.status})` };
   } catch (e) {
     return { ok: false, errore: String(e.message || e) };
