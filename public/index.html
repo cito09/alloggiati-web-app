@@ -375,6 +375,12 @@
     out = { ok: false, errore: String((err && err.message) || err) };
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// aprendo l'indirizzo /exec nel browser vedi questo messaggio: serve per capire al volo
+// se lo script è raggiungibile e quale versione sta girando davvero
+function doGet() {
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, v: 2, info: 'Script ricevute KeyFlow attivo' })).setMimeType(ContentService.MimeType.JSON);
 }</textarea>
             <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="copiaDriveScript()">📋 Copia il codice</button>
           </details>
