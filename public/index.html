@@ -330,9 +330,60 @@
       </div>
     </details>
 
-    <details class="settings-section" id="ricevuteCard" ontoggle="if(this.open)caricaDriveConfig()">
+    <details class="settings-section" id="ricevuteCard">
       <summary><span class="n">🧾</span> Ricevute Questura</summary>
       <div class="settings-body">
+        <div class="muted" style="font-size:12px;margin-bottom:8px">Scarica le ricevute PDF del portale Alloggiati Web (anche di giorni passati) e salvale in automatico su Google Drive.</div>
+        <button class="btn ghost sm" style="width:100%" onclick="apriRicevute()">🧾 Apri Ricevute Questura</button>
+      </div>
+    </details>
+
+    <details class="settings-section" id="isCard">
+      <summary><span class="n">🏛️</span> GEIS · nota Airbnb</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px">Carica il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS.</div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
+          • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
+          • <b>Pernottamenti</b> = notti occupate dall'appartamento.<br>
+          • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre.</div>
+        <input type="file" id="isFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="isCaricaFile(event)">
+        <button class="btn primary" style="margin-top:10px" onclick="document.getElementById('isFile').click()">📎 Carica il file CSV di Airbnb</button>
+        <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">…oppure <b>trascina qui il file</b></div>
+        <div id="isResult" style="margin-top:12px"></div>
+        <div id="isStoricoBox" style="margin-top:16px"></div>
+      </div>
+    </details>
+
+    <details class="settings-section" id="privacyCard">
+      <summary><span class="n">🔒</span> Privacy file</summary>
+      <div class="settings-body">
+        <div class="muted" style="font-size:12px">I file dei <b>nuovi</b> check-in (foto documenti, selfie, contratti) sono già <b>privati</b>: apribili solo da qui, con il tuo accesso. I file caricati <b>prima</b> di questa modifica erano pubblici: con il pulsante qui sotto li rendi privati anche loro (operazione una tantum e sicura, i file non si perdono).</div>
+        <button class="btn ghost" id="diagnosiBtn" style="margin-top:10px" onclick="verificaArchivioFoto()">🔍 Verifica configurazione</button>
+        <div id="diagnosiMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+        <button class="btn ghost" id="privatizzaBtn" style="margin-top:10px" onclick="privatizzaVecchie()">🔒 Rendi privati i file già caricati</button>
+        <div id="privatizzaMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+      </div>
+    </details>
+
+    <details class="settings-section">
+      <summary><span class="n">ℹ️</span> Stato configurazione</summary>
+      <div class="settings-body">
+        <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
+      </div>
+    </details>
+
+    <div class="settings-section">
+      <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
+    </div>
+  </div>
+</div>
+
+<div class="pagina-piena" id="ricevuteOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiRicevute()" style="width:auto">← Indietro</button>
+    <h2>🧾 Ricevute Questura</h2>
+  </div>
+  <div class="pp-body">
         <div class="muted" style="font-size:12px">Scarica la ricevuta PDF del portale Alloggiati Web anche se hai dimenticato di farlo al momento dell'invio. Senza data scarico l'<b>ultima disponibile</b> (cerco fino a 7 giorni indietro); se ti serve un giorno preciso, sceglilo qui sotto.</div>
         <label>Giorno preciso (facoltativo)</label>
         <input type="date" id="ricevutaData">
@@ -394,47 +445,7 @@ function doGet() {
           <button class="btn ghost sm" id="driveOffBtn" style="width:100%;margin-top:8px;display:none" onclick="rimuoviDriveConfig()">Disattiva salvataggio su Drive</button>
           <div id="driveMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
         </div>
-      </div>
-    </details>
-
-    <details class="settings-section" id="isCard">
-      <summary><span class="n">🏛️</span> GEIS · nota Airbnb</summary>
-      <div class="settings-body">
-        <div class="muted" style="font-size:12px">Carica il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS.</div>
-        <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
-          • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
-          • <b>Pernottamenti</b> = notti occupate dall'appartamento.<br>
-          • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre.</div>
-        <input type="file" id="isFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="isCaricaFile(event)">
-        <button class="btn primary" style="margin-top:10px" onclick="document.getElementById('isFile').click()">📎 Carica il file CSV di Airbnb</button>
-        <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">…oppure <b>trascina qui il file</b></div>
-        <div id="isResult" style="margin-top:12px"></div>
-        <div id="isStoricoBox" style="margin-top:16px"></div>
-      </div>
-    </details>
-
-    <details class="settings-section" id="privacyCard">
-      <summary><span class="n">🔒</span> Privacy file</summary>
-      <div class="settings-body">
-        <div class="muted" style="font-size:12px">I file dei <b>nuovi</b> check-in (foto documenti, selfie, contratti) sono già <b>privati</b>: apribili solo da qui, con il tuo accesso. I file caricati <b>prima</b> di questa modifica erano pubblici: con il pulsante qui sotto li rendi privati anche loro (operazione una tantum e sicura, i file non si perdono).</div>
-        <button class="btn ghost" id="diagnosiBtn" style="margin-top:10px" onclick="verificaArchivioFoto()">🔍 Verifica configurazione</button>
-        <div id="diagnosiMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
-        <button class="btn ghost" id="privatizzaBtn" style="margin-top:10px" onclick="privatizzaVecchie()">🔒 Rendi privati i file già caricati</button>
-        <div id="privatizzaMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
-      </div>
-    </details>
-
-    <details class="settings-section">
-      <summary><span class="n">ℹ️</span> Stato configurazione</summary>
-      <div class="settings-body">
-        <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
-      </div>
-    </details>
-
-    <div class="settings-section">
-      <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
-    </div>
-  </div>
+        </div>
 </div>
 
 <div class="pagina-piena" id="recuperoOverlay">
@@ -13709,6 +13720,18 @@ async function recuperaCheckinPersi(){
     if(n){ toast(n+' check-in recuperat'+(n===1?'o':'i')); }
     renderRecuperoLista();
   }catch(e){ msg.textContent='Errore: '+e.message; }
+}
+
+/* ===== finestra Ricevute Questura (a pagina piena, aperta dalle Impostazioni) ===== */
+function apriRicevute(){
+  closeSettings();
+  $('#ricevuteOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  caricaDriveConfig();
+}
+function chiudiRicevute(){
+  $('#ricevuteOverlay').classList.remove('open');
+  document.body.style.overflow='';
 }
 
 /* ===== pannello Recupero e pulizia: tutti i check-in in attesa, con spunte per eliminare ===== */
