@@ -59,6 +59,10 @@
     background:var(--surface); border-bottom:1px solid var(--line)}
   .pagina-piena .pp-head h2{margin:0; font-size:17px; flex:1}
   .pagina-piena .pp-body{padding:14px 16px 40px; max-width:640px; margin:0 auto}
+  .menu-riga{width:100%; cursor:pointer; color:var(--ink); font-family:inherit; font-size:14px; font-weight:700}
+  .menu-riga .mi{font-size:17px; width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; background:rgba(132,227,211,.1); border-radius:12px; flex:0 0 auto}
+  .menu-riga .freccia{color:var(--muted); font-weight:400; font-size:18px}
+  .menu-riga:active{background:var(--surface)}
   .settings-overlay{display:none; position:fixed; inset:0; z-index:500; background:rgba(5,12,20,.55)}
   .settings-overlay.open{display:block}
   .settings-panel{position:absolute; top:0; right:0; height:100%; width:min(340px,88vw); overflow-y:auto;
@@ -296,17 +300,37 @@
       <button class="settings-close" onclick="closeSettings()" aria-label="Chiudi">✕</button>
     </div>
 
-    <details class="settings-section" style="display:none">
-      <summary><span class="n">🏠</span> Struttura predefinita</summary>
-      <div class="settings-body">
+    <button class="link-row menu-riga" id="rowStruttura" style="display:none" onclick="apriPagina('strutturaOverlay')"><span class="mi">🏠</span><span style="flex:1;text-align:left">Struttura predefinita</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriPagina('geisOverlay')"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · nota Airbnb</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriPagina('privacyOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Privacy file</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione</span><span class="freccia">›</span></button>
+
+    <div class="settings-section">
+      <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
+    </div>
+  </div>
+</div>
+
+<div class="pagina-piena" id="strutturaOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('strutturaOverlay')" style="width:auto">← Indietro</button>
+    <h2>🏠 Struttura predefinita</h2>
+  </div>
+  <div class="pp-body">
         <div class="muted" style="font-size:12px;margin-bottom:6px">Quella già selezionata quando apri una nuova registrazione.</div>
         <select id="settingsStrutturaSel"></select>
-      </div>
-    </details>
+        </div>
+</div>
 
-    <details class="settings-section" id="settingsSecuritySection" style="display:none">
-      <summary><span class="n">🔒</span> Codice d'accesso</summary>
-      <div class="settings-body">
+<div class="pagina-piena" id="codiceOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('codiceOverlay')" style="width:auto">← Indietro</button>
+    <h2>🔒 Codice d'accesso</h2>
+  </div>
+  <div class="pp-body">
         <div class="muted" style="font-size:12px;margin-bottom:6px">Cambia il codice per entrare nel gestionale, senza passare da Vercel.</div>
         <form id="changeCodeForm">
           <label>Codice attuale</label>
@@ -319,28 +343,15 @@
           <div id="changeCodeMsg" style="margin-top:8px;font-size:12.5px"></div>
         </form>
         <button class="btn ghost sm" style="width:100%;margin-top:14px" onclick="uscitaGestionale()">🚪 Esci dal gestionale</button>
-      </div>
-    </details>
+        </div>
+</div>
 
-    <details class="settings-section">
-      <summary><span class="n">🛟</span> Recupero</summary>
-      <div class="settings-body">
-        <div class="muted" style="font-size:12px;margin-bottom:8px">Ripesca i check-in persi dall'archivio e fai pulizia di quelli che non servono (test, doppioni).</div>
-        <button class="btn ghost sm" style="width:100%" onclick="apriRecupero()">🛟 Apri recupero e pulizia</button>
-      </div>
-    </details>
-
-    <details class="settings-section" id="ricevuteCard">
-      <summary><span class="n">🧾</span> Ricevute Questura</summary>
-      <div class="settings-body">
-        <div class="muted" style="font-size:12px;margin-bottom:8px">Scarica le ricevute PDF del portale Alloggiati Web (anche di giorni passati) e salvale in automatico su Google Drive.</div>
-        <button class="btn ghost sm" style="width:100%" onclick="apriRicevute()">🧾 Apri Ricevute Questura</button>
-      </div>
-    </details>
-
-    <details class="settings-section" id="isCard">
-      <summary><span class="n">🏛️</span> GEIS · nota Airbnb</summary>
-      <div class="settings-body">
+<div class="pagina-piena" id="geisOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('geisOverlay')" style="width:auto">← Indietro</button>
+    <h2>🏛️ GEIS · nota Airbnb</h2>
+  </div>
+  <div class="pp-body">
         <div class="muted" style="font-size:12px">Carica il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS.</div>
         <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
           • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
@@ -351,31 +362,31 @@
         <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">…oppure <b>trascina qui il file</b></div>
         <div id="isResult" style="margin-top:12px"></div>
         <div id="isStoricoBox" style="margin-top:16px"></div>
-      </div>
-    </details>
+        </div>
+</div>
 
-    <details class="settings-section" id="privacyCard">
-      <summary><span class="n">🔒</span> Privacy file</summary>
-      <div class="settings-body">
+<div class="pagina-piena" id="privacyOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('privacyOverlay')" style="width:auto">← Indietro</button>
+    <h2>🔒 Privacy file</h2>
+  </div>
+  <div class="pp-body">
         <div class="muted" style="font-size:12px">I file dei <b>nuovi</b> check-in (foto documenti, selfie, contratti) sono già <b>privati</b>: apribili solo da qui, con il tuo accesso. I file caricati <b>prima</b> di questa modifica erano pubblici: con il pulsante qui sotto li rendi privati anche loro (operazione una tantum e sicura, i file non si perdono).</div>
         <button class="btn ghost" id="diagnosiBtn" style="margin-top:10px" onclick="verificaArchivioFoto()">🔍 Verifica configurazione</button>
         <div id="diagnosiMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
         <button class="btn ghost" id="privatizzaBtn" style="margin-top:10px" onclick="privatizzaVecchie()">🔒 Rendi privati i file già caricati</button>
         <div id="privatizzaMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
-      </div>
-    </details>
+        </div>
+</div>
 
-    <details class="settings-section">
-      <summary><span class="n">ℹ️</span> Stato configurazione</summary>
-      <div class="settings-body">
-        <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
-      </div>
-    </details>
-
-    <div class="settings-section">
-      <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
-    </div>
+<div class="pagina-piena" id="statoOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('statoOverlay')" style="width:auto">← Indietro</button>
+    <h2>ℹ️ Stato configurazione</h2>
   </div>
+  <div class="pp-body">
+        <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
+        </div>
 </div>
 
 <div class="pagina-piena" id="ricevuteOverlay">
@@ -13104,7 +13115,8 @@ async function loadStrutture(){
       sel.onchange=()=>setStrutturaPreferita(sel.value);
       $('#strutturaWrap').style.display='';
       const sel2=$('#settingsStrutturaSel');
-      if(sel2){ sel2.innerHTML=opts; sel2.onchange=()=>setStrutturaPreferita(sel2.value); sel2.closest('.settings-section').style.display=''; }
+      if(sel2){ sel2.innerHTML=opts; sel2.onchange=()=>setStrutturaPreferita(sel2.value); }
+      const rowS=$('#rowStruttura'); if(rowS)rowS.style.display='';
     }
     // Impostazioni → Ricevute Questura: un pulsante per struttura, col suo colore
     const rb=$('#ricevuteBtns');
@@ -13624,7 +13636,7 @@ function isLeggiFile(f){
 function isCaricaFile(ev){ const f=ev&&ev.target&&ev.target.files&&ev.target.files[0]; if(ev&&ev.target)ev.target.value=''; isLeggiFile(f); }
 // trascinamento del file CSV direttamente sulla card
 function isWireDrop(){
-  const z=$('#isCard'); if(!z||z._isDrop)return; z._isDrop=1;
+  const z=$('#geisOverlay'); if(!z||z._isDrop)return; z._isDrop=1;
   const evi=e=>{e.preventDefault();e.stopPropagation();};
   const on=e=>{evi(e);z.style.outline='2px dashed var(--amber)';z.style.outlineOffset='-6px';};
   const off=e=>{evi(e);z.style.outline='';z.style.outlineOffset='';};
@@ -13720,6 +13732,18 @@ async function recuperaCheckinPersi(){
     if(n){ toast(n+' check-in recuperat'+(n===1?'o':'i')); }
     renderRecuperoLista();
   }catch(e){ msg.textContent='Errore: '+e.message; }
+}
+
+/* ===== pagine piene delle Impostazioni: un clic sulla voce del menu le apre subito ===== */
+function apriPagina(id){
+  closeSettings();
+  $('#'+id).classList.add('open');
+  document.body.style.overflow='hidden';
+  if(id==='statoOverlay')renderSettingsInfo();
+}
+function chiudiPagina(id){
+  $('#'+id).classList.remove('open');
+  document.body.style.overflow='';
 }
 
 /* ===== finestra Ricevute Questura (a pagina piena, aperta dalle Impostazioni) ===== */
