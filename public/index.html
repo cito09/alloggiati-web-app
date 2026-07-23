@@ -13314,6 +13314,32 @@ function mostraTab(t){
   window.scrollTo(0,0);
 }
 
+/* ===== tasto Indietro di Android/browser: naviga DENTRO l'app invece di uscire =====
+   Teniamo sempre una voce "sentinella" in cima alla cronologia: quando l'utente preme
+   Indietro, chiudiamo prima i pannelli aperti, poi torniamo alla scheda Oggi, e solo
+   alla fine (Oggi senza pannelli) lasciamo davvero uscire dall'app. */
+function keyflowBack(){
+  // 1) lightbox foto aperta
+  const lb=document.getElementById('fotoLightbox');
+  if(lb&&getComputedStyle(lb).display!=='none'){ if(typeof chiudiFoto==='function')chiudiFoto(); else {lb.style.display='none';document.body.style.overflow='';} return true; }
+  // 2) qualunque finestra a pagina piena aperta (Struttura, Codice, GEIS, Privacy, Stato,
+  //    Ricevute, Recupero, Dettaglio check-in): chiudi la più recente
+  const aperte=[...document.querySelectorAll('.pagina-piena.open')];
+  if(aperte.length){ const el=aperte[aperte.length-1]; el.classList.remove('open'); document.body.style.overflow=''; return true; }
+  // 3) pannello Impostazioni laterale
+  const set=document.getElementById('settingsOverlay');
+  if(set&&set.classList.contains('open')){ closeSettings(); return true; }
+  // 4) da una scheda diversa torna a Oggi
+  if((localStorage.getItem('tabAttiva')||'oggi')!=='oggi'){ mostraTab('oggi'); return true; }
+  return false;
+}
+(function(){
+  try{ history.pushState({keyflow:1},''); }catch(e){}
+  window.addEventListener('popstate', function(){
+    if(keyflowBack()){ try{ history.pushState({keyflow:1},''); }catch(e){} }
+  });
+})();
+
 /* ===== scheda Oggi: riepilogo ===== */
 function aggiornaOggi(){
   const w=$('#oggiStato'); if(!w)return;

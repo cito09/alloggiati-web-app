@@ -967,6 +967,35 @@ let gIdx=0;              // ospite su cui si sta lavorando nei passi foto/verifi
 let consensoOk=false;
 function mostraPasso(p){ passo=p; render(); window.scrollTo(0,0); }
 
+/* ===== tasto Indietro di Android/browser: naviga DENTRO il check-in invece di uscire =====
+   Chiude prima gli overlay aperti (contratto a schermo, fotocamera, selettore lingua), poi
+   torna al passo precedente del percorso; sul primo passo lascia uscire dall'app. */
+function keyflowBack(){
+  const cfs=document.getElementById('contrattoFS');
+  if(cfs&&cfs.classList.contains('show')){ chiudiContrattoFS(); return true; }
+  const cam=document.getElementById('camOverlay');
+  if(cam&&cam.classList.contains('show')){ chiudiWebcam(); return true; }
+  const lw=document.getElementById('langWrap');
+  if(lw&&lw.style.display==='block'&&onboardingFatto){
+    lw.style.display='none'; if(vistaPrimaDiLingua) mostraSolo(vistaPrimaDiLingua); return true;
+  }
+  if(vistaAttuale==='formWrap'){
+    if(passo==='foto'){ indietroDaFoto(); return true; }
+    if(passo==='verifica'){ indietroDaVerifica(); return true; }
+    if(passo==='altro'){ mostraPasso('verifica'); return true; }
+    if(passo==='selfie'){ mostraPasso('altro'); return true; }
+    if(passo==='invio'){ mostraPasso('selfie'); return true; }
+    // passo 'date': è il primo, si esce
+  }
+  return false;
+}
+(function(){
+  try{ history.pushState({keyflow:1},''); }catch(e){}
+  window.addEventListener('popstate', function(){
+    if(keyflowBack()){ try{ history.pushState({keyflow:1},''); }catch(e){} }
+  });
+})();
+
 function setDate(kind,iso){
   const it=dateToItalian(iso);
   if(kind==='arrivo')arrivo=it; else partenza=it;
