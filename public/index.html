@@ -12590,11 +12590,21 @@ async function handleBookingImgs(bid,files){const list=onlyImages(files); if(!li
 // mappa nome campo dell'AI -> chiave usata internamente sull'ospite
 const CAMPO_AI_TO_G={cognome:'cognome',nome:'nome',sesso:'sesso',data_nascita:'dataNascita',comune_nascita:'comuneNascita',
   stato_nascita:'statoNascita',cittadinanza:'cittadinanza',tipo_documento:'tipoDoc',numero_documento:'numeroDoc',luogo_rilascio:'luogoRilascio'};
+// Rete di sicurezza per il luogo di rilascio: se il valore non corrisponde a nessuno Stato
+// né comune riconosciuto (es. "WHITBY", città dell'ufficio su un passaporto estero) ma la
+// cittadinanza è uno Stato estero valido, usiamo lo Stato emittente (per i passaporti coincide).
+function correggiLuogoRilascio(luogo,cittadinanza){
+  const l=normalizzaLuogoRilascio(luogo||''); if(!l)return l;
+  if(lookupStato(l)||(lookupComune(l))) return l; // già riconosciuto: ok
+  const citt=String(cittadinanza||'').trim();
+  if(citt&&citt.toUpperCase()!=='ITALIA'&&lookupStato(citt)) return citt; // documento estero → Stato emittente
+  return l; // non risolto: lo lascia com'è, l'host lo sistemerà a mano
+}
 function applyAI(g,j){
   Object.assign(g,{cognome:j.cognome||g.cognome,nome:j.nome||g.nome,sesso:j.sesso||g.sesso,
     dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:j.stato_nascita||g.statoNascita,
     cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
-    luogoRilascio:normalizzaLuogoRilascio(j.luogo_rilascio||g.luogoRilascio),_touched:true});
+    luogoRilascio:correggiLuogoRilascio(j.luogo_rilascio||g.luogoRilascio, j.cittadinanza||g.cittadinanza),_touched:true});
   g.comuneNascitaCode=g.statoNascitaCode=g.cittadinanzaCode=g.tipoDocCode=g.luogoRilascioCode=null;
   g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
 }
