@@ -1748,6 +1748,23 @@ document.addEventListener('paste',e=>{
   handleImgs(guests[gIdx].id,files);
 });
 
+// carica UNA singola immagine sul server (che la salva su Blob) e restituisce l'URL.
+// La comprime prima: una foto da sola sta sempre molto sotto il limite di una richiesta.
+async function caricaImmagineSingola(dataURL){
+  let piccola=dataURL;
+  try{ const out=await comprimiPerLimite([dataURL],{max:1600,q:0.8,limiteBytes:2.6*1024*1024,tentativi:6}); piccola=out[0]||dataURL; }
+  catch(e){/* se la compressione fallisce, proviamo comunque a inviare l'originale */}
+  let r;
+  try{ r=await fetch('/api/checkin-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codice, azione:'upload', img:piccola})}); }
+  catch(e){ throw new Error('connessione: '+(e&&e.message||e)); }
+  let testo=''; try{ testo=await r.text(); }catch(e){}
+  let data=null; try{ data=JSON.parse(testo); }catch(e){}
+  if(!r.ok || !data || !data.url){
+    if(r.status===413 || /request entity too large|payload too large|too large/i.test(testo)){ const err=new Error('foto troppo grande'); err._fotoGrandi=true; throw err; }
+    throw new Error((data&&data.error)||('server '+(r.status||'?')));
+  }
+  return data.url;
+}
 async function inviaCheckin(){
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo)){toast(t('toast_indica_arrivo'));return;}
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(partenza)){toast(t('toast_indica_partenza'));return;}
@@ -1773,42 +1790,33 @@ async function inviaCheckin(){
   const btn=$('#submitBtn'); btn.disabled=true;
   $('#submitStatus').innerHTML=`<span class="spin"></span> ${t('submit_status_invio')}`;
   try{
-    // le foto vengono mandate ORA nella dimensione originale (a volte diversi MB a testa):
-    // le comprimiamo prima dell'invio finale, altrimenti con più documenti si supera il
-    // limite di dimensione delle richieste e l'invio fallisce.
-    // Vercel rifiuta le richieste oltre ~4,5 MB. Prepariamo il pacchetto e, GARANTITO,
-    // lo rimpiccioliamo finché non entra sotto una soglia di sicurezza: comprimiamo foto e
-    // (se serve) il selfie sempre più, misurando la dimensione REALE del JSON prima di inviare.
-    // Così l'invio non fallisce mai per "pacchetto troppo grande".
-    const LIMITE_INVIO=4.0*1024*1024;   // margine ampio sotto il limite di Vercel
-    let immaginiPerOspite, payload, selfieDaInviare=deVisu.selfie;
+    // Le foto vengono caricate UNA PER UNA (ognuna compressa sta larghissima sotto il limite
+    // di richiesta): raccogliamo i link e l'invio finale porta solo quelli. Così una singola
+    // richiesta non trasporta mai tutte le immagini insieme e non può più risultare "troppo
+    // grande", qualunque sia il numero o il formato delle foto.
+    let urlsPerOspite, selfieUrl='';
     try{
-      const conteggi=validi.map(g=>(g.imgs||[]).length);
-      const tutte=validi.flatMap(g=>g.imgs||[]);
-      const b64=d=>String(d||'').length;
-      const costruisci=(imgs)=>{
-        let idx=0; immaginiPerOspite=conteggi.map(c=>imgs.slice(idx,idx+=c));
-        return {codice, struttura:strutturaId, arrivo, partenza, notti, lang, ospiti: validi.map((g,i)=>({
-          cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
-          statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
-          incertezze:(g._warn||[]), immagini:immaginiPerOspite[i]
-        })), firma:(contrattoCfg?firmaDataUrl:undefined), emailOspite:(contrattoCfg?(emailOspiteVal||'').trim():undefined),
-        deVisu: selfieDaInviare?{esito:deVisu.esito||'non_disponibile', distanza:deVisu.distanza, tentativi:deVisu.tentativi, ts:deVisu.ts, selfie:selfieDaInviare}:undefined};
-      };
-      // budget iniziale foto: quel che resta sotto la soglia dopo selfie + firma + struttura
-      let extra=(selfieDaInviare?b64(selfieDaInviare):0)+(contrattoCfg&&firmaDataUrl?b64(firmaDataUrl):0)+200*1024;
-      let budgetDecoded=Math.floor(Math.max(1024*1024, LIMITE_INVIO-extra)*0.75);
-      let imgs=tutte.length?await comprimiPerLimite(tutte,{max:1500,q:0.78,limiteBytes:budgetDecoded,tentativi:6}):[];
-      payload=costruisci(imgs);
-      // garanzia finale: se il JSON reale è ancora sopra soglia, stringi ancora foto e selfie
-      let maxF=1500,qF=0.78,giri=0;
-      while(JSON.stringify(payload).length>LIMITE_INVIO && giri<6){
-        giri++; maxF=Math.round(maxF*0.8); qF=Math.max(0.45,qF-0.08);
-        if(selfieDaInviare) selfieDaInviare=await downscale(selfieDaInviare, Math.max(500,Math.round(720*Math.pow(0.85,giri))), 0.72);
-        imgs=tutte.length?await comprimiPerLimite(tutte,{max:maxF,q:qF,limiteBytes:Math.floor(LIMITE_INVIO*0.55),tentativi:2}):[];
-        payload=costruisci(imgs);
+      const totFoto=validi.reduce((s,g)=>s+((g.imgs||[]).length),0)+(deVisu.selfie?1:0);
+      let fatte=0;
+      const avanza=()=>{ $('#submitStatus').innerHTML=`<span class="spin"></span> ${t('submit_status_invio')} ${totFoto?`(${Math.min(++fatte,totFoto)}/${totFoto})`:''}`; };
+      urlsPerOspite=[];
+      for(const g of validi){
+        const urls=[];
+        for(const im of (g.imgs||[])){ avanza(); urls.push(await caricaImmagineSingola(im)); }
+        urlsPerOspite.push(urls);
       }
-    }catch(e){ throw new Error('preparazione foto: '+(e&&e.message||e)); }
+      if(deVisu.selfie){ avanza(); selfieUrl=await caricaImmagineSingola(deVisu.selfie); }
+    }catch(e){
+      if(e&&e._fotoGrandi) throw new Error(t('errore_foto_grandi'));
+      throw new Error('caricamento foto: '+(e&&e.message||e));
+    }
+
+    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, lang, ospiti: validi.map((g,i)=>({
+      cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
+      statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
+      incertezze:(g._warn||[]), immagini:urlsPerOspite[i]
+    })), firma:(contrattoCfg?firmaDataUrl:undefined), emailOspite:(contrattoCfg?(emailOspiteVal||'').trim():undefined),
+    deVisu: selfieUrl?{esito:deVisu.esito||'non_disponibile', distanza:deVisu.distanza, tentativi:deVisu.tentativi, ts:deVisu.ts, selfieUrl}:undefined};
 
     let r;
     try{

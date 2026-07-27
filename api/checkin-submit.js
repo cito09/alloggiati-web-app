@@ -93,6 +93,22 @@ module.exports = async (req, res) => {
   if (!codiceAtteso) return res.status(403).json({ error: "Check-in non configurato: manca CHECKIN_CODE" });
   if ((req.body || {}).codice !== codiceAtteso) return res.status(403).json({ error: "Link non valido" });
 
+  // Caricamento di UNA foto per volta (azione:'upload'): il browser carica ogni immagine da
+  // sola e poi manda l'invio finale con i soli link. Così una singola richiesta non trasporta
+  // mai tutte le immagini insieme e non supera il limite di dimensione (~4,5 MB).
+  if ((req.body || {}).azione === "upload") {
+    const img = (req.body || {}).img;
+    if (!img) return res.status(400).json({ error: "Nessuna immagine" });
+    try {
+      const isPdf = String(img).startsWith("data:application/pdf");
+      const nomeFile = `checkin/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${isPdf ? "pdf" : "jpg"}`;
+      const blob = await salvaBlob(nomeFile, toBuffer(img), isPdf ? "application/pdf" : "image/jpeg");
+      return res.status(200).json({ ok: true, url: blob.url });
+    } catch (e) {
+      return res.status(500).json({ error: String((e && e.message) || e) });
+    }
+  }
+
   const conn = upstash();
   if (!conn) return res.status(500).json({ error: "Archivio non configurato (Upstash KV)" });
   if (!process.env.BLOB_READ_WRITE_TOKEN && !HA_STORE_PRIVATO) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
@@ -112,6 +128,8 @@ module.exports = async (req, res) => {
       const immagini = Array.isArray(o.immagini) ? o.immagini : [];
       const fotoUrls = [];
       for (let i = 0; i < immagini.length; i++) {
+        // già caricata a monte (una per una): è un URL, la teniamo così com'è
+        if (/^https?:\/\//i.test(String(immagini[i]))) { fotoUrls.push(immagini[i]); continue; }
         try {
           const buf = toBuffer(immagini[i]);
           const isPdf = String(immagini[i]).startsWith("data:application/pdf");
@@ -131,14 +149,17 @@ module.exports = async (req, res) => {
     // dell'ospite). Salviamo il selfie su Blob come prova + l'esito del confronto.
     let deVisuSalvata = null;
     const dv = (req.body || {}).deVisu;
-    if (dv && dv.selfie) {
-      let selfieUrl = "";
-      try {
-        const blobSelfie = await salvaBlob(`devisu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, toBuffer(dv.selfie), "image/jpeg");
-        selfieUrl = blobSelfie.url;
-      } catch (e) {
-        // selfie non salvato: la verifica resta registrata con il solo esito, ma l'errore è visibile
-        uploadErrori.push(`selfie: ${String((e && e.message) || e)}`);
+    if (dv && (dv.selfieUrl || dv.selfie)) {
+      // selfie già caricato a monte (URL) oppure ancora in base64 (compatibilità)
+      let selfieUrl = /^https?:\/\//i.test(String(dv.selfieUrl || "")) ? dv.selfieUrl : "";
+      if (!selfieUrl && dv.selfie) {
+        try {
+          const blobSelfie = await salvaBlob(`devisu/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`, toBuffer(dv.selfie), "image/jpeg");
+          selfieUrl = blobSelfie.url;
+        } catch (e) {
+          // selfie non salvato: la verifica resta registrata con il solo esito, ma l'errore è visibile
+          uploadErrori.push(`selfie: ${String((e && e.message) || e)}`);
+        }
       }
       deVisuSalvata = {
         esito: String(dv.esito || "non_disponibile"),
