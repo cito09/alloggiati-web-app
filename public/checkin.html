@@ -1377,7 +1377,7 @@ async function estraiDati(id){
     toast(t('toast_data_read'));
     mostraPasso('verifica');
     return;
-  }catch(e){ nascondiProgresso(); toast(t('toast_extract_failed')+e.message); }
+  }catch(e){ nascondiProgresso(); toast(e&&e._fotoGrandi ? t('errore_foto_grandi') : t('toast_extract_failed')+e.message); }
   g._busy=false; render();
 }
 

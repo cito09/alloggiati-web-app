@@ -18,10 +18,16 @@ function dataUrlBytes(d){ const i=String(d).indexOf(','); return Math.ceil((Stri
 // (apiExtract) sia per l'invio finale del check-in: senza questo, con più foto/documenti
 // pesanti si supera il limite di dimensione delle richieste di Vercel (~4.5MB) e l'invio
 // fallisce (a volte come "Failed to fetch", a volte con errori diversi a seconda del browser).
-async function comprimiPerLimite(images,{max=1600,q=0.82,limiteBytes=3.8*1024*1024,tentativi=4}={}){
+// IMPORTANTE: 'limiteBytes' è la dimensione TRASPORTATA (i data-URL viaggiano in base64 dentro
+// il JSON, ~+33% rispetto ai byte reali dell'immagine). Misurando la lunghezza della stringa
+// misuriamo esattamente ciò che pesa nella richiesta, che è quello che conta per il limite
+// di Vercel (~4,5 MB): con la vecchia misura sui byte "decodificati" il conto sballava di 1/3
+// e la richiesta poteva sforare pur sembrando sotto soglia.
+async function comprimiPerLimite(images,{max=1600,q=0.82,limiteBytes=3.2*1024*1024,tentativi=7}={}){
+  const pesoTrasportato=arr=>arr.reduce((s,d)=>s+String(d||'').length,0);
   let out=await Promise.all(images.map(d=>downscale(d,max,q)));
-  for(let t=0; t<tentativi && out.reduce((s,d)=>s+dataUrlBytes(d),0)>limiteBytes; t++){
-    max=Math.round(max*0.8); q=Math.max(0.5,q-0.08);
+  for(let t=0; t<tentativi && pesoTrasportato(out)>limiteBytes; t++){
+    max=Math.round(max*0.8); q=Math.max(0.45,q-0.07);
     out=await Promise.all(images.map(d=>downscale(d,max,q)));
   }
   return out;
@@ -30,11 +36,23 @@ async function comprimiPerLimite(images,{max=1600,q=0.82,limiteBytes=3.8*1024*10
 async function apiExtract(images,kind,text){
   const n=images.length;
   // con poche foto teniamo alta la qualità; con molte foto rimpiccioliamo per stare sotto il limite
-  const small=await comprimiPerLimite(images,{max:n<=2?1600:1400, q:n<=2?0.82:0.72, tentativi:3});
-  const resp=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({images:small,kind,text:text||''})});
-  const data=await resp.json();
-  if(!resp.ok) throw new Error(data.error||'Errore estrazione');
+  const small=await comprimiPerLimite(images,{max:n<=2?1600:1400, q:n<=2?0.82:0.72, limiteBytes:3.2*1024*1024, tentativi:7});
+  let resp;
+  try{
+    resp=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({images:small,kind,text:text||''})});
+  }catch(e){ throw new Error('connessione: '+((e&&e.message)||e)); }
+  // il server può rispondere con un errore NON in JSON (es. "Request Entity Too Large"):
+  // leggiamo prima come testo, così non usciamo mai col criptico "Unexpected token".
+  let testo=''; try{ testo=await resp.text(); }catch(e){}
+  let data=null; try{ data=JSON.parse(testo); }catch(e){}
+  if(!resp.ok || !data){
+    if(resp.status===413 || /request entity too large|payload too large|too large/i.test(testo)){
+      const err=new Error('Le foto sono troppo pesanti: riprova con meno foto per volta.');
+      err._fotoGrandi=true; throw err;
+    }
+    throw new Error((data&&data.error)||('Errore estrazione (HTTP '+(resp.status||'?')+')'));
+  }
   return data;
 }
 
