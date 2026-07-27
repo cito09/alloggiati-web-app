@@ -12582,8 +12582,15 @@ function compilaManuale(bid,gid){const g=getG(bid,gid);g._touched=true;render();
   const el=document.getElementById('cogn-'+gid); if(el)el.focus({preventScroll:false});}
 
 /* fileToDataURL, downscale, apiExtract, onlyImages sono in shared.js */
-async function handleGuestImgs(bid,gid,files){const list=onlyImages(files); if(!list.length)return;const g=getG(bid,gid);g.imgs=g.imgs||[];for(const f of list){g.imgs.push(await fileToDataURL(f));}render();}
-async function handleBookingImgs(bid,files){const list=onlyImages(files); if(!list.length)return;const b=getB(bid);b.bookingImgs=b.bookingImgs||[];for(const f of list){b.bookingImgs.push(await fileToDataURL(f));}render();}
+// i PDF non si comprimono: sopra ~3 MB non entrerebbero nella richiesta, meglio dirlo subito.
+// I file di tipo non supportato vengono segnalati invece di sparire in silenzio.
+function fileAccettabile(f){
+  if(f.type==='application/pdf'&&f.size>3*1024*1024){ toast('PDF troppo grande (max 3 MB): usa un PDF più piccolo o una foto'); return false; }
+  return true;
+}
+function avvisaScartati(files,list){ if((files||[]).length>list.length) toast('Alcuni file non sono supportati: usa foto (JPG/PNG) o PDF'); }
+async function handleGuestImgs(bid,gid,files){const list=onlyImages(files); avvisaScartati(files,list); if(!list.length)return;const g=getG(bid,gid);g.imgs=g.imgs||[];for(const f of list){if(!fileAccettabile(f))continue;g.imgs.push(await fileToDataURL(f));}render();}
+async function handleBookingImgs(bid,files){const list=onlyImages(files); avvisaScartati(files,list); if(!list.length)return;const b=getB(bid);b.bookingImgs=b.bookingImgs||[];for(const f of list){if(!fileAccettabile(f))continue;b.bookingImgs.push(await fileToDataURL(f));}render();}
 
 /* ===== vision (sempre AI: la lettura MRZ gratuita era inaffidabile su molti documenti) ===== */
 
@@ -12614,7 +12621,7 @@ async function extractGuest(bid,gid){
   try{
     const j=await apiExtract(g.imgs,'documento'); applyAI(g,j); toast('Letto con AI');
     if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}
-  }catch(e){toast('Estrazione non riuscita: '+e.message);console.error(e);}
+  }catch(e){toast(e&&e._fotoGrandi?'Le foto/PDF sono troppo pesanti: caricane meno per volta o più piccoli':'Estrazione non riuscita: '+e.message);console.error(e);}
   g._busy=false;render();
 }
 async function extractBooking(bid){
@@ -12638,8 +12645,9 @@ function renderIntakeThumbs(){
   updateIntakeBtn();
 }
 async function addIntakeFiles(fileList){
-  const files=[...fileList].filter(f=>f&&f.type&&f.type.startsWith('image/'));
-  for(const f of files){const u=await fileToDataURL(f);intakeFiles.push(u);}
+  const files=onlyImages(fileList);
+  avvisaScartati(fileList,files);
+  for(const f of files){ if(!fileAccettabile(f))continue; const u=await fileToDataURL(f); intakeFiles.push(u); }
   renderIntakeThumbs();
 }
 function setIntakeStatus(html){const s=$('#intakeStatus'); if(s)s.innerHTML=html;}

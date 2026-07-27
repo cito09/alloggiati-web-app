@@ -23,8 +23,14 @@ function dataUrlBytes(d){ const i=String(d).indexOf(','); return Math.ceil((Stri
 // misuriamo esattamente ciò che pesa nella richiesta, che è quello che conta per il limite
 // di Vercel (~4,5 MB): con la vecchia misura sui byte "decodificati" il conto sballava di 1/3
 // e la richiesta poteva sforare pur sembrando sotto soglia.
+const LIMITE_RICHIESTA = 4.2 * 1024 * 1024;   // margine di sicurezza sotto il limite di Vercel
+function pesoTrasportato(arr){ return (Array.isArray(arr)?arr:[arr]).reduce((s,d)=>s+String(d||'').length,0); }
+// ATTENZIONE: downscale() rimpicciolisce solo ciò che il browser sa disegnare (le immagini).
+// PDF e formati non decodificabili (es. certi HEIC) tornano INTATTI: per questi la compressione
+// non può fare nulla, quindi serve sempre una verifica della dimensione prima di inviare.
+function eccedeLimite(dati){ return pesoTrasportato(dati) > LIMITE_RICHIESTA; }
+function erroreTroppoGrande(){ const e=new Error('File troppo grande per l\'invio'); e._fotoGrandi=true; return e; }
 async function comprimiPerLimite(images,{max=1600,q=0.82,limiteBytes=3.2*1024*1024,tentativi=7}={}){
-  const pesoTrasportato=arr=>arr.reduce((s,d)=>s+String(d||'').length,0);
   let out=await Promise.all(images.map(d=>downscale(d,max,q)));
   for(let t=0; t<tentativi && pesoTrasportato(out)>limiteBytes; t++){
     max=Math.round(max*0.8); q=Math.max(0.45,q-0.07);
@@ -37,6 +43,9 @@ async function apiExtract(images,kind,text){
   const n=images.length;
   // con poche foto teniamo alta la qualità; con molte foto rimpiccioliamo per stare sotto il limite
   const small=await comprimiPerLimite(images,{max:n<=2?1600:1400, q:n<=2?0.82:0.72, limiteBytes:3.2*1024*1024, tentativi:7});
+  // se resta oltre il limite (tipico dei PDF, che non si comprimono) non inviamo nemmeno:
+  // meglio un messaggio chiaro subito che un errore del server
+  if(eccedeLimite(small)) throw erroreTroppoGrande();
   let resp;
   try{
     resp=await fetch('/api/extract',{method:'POST',headers:{'Content-Type':'application/json'},

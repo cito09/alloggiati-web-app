@@ -391,7 +391,7 @@ const T={
     inapp_banner_text:'Per usare la fotocamera senza problemi, apri questa pagina nel tuo browser (Chrome).',
     inapp_banner_btn:'🌐 Apri nel browser',
     btn_camera:'Scatta una foto ora',
-    toast_pdf_big:'PDF troppo grande (massimo 4 MB)',
+    toast_pdf_big:"PDF troppo grande (massimo 3 MB): carica un PDF più piccolo o scatta una foto del documento", toast_file_non_valido:"Tipo di file non supportato: carica una foto (JPG/PNG) o un PDF del documento",
     btn_extract_all:'✨ Riconosci i documenti',
     toast_multi_read:'ospiti riconosciuti: controlla i dati di ognuno',
     toast_no_doc:'Nessun documento riconosciuto nelle foto',
@@ -453,7 +453,7 @@ const T={
     inapp_banner_text:'To use the camera without issues, open this page in your browser (Chrome).',
     inapp_banner_btn:'🌐 Open in browser',
     btn_camera:'Take a photo now',
-    toast_pdf_big:'PDF too large (4 MB max)',
+    toast_pdf_big:"PDF too large (3 MB max): upload a smaller PDF or take a photo of the document", toast_file_non_valido:"Unsupported file type: please upload a photo (JPG/PNG) or a PDF of the document",
     btn_extract_all:'✨ Read the documents',
     toast_multi_read:"guests recognised: check everyone's details",
     toast_no_doc:'No document recognised in the photos',
@@ -515,7 +515,7 @@ const T={
     inapp_banner_text:'Pour utiliser l\'appareil photo sans problème, ouvrez cette page dans votre navigateur (Chrome).',
     inapp_banner_btn:'🌐 Ouvrir dans le navigateur',
     btn_camera:'Prendre une photo maintenant',
-    toast_pdf_big:'PDF trop volumineux (4 Mo max)',
+    toast_pdf_big:"PDF trop volumineux (3 Mo max) : chargez un PDF plus petit ou prenez une photo du document", toast_file_non_valido:"Type de fichier non pris en charge : chargez une photo (JPG/PNG) ou un PDF du document",
     btn_extract_all:'✨ Lire les documents',
     toast_multi_read:'voyageurs reconnus : vérifiez les données de chacun',
     toast_no_doc:'Aucun document reconnu sur les photos',
@@ -577,7 +577,7 @@ const T={
     inapp_banner_text:'Para usar la cámara sin problemas, abre esta página en tu navegador (Chrome).',
     inapp_banner_btn:'🌐 Abrir en el navegador',
     btn_camera:'Hacer una foto ahora',
-    toast_pdf_big:'PDF demasiado grande (máx. 4 MB)',
+    toast_pdf_big:"PDF demasiado grande (máximo 3 MB): sube un PDF más pequeño o haz una foto del documento", toast_file_non_valido:"Tipo de archivo no admitido: sube una foto (JPG/PNG) o un PDF del documento",
     btn_extract_all:'✨ Leer los documentos',
     toast_multi_read:'huéspedes reconocidos: revisa los datos de cada uno',
     toast_no_doc:'Ningún documento reconocido en las fotos',
@@ -639,7 +639,7 @@ const T={
     inapp_banner_text:'Um die Kamera problemlos zu nutzen, öffnen Sie diese Seite in Ihrem Browser (Chrome).',
     inapp_banner_btn:'🌐 Im Browser öffnen',
     btn_camera:'Jetzt ein Foto aufnehmen',
-    toast_pdf_big:'PDF zu groß (max. 4 MB)',
+    toast_pdf_big:"PDF zu groß (max. 3 MB): laden Sie ein kleineres PDF hoch oder fotografieren Sie das Dokument", toast_file_non_valido:"Dateityp nicht unterstützt: bitte ein Foto (JPG/PNG) oder ein PDF des Dokuments hochladen",
     btn_extract_all:'✨ Dokumente lesen',
     toast_multi_read:'Gäste erkannt: Prüfen Sie die Daten aller',
     toast_no_doc:'Kein Dokument auf den Fotos erkannt',
@@ -701,7 +701,7 @@ const T={
     inapp_banner_text:'Pentru a folosi camera fără probleme, deschideți această pagină în browserul telefonului (Chrome).',
     inapp_banner_btn:'🌐 Deschide în browser',
     btn_camera:'Fă o fotografie acum',
-    toast_pdf_big:'PDF prea mare (max. 4 MB)',
+    toast_pdf_big:"PDF prea mare (maximum 3 MB): încărcați un PDF mai mic sau fotografiați documentul", toast_file_non_valido:"Tip de fișier neacceptat: încărcați o fotografie (JPG/PNG) sau un PDF al documentului",
     btn_extract_all:'✨ Citește documentele',
     toast_multi_read:'oaspeți recunoscuți: verificați datele fiecăruia',
     toast_no_doc:'Niciun document recunoscut în fotografii',
@@ -763,7 +763,7 @@ const T={
     inapp_banner_text:'Para usar a câmara sem problemas, abra esta página no navegador do telemóvel (Chrome).',
     inapp_banner_btn:'🌐 Abrir no navegador',
     btn_camera:'Tirar uma foto agora',
-    toast_pdf_big:'PDF demasiado grande (máx. 4 MB)',
+    toast_pdf_big:"PDF demasiado grande (máximo 3 MB): carregue um PDF mais pequeno ou tire uma foto do documento", toast_file_non_valido:"Tipo de ficheiro não suportado: carregue uma foto (JPG/PNG) ou um PDF do documento",
     btn_extract_all:'✨ Ler os documentos',
     toast_multi_read:'hóspedes reconhecidos: verifique os dados de cada um',
     toast_no_doc:'Nenhum documento reconhecido nas fotos',
@@ -825,7 +825,7 @@ const T={
     inapp_banner_text:'Aby bez problemu korzystać z aparatu, otwórz tę stronę w przeglądarce telefonu (Chrome).',
     inapp_banner_btn:'🌐 Otwórz w przeglądarce',
     btn_camera:'Zrób zdjęcie teraz',
-    toast_pdf_big:'PDF za duży (maks. 4 MB)',
+    toast_pdf_big:"Plik PDF za duży (maks. 3 MB): wgraj mniejszy PDF lub zrób zdjęcie dokumentu", toast_file_non_valido:"Nieobsługiwany typ pliku: wgraj zdjęcie (JPG/PNG) lub PDF dokumentu",
     btn_extract_all:'✨ Odczytaj dokumenty',
     toast_multi_read:'rozpoznanych gości: sprawdź dane każdego z nich',
     toast_no_doc:'Nie rozpoznano żadnego dokumentu na zdjęciach',
@@ -1297,10 +1297,15 @@ function wireThumbsDrop(el,onFiles){
   el.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)onFiles(e.dataTransfer.files);});
 }
 async function handleImgs(id,files){
-  const list=onlyImages(files); if(!list.length)return;
+  const list=onlyImages(files);
+  // file di tipo non supportato (documenti Word, zip, ecc.): dirlo subito invece di ignorarli
+  if(!list.length){ if((files||[]).length) toast(t('toast_file_non_valido')); return; }
+  if(list.length<(files||[]).length) toast(t('toast_file_non_valido'));
   const g=getG(id); g.imgs=g.imgs||[];
   for(const f of list){
-    if(f.type==='application/pdf'&&f.size>4*1024*1024){ toast(t('toast_pdf_big')); continue; }
+    // i PDF non si possono comprimere: sopra ~3 MB non entrerebbero nella richiesta,
+    // quindi lo diciamo subito qui, non alla fine del check-in
+    if(f.type==='application/pdf'&&f.size>3*1024*1024){ toast(t('toast_pdf_big')); continue; }
     g.imgs.push(await fileToDataURL(f));
   }
   _descDocCache=null; // il volto del documento va ricalcolato se cambiano le foto
@@ -1754,6 +1759,9 @@ async function caricaImmagineSingola(dataURL){
   let piccola=dataURL;
   try{ const out=await comprimiPerLimite([dataURL],{max:1600,q:0.8,limiteBytes:2.6*1024*1024,tentativi:6}); piccola=out[0]||dataURL; }
   catch(e){/* se la compressione fallisce, proviamo comunque a inviare l'originale */}
+  // PDF e formati non comprimibili restano com'erano: se sforano, fermiamoci qui con un
+  // messaggio chiaro invece di far rispondere errore al server
+  if(eccedeLimite(piccola)) throw erroreTroppoGrande();
   let r;
   try{ r=await fetch('/api/checkin-submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codice, azione:'upload', img:piccola})}); }
   catch(e){ throw new Error('connessione: '+(e&&e.message||e)); }
