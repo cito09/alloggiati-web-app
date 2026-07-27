@@ -525,7 +525,7 @@ function doGet() {
       <div class="dz-big">📷</div>
       <div class="dz-t">Tocca per scegliere, trascina o incolla (Ctrl+V)</div>
       <div class="dz-s">screenshot prenotazione + foto documenti (anche più foto insieme)</div>
-      <input id="dzInput" type="file" accept="image/*" multiple style="display:none">
+      <input id="dzInput" type="file" accept="image/*,application/pdf" multiple style="display:none">
     </div>
     <div class="thumbs" id="intakeThumbs" style="margin-top:10px"></div>
     <details class="intake-text" style="margin-top:10px">
@@ -12413,7 +12413,7 @@ function thumb(src,onRm){
   const isPdf=String(src).startsWith('data:application/pdf')||/\.pdf(\?|$)/i.test(String(src));
   d.innerHTML=`${isPdf?'<div class="thumb-pdf">📄<span>PDF</span></div>':`<img ${fotoSrc(src)}>`}<button class="rm">×</button>`;
   d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
-function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*';i.multiple=true;i.style.display='none';i.onchange=e=>{cb(e.target.files);i.value='';};l.appendChild(i);return l;}
+function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*,application/pdf';i.multiple=true;i.style.display='none';i.onchange=e=>{cb(e.target.files);i.value='';};l.appendChild(i);return l;}
 // drag&drop su un contenitore di miniature (prenotazione o ospite); 'onFiles' riceve la FileList
 function wireThumbsDrop(el,onFiles){
   ['dragenter','dragover'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.add('drag');}));
@@ -12585,12 +12585,19 @@ function compilaManuale(bid,gid){const g=getG(bid,gid);g._touched=true;render();
 // i PDF non si comprimono: sopra ~3 MB non entrerebbero nella richiesta, meglio dirlo subito.
 // I file di tipo non supportato vengono segnalati invece di sparire in silenzio.
 function fileAccettabile(f){
-  if(f.type==='application/pdf'&&f.size>3*1024*1024){ toast('PDF troppo grande (max 3 MB): usa un PDF più piccolo o una foto'); return false; }
+  if(f.type==='application/pdf'&&f.size>25*1024*1024){ toast('PDF troppo pesante (max 25 MB): usa una foto del documento'); return false; }
   return true;
 }
 function avvisaScartati(files,list){ if((files||[]).length>list.length) toast('Alcuni file non sono supportati: usa foto (JPG/PNG) o PDF'); }
-async function handleGuestImgs(bid,gid,files){const list=onlyImages(files); avvisaScartati(files,list); if(!list.length)return;const g=getG(bid,gid);g.imgs=g.imgs||[];for(const f of list){if(!fileAccettabile(f))continue;g.imgs.push(await fileToDataURL(f));}render();}
-async function handleBookingImgs(bid,files){const list=onlyImages(files); avvisaScartati(files,list); if(!list.length)return;const b=getB(bid);b.bookingImgs=b.bookingImgs||[];for(const f of list){if(!fileAccettabile(f))continue;b.bookingImgs.push(await fileToDataURL(f));}render();}
+async function handleGuestImgs(bid,gid,files){const list=onlyImages(files); avvisaScartati(files,list); if(!list.length)return;
+  const g=getG(bid,gid); g.imgs=g.imgs||[];
+  if(list.some(f=>f.type==='application/pdf')) toast('Preparo il PDF…');
+  for(const f of list){ if(!fileAccettabile(f))continue; for(const im of await fileAImmagini(f)) g.imgs.push(im); }
+  render();}
+async function handleBookingImgs(bid,files){const list=onlyImages(files); avvisaScartati(files,list); if(!list.length)return;
+  const b=getB(bid); b.bookingImgs=b.bookingImgs||[];
+  for(const f of list){ if(!fileAccettabile(f))continue; for(const im of await fileAImmagini(f)) b.bookingImgs.push(im); }
+  render();}
 
 /* ===== vision (sempre AI: la lettura MRZ gratuita era inaffidabile su molti documenti) ===== */
 
@@ -12647,7 +12654,8 @@ function renderIntakeThumbs(){
 async function addIntakeFiles(fileList){
   const files=onlyImages(fileList);
   avvisaScartati(fileList,files);
-  for(const f of files){ if(!fileAccettabile(f))continue; const u=await fileToDataURL(f); intakeFiles.push(u); }
+  if(files.some(f=>f.type==='application/pdf')) toast('Preparo il PDF…');
+  for(const f of files){ if(!fileAccettabile(f))continue; for(const im of await fileAImmagini(f)) intakeFiles.push(im); }
   renderIntakeThumbs();
 }
 function setIntakeStatus(html){const s=$('#intakeStatus'); if(s)s.innerHTML=html;}

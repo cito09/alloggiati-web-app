@@ -65,9 +65,61 @@ async function apiExtract(images,kind,text){
   return data;
 }
 
-// accetta immagini e PDF (documenti salvati come file): il PDF passa cosi' com'e',
-// downscale() lo lascia intatto (img.onerror) e il server lo manda all'AI come documento
+// accetta immagini e PDF (documenti salvati come file)
 function onlyImages(files){return [...(files||[])].filter(f=>f&&f.type&&(f.type.startsWith('image/')||f.type==='application/pdf'));}
+
+/* ===== PDF → foto =====
+   Molti ospiti mandano il documento come PDF (spesso una scansione fronte/retro). Un PDF non
+   si può comprimere: in più copie supererebbe il limite di dimensione delle richieste, e
+   all'host arriverebbe un'icona "PDF" invece dell'immagine del documento.
+   Qui lo convertiamo in FOTO (una per pagina) direttamente nel browser dell'ospite, con
+   pdf.js ospitato da noi: da lì in poi è una normale immagine, quindi si comprime, si carica
+   senza problemi di dimensione e si vede come anteprima. Se la conversione non riesce
+   (browser vecchio), teniamo il PDF originale: il server sa comunque leggerlo. */
+let _pdfjsPromise=null;
+function caricaPdfJs(){
+  if(_pdfjsPromise) return _pdfjsPromise;
+  _pdfjsPromise=new Promise((ok,ko)=>{
+    if(window.pdfjsLib) return ok(window.pdfjsLib);
+    const sc=document.createElement('script');
+    sc.src='vendor/pdfjs/pdf.min.js';
+    sc.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='vendor/pdfjs/pdf.worker.min.js'; ok(window.pdfjsLib); }catch(e){ ko(e); } };
+    sc.onerror=()=>ko(new Error('pdf.js non caricato'));
+    document.head.appendChild(sc);
+    setTimeout(()=>ko(new Error('timeout pdf.js')),30000);
+  });
+  _pdfjsPromise.catch(()=>{ _pdfjsPromise=null; }); // si potrà ritentare
+  return _pdfjsPromise;
+}
+async function pdfToImmagini(dataURL,{maxPagine=4,scala=2}={}){
+  const lib=await caricaPdfJs();
+  const base=String(dataURL).split(',')[1]||'';
+  const bin=atob(base); const buf=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
+  const doc=await lib.getDocument({data:buf}).promise;
+  const out=[];
+  const n=Math.min(doc.numPages,maxPagine);
+  for(let p=1;p<=n;p++){
+    const page=await doc.getPage(p);
+    // scala scelta per avere ~1600px sul lato lungo: abbastanza per leggere un documento
+    const v1=page.getViewport({scale:1});
+    const s=Math.min(scala, 1600/Math.max(v1.width,v1.height));
+    const vp=page.getViewport({scale:Math.max(1,s)});
+    const c=document.createElement('canvas'); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+    await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
+    out.push(c.toDataURL('image/jpeg',0.85));
+  }
+  return out.length?out:[dataURL];
+}
+// converte in foto se è un PDF; per tutto il resto restituisce il file com'è (una voce sola)
+async function fileAImmagini(f){
+  const dataURL=await fileToDataURL(f);
+  if(f && f.type==='application/pdf'){
+    try{ return await pdfToImmagini(dataURL); }
+    catch(e){ return [dataURL]; } // conversione non riuscita: resta il PDF originale
+  }
+  return [dataURL];
+}
 
 /* selettore calendario: converte tra gg/mm/aaaa (usato ovunque nell'app) e aaaa-mm-gg (input type=date) */
 function dateToItalian(iso){ if(!iso)return ''; const [y,m,d]=iso.split('-'); return `${d}/${m}/${y}`; }
