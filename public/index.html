@@ -216,6 +216,11 @@
   .stat-tile{flex:1; background:var(--surface2); border:none; border-radius:16px; padding:12px 8px; text-align:center}
   .stat-tile b{display:block; font-size:19px}
   .stat-tile span{font-size:10.5px; color:var(--muted)}
+  .invio-elenco{margin-top:8px}
+  .invio-riga{display:flex; align-items:flex-start; gap:9px; padding:7px 0; font-size:13px; line-height:1.45}
+  .invio-riga .ck{flex:0 0 auto; font-size:14px}
+  .invio-riga b{display:block}
+  .invio-riga .det{color:var(--muted); font-size:12px}
   .todo-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line)}
   .todo-row:last-child{border-bottom:none; padding-bottom:2px}
   .gruppo-head{margin:22px 0 6px; padding:10px 14px; border-radius:12px; background:rgba(90,160,242,.12);
@@ -544,26 +549,27 @@ function doGet() {
     <h2><span class="n">📤</span> Invio ufficiale</h2>
     <div id="strutturaWrap" style="display:none"><label>Struttura</label><select id="strutturaSel"></select></div>
 
+    <!-- un solo pulsante che manda TUTTO il dovuto, con l'elenco esplicito di cosa parte -->
     <div class="portale">
-      <div class="ptit"><span class="ptag blu">Questura · Polizia</span> Alloggiati Web</div>
-      <div class="muted" style="margin-top:5px">Le schedine degli ospiti (obbligo di Pubblica Sicurezza, per tutte le strutture). Con <b>Invia ufficialmente</b> parte anche Ross1000, se previsto qui sotto.</div>
-      <div style="display:flex;gap:10px;margin-top:10px">
-        <button class="btn ghost sm" style="flex:1" id="testBtn" onclick="verifica()" disabled>Verifica</button>
-        <button class="btn primary sm" style="flex:1" id="sendBtn" onclick="invia()" disabled>Invia ufficialmente</button>
+      <div class="ptit">📤 Cosa viene inviato</div>
+      <div id="invioElenco" class="invio-elenco"></div>
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button class="btn ghost sm" style="flex:0 0 auto;width:auto;padding:12px 18px" id="testBtn" onclick="verifica()" disabled>Verifica</button>
+        <button class="btn primary sm" style="flex:1" id="sendBtn" onclick="invia()" disabled>Invia</button>
       </div>
       <div id="sendResult"></div>
+      <div id="rossResult"></div>
     </div>
 
     <div class="portale" id="rossWrap" style="display:none">
-      <div class="ptit"><span class="ptag verde">Regione · ISTAT</span> Ross1000</div>
-      <div class="muted" style="margin-top:5px">Statistica dei flussi turistici, richiesta per questa struttura. Parte da sola dopo l'invio alla Questura; oppure scarica il file .xml e caricalo sul portale Ross1000 (check-in → importa file gestionale).</div>
+      <div class="ptit"><span class="ptag verde">Regione · ISTAT</span> Ross1000 · altre opzioni</div>
+      <div class="muted" style="margin-top:5px">Non servono per l'invio normale (Ross1000 parte già col pulsante qui sopra). Usale solo per caricare a mano sul portale o per recuperare mesi passati.</div>
       <div style="display:flex;gap:10px;margin-top:10px">
         <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">Scarica .xml</button>
-        <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Invia a Ross1000</button>
+        <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Solo Ross1000</button>
       </div>
       <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="toggleRossArretrati()">📦 Arretrati: file unico del mese</button>
       <div id="rossArretrati" style="display:none;margin-top:10px"></div>
-      <div id="rossResult"></div>
     </div>
   </div>
 
@@ -12556,6 +12562,27 @@ function renderPreview(){const recs=allRecords();const w=$('#previewWrap');const
   const none=valid.length===0;
   ['dlBtn','testBtn','sendBtn','sendBtn2'].forEach(id=>{const el=$('#'+id);if(el)el.disabled=none;});
   w.innerHTML=recs.length?recs.map(recLine).join(''):'<div class="muted">Nessuna schedina pronta. Aggiungi una prenotazione e un ospite.</div>';
+  aggiornaElencoInvio(valid.length);
+}
+// mostra nero su bianco COSA parte con il pulsante, così non serve indovinare
+function aggiornaElencoInvio(nValide){
+  const w=$('#invioElenco'); if(!w)return;
+  if(nValide===undefined){ const recs=allRecords(); nValide=recs.filter(r=>r.bad.length===0&&r.len===168).length; }
+  const ross=rossAttivo();
+  const nome=currentStrutturaNome()||'';
+  const righe=[
+    `<div class="invio-riga"><span class="ck">${nValide?'✅':'⬜'}</span><span><b>Questura · Alloggiati Web</b>
+      <span class="det">${nValide?nValide+' schedin'+(nValide===1?'a pronta':'e pronte'):'nessuna schedina pronta'}${nome?' · '+escText(nome):''}</span></span></div>`,
+  ];
+  if(ross) righe.push(`<div class="invio-riga"><span class="ck">${nValide?'✅':'⬜'}</span><span><b>Ross1000 · Regione (ISTAT)</b>
+      <span class="det">parte in automatico subito dopo la Questura</span></span></div>`);
+  else righe.push(`<div class="invio-riga"><span class="ck">➖</span><span><b>Ross1000</b>
+      <span class="det">non previsto per questa struttura</span></span></div>`);
+  w.innerHTML=righe.join('');
+  // etichette dei pulsanti coerenti con quello che fanno davvero
+  const et=ross?'📤 Invia tutto (Questura + Ross1000)':'📤 Invia alla Questura';
+  const b1=$('#sendBtn'); if(b1)b1.textContent=et;
+  const b2=$('#sendBtn2'); if(b2)b2.textContent=ross?'Invia tutto':'Invia';
 }
 function validRecords(){return allRecords().filter(r=>r.bad.length===0&&r.len===168).map(r=>r.rec);}
 function currentStruttura(){const s=$('#strutturaSel');return s&&s.value?s.value:undefined;}
@@ -12853,10 +12880,9 @@ function accettaCheckin(id,dalDettaglio){
   if(v.notti && !b.notti) b.notti=v.notti;
   if(v.strutturaId){
     const sel=$('#strutturaSel');
-    if(sel&&[...sel.options].some(o=>o.value===v.strutturaId)){
-      sel.value=v.strutturaId;
-      localStorage.setItem('strutturaPreferita',v.strutturaId);
-    }
+    // setStrutturaPreferita aggiorna ANCHE la sezione Ross1000: impostando solo sel.value
+    // il riquadro Ross1000 restava nascosto finché non si cambiava struttura a mano
+    if(sel&&[...sel.options].some(o=>o.value===v.strutturaId)) setStrutturaPreferita(v.strutturaId);
   }
   const nuovi=v.ospiti.map(o=>{
     const g={id:uid(), _bid:b.id, imgs:o.fotoUrls||[],
@@ -13007,7 +13033,8 @@ async function invia(){apriCard('invioCard');
       .flatMap(e=>e.ospiti||[]).filter(nm=>nomiAttuali.includes(String(nm).trim().toUpperCase())))];
     if(doppi.length&&!confirm(`⚠️ POSSIBILE DOPPIONE\n${doppi.join(', ')}\nrisulta GIÀ INVIATO alla Questura per l'arrivo ${b0.arrivo} (vedi Archivio).\n\nInviare comunque una seconda volta?`))return;
   }
-  if(!confirm(`Invio UFFICIALE alla Questura di ${n} schedin${n===1?'a':'e'}. L'operazione è irreversibile. Procedere?`))return;
+  const conRoss=rossAttivo();
+  if(!confirm(`INVIO UFFICIALE\n\n• Questura (Alloggiati Web): ${n} schedin${n===1?'a':'e'}${conRoss?'\n• Ross1000 (Regione ISTAT): incluso, parte subito dopo':''}\n\nL'operazione è irreversibile. Procedere?`))return;
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
     showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ultima ricevuta PDF disponibile</button>`);
@@ -13171,7 +13198,7 @@ function setStrutturaPreferita(id){
 /* ===== Ross1000 (flussi ISTAT, es. Bologna/Emilia-Romagna) ===== */
 function rossStrutturaId(){ return currentStruttura() || (struttureList[0]&&struttureList[0].id); }
 function rossAttivo(){ const id=rossStrutturaId(); return struttureList.some(s=>s.id===id&&s.ross); }
-function aggiornaRossUI(){ const w=$('#rossWrap'); if(w) w.style.display=rossAttivo()?'':'none'; }
+function aggiornaRossUI(){ const w=$('#rossWrap'); if(w) w.style.display=rossAttivo()?'':'none'; if(typeof aggiornaElencoInvio==='function')aggiornaElencoInvio(); }
 
 // dati per Ross1000: solo gli ospiti completi (stessi controlli delle schedine),
 // con residenza approssimata al luogo di nascita (i documenti non riportano la residenza)
