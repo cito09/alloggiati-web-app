@@ -13384,8 +13384,16 @@ function keyflowBack(){
   if(set&&set.classList.contains('open')){ closeSettings(); return true; }
   // 4) da una scheda diversa torna a Oggi
   if((localStorage.getItem('tabAttiva')||'oggi')!=='oggi'){ mostraTab('oggi'); return true; }
-  return false;
+  // 5) siamo alla radice: NON usciamo al primo tocco. Chiudere per sbaglio è fastidioso
+  // (riaprendo, Chrome a volte non fa in tempo a verificare il sito e mostra la barra del
+  // browser). Serve un secondo Indietro entro 2,5 secondi per uscire davvero.
+  const ora=Date.now();
+  if(ora-_ultimoBack<2500) return false;   // seconda pressione: esci
+  _ultimoBack=ora;
+  toast('Premi di nuovo Indietro per uscire');
+  return true;
 }
+let _ultimoBack=0;
 (function(){
   try{ history.pushState({keyflow:1},''); }catch(e){}
   window.addEventListener('popstate', function(){
