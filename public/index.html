@@ -216,6 +216,9 @@
   .stat-tile{flex:1; background:var(--surface2); border:none; border-radius:16px; padding:12px 8px; text-align:center}
   .stat-tile b{display:block; font-size:19px}
   .stat-tile span{font-size:10.5px; color:var(--muted)}
+  #fotoLightboxImg{max-width:100%; max-height:100%; object-fit:contain; border-radius:10px;
+    box-shadow:0 10px 40px rgba(0,0,0,.6); cursor:zoom-in; transition:max-width .15s, max-height .15s}
+  #fotoLightboxImg.zoom{max-width:none; max-height:none; width:250%; cursor:zoom-out; border-radius:0}
   .invio-elenco{margin-top:8px}
   .invio-riga{display:flex; align-items:flex-start; gap:9px; padding:7px 0; font-size:13px; line-height:1.45}
   .invio-riga .ck{flex:0 0 auto; font-size:14px}
@@ -638,8 +641,10 @@ function doGet() {
 </div>
 <div class="toast" id="toast"></div>
 
-<div id="fotoLightbox" onclick="chiudiFoto()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.9);align-items:center;justify-content:center;padding:16px;cursor:zoom-out">
-  <img id="fotoLightboxImg" src="" alt="" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.6)">
+<div id="fotoLightbox" onclick="chiudiFoto()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.92);align-items:center;justify-content:center;padding:16px;overflow:auto;-webkit-overflow-scrolling:touch">
+  <img id="fotoLightboxImg" src="" alt="" onclick="zoomFoto(event)">
+  <button onclick="chiudiFoto()" aria-label="Chiudi" style="position:fixed;top:14px;right:14px;z-index:2;width:42px;height:42px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:22px;line-height:1;cursor:pointer">✕</button>
+  <div style="position:fixed;bottom:16px;left:0;right:0;text-align:center;color:rgba(255,255,255,.75);font-size:12px;pointer-events:none">tocca la foto per ingrandire · tocca fuori per chiudere</div>
 </div>
 
 <script src="shared.js"></script>
@@ -12043,8 +12048,24 @@ function osservaBlobProtetti(){
   caricaBlobProtetti(document);
 }
 /* anteprima foto a schermo intero: clic su una foto con classe "zoomable" (documenti/selfie nella coda) */
-function apriFoto(url){ const o=$('#fotoLightbox'), im=$('#fotoLightboxImg'); if(!o||!im||!url)return; im.src=url; o.style.display='flex'; document.body.style.overflow='hidden'; }
-function chiudiFoto(){ const o=$('#fotoLightbox'); if(o)o.style.display='none'; const im=$('#fotoLightboxImg'); if(im)im.src=''; document.body.style.overflow=''; }
+function apriFoto(url){ const o=$('#fotoLightbox'), im=$('#fotoLightboxImg'); if(!o||!im||!url)return;
+  im.src=url; im.classList.remove('zoom'); o.style.display='flex'; document.body.style.overflow='hidden'; }
+// apre la foto partendo dall'immagine già visibile: funziona anche per i file privati,
+// che nella miniatura sono già stati caricati tramite il proxy autenticato
+function apriFotoDaEl(el){ if(el&&el.src)apriFoto(el.src); }
+function chiudiFoto(){ const o=$('#fotoLightbox'); if(o)o.style.display='none'; const im=$('#fotoLightboxImg'); if(im){im.src='';im.classList.remove('zoom');} document.body.style.overflow=''; }
+// tocca l'immagine grande per ingrandire ancora (comodo per leggere i dati piccoli del documento)
+function zoomFoto(e){ e.stopPropagation(); const im=$('#fotoLightboxImg'); if(im)im.classList.toggle('zoom'); }
+// apre un PDF: se è un file privato lo chiede al proxy autenticato, poi lo apre in una scheda
+async function apriPdf(u){
+  try{
+    if(isBlobPrivato(u)){
+      const r=await fetch('/api/checkin-pending?img='+encodeURIComponent(u),{headers:adminHeaders()});
+      if(!r.ok)throw new Error('http '+r.status);
+      window.open(URL.createObjectURL(await r.blob()),'_blank');
+    } else window.open(u,'_blank');
+  }catch(e){ toast('Non riesco ad aprire il PDF: '+e.message); }
+}
 function apriContrattoBlob(el){ const u=el.href; if(u&&u.startsWith('blob:'))window.open(u,'_blank'); return false; }
 /* rende privati i file GIÀ caricati come pubblici (una tantum). Il server lavora a lotti e
    aggiorna gli URL nei suoi archivi; qui aggiorniamo i riferimenti tenuti nel browser. */
@@ -12417,8 +12438,12 @@ function render(){
 function thumb(src,onRm){
   const d=document.createElement('div');d.className='thumb';
   const isPdf=String(src).startsWith('data:application/pdf')||/\.pdf(\?|$)/i.test(String(src));
-  d.innerHTML=`${isPdf?'<div class="thumb-pdf">📄<span>PDF</span></div>':`<img ${fotoSrc(src)}>`}<button class="rm">×</button>`;
-  d.querySelector('.rm').onclick=e=>{e.preventDefault();onRm();};return d;}
+  d.innerHTML=`${isPdf?'<div class="thumb-pdf">📄<span>PDF</span></div>':`<img ${fotoSrc(src)} style="cursor:zoom-in">`}<button class="rm">×</button>`;
+  // tocca la miniatura per vedere il documento in grande (serve a controllare che i dati
+  // estratti corrispondano davvero a quanto c'è scritto sul documento)
+  const vis=d.querySelector(isPdf?'.thumb-pdf':'img');
+  if(vis){ vis.style.cursor='zoom-in'; vis.onclick=e=>{ e.preventDefault(); e.stopPropagation(); isPdf?apriPdf(src):apriFotoDaEl(vis); }; }
+  d.querySelector('.rm').onclick=e=>{e.preventDefault();e.stopPropagation();onRm();};return d;}
 function addImgBtn(cb){const l=document.createElement('label');l.className='addimg';l.textContent='+';const i=document.createElement('input');i.type='file';i.accept='image/*,application/pdf';i.multiple=true;i.style.display='none';i.onchange=e=>{cb(e.target.files);i.value='';};l.appendChild(i);return l;}
 // drag&drop su un contenitore di miniature (prenotazione o ospite); 'onFiles' riceve la FileList
 function wireThumbsDrop(el,onFiles){
