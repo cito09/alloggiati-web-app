@@ -219,6 +219,14 @@
   #fotoLightboxImg{max-width:100%; max-height:100%; object-fit:contain; border-radius:10px;
     box-shadow:0 10px 40px rgba(0,0,0,.6); cursor:zoom-in; transition:max-width .15s, max-height .15s}
   #fotoLightboxImg.zoom{max-width:none; max-height:none; width:250%; cursor:zoom-out; border-radius:0}
+  .esito{margin-top:12px; padding:12px 13px; border-radius:12px; background:var(--surface2); border:1px solid var(--line)}
+  .esito.ok{border-color:rgba(45,198,83,.35); background:rgba(45,198,83,.07)}
+  .esito.err{border-color:rgba(239,71,111,.35); background:rgba(239,71,111,.07)}
+  .esito.attesa{border-color:rgba(255,183,3,.35); background:rgba(255,183,3,.07)}
+  .esito-tit{font-weight:800; font-size:14.5px}
+  .esito-righe{margin-top:7px; font-size:12.5px; line-height:1.5; color:var(--ink)}
+  .esito-riga.err{color:var(--err)}
+  .esito-azioni{display:flex; flex-direction:column; gap:8px; margin-top:11px}
   .invio-elenco{margin-top:8px}
   .invio-riga{display:flex; align-items:flex-start; gap:9px; padding:7px 0; font-size:13px; line-height:1.45}
   .invio-riga .ck{flex:0 0 auto; font-size:14px}
@@ -312,6 +320,7 @@
     <button class="link-row menu-riga" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('geisOverlay')"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · nota Airbnb</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('privacyOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Privacy file</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione</span><span class="freccia">›</span></button>
@@ -467,6 +476,23 @@ function doGet() {
         </div>
 </div>
 
+<div class="pagina-piena" id="rossOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('rossOverlay')" style="width:auto">← Indietro</button>
+    <h2>📊 Ross1000 · file e arretrati</h2>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.55">Non servono per l'invio normale: con <b>Invia tutto</b> Ross1000 parte già da solo. Usa queste opzioni solo per caricare a mano sul portale o per recuperare mesi passati.</div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">⬇ Scarica .xml</button>
+      <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Invia solo Ross1000</button>
+    </div>
+    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="toggleRossArretrati()">📦 Arretrati: file unico del mese</button>
+    <div id="rossArretrati" style="display:none;margin-top:10px"></div>
+    <div id="rossResultManuale" style="margin-top:10px"></div>
+  </div>
+</div>
+
 <div class="pagina-piena" id="recuperoOverlay">
   <div class="pp-head">
     <button class="btn ghost sm" onclick="chiudiRecupero()" style="width:auto">← Indietro</button>
@@ -564,16 +590,7 @@ function doGet() {
       <div id="rossResult"></div>
     </div>
 
-    <div class="portale" id="rossWrap" style="display:none">
-      <div class="ptit"><span class="ptag verde">Regione · ISTAT</span> Ross1000 · altre opzioni</div>
-      <div class="muted" style="margin-top:5px">Non servono per l'invio normale (Ross1000 parte già col pulsante qui sopra). Usale solo per caricare a mano sul portale o per recuperare mesi passati.</div>
-      <div style="display:flex;gap:10px;margin-top:10px">
-        <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">Scarica .xml</button>
-        <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Solo Ross1000</button>
-      </div>
-      <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="toggleRossArretrati()">📦 Arretrati: file unico del mese</button>
-      <div id="rossArretrati" style="display:none;margin-top:10px"></div>
-    </div>
+
   </div>
 
   <div class="card" id="previewCard">
@@ -13024,6 +13041,12 @@ function downloadTxt(){
 
 /* ===== invio Alloggiati ===== */
 function showSendResult(html){$('#sendResult').innerHTML=html;}
+function aggiungiEsitoRiga(html){ const w=$('#sendResult .esito-righe')||$('#sendResult .esito'); if(w)w.insertAdjacentHTML('beforeend',html); }
+function aggiungiEsitoAzione(html){
+  const e=$('#sendResult .esito'); if(!e)return;
+  let a=e.querySelector('.esito-azioni'); if(!a){ a=document.createElement('div'); a.className='esito-azioni'; e.appendChild(a); }
+  a.insertAdjacentHTML('beforeend',html);
+}
 function busySend(on,label){['testBtn','sendBtn','sendBtn2'].forEach(id=>{const e=$('#'+id);if(e)e.disabled=on;});
   if(label)$('#sendResult').innerHTML=`<div class="muted" style="margin-top:12px"><span class="spin"></span> ${label}</div>`;}
 
@@ -13040,11 +13063,32 @@ async function callSend(mode){
   }catch(e){showSendResult(`<div class="pill err" style="margin-top:12px">Errore: ${e.message}</div>`);return null;}
   finally{busySend(false);renderPreview();}
 }
+// Riquadro di esito unico e leggibile: dice subito com'è andata (verifica o invio),
+// elenca gli eventuali errori riga per riga e raccoglie qui le azioni successive.
+function boxEsito({stato,titolo,righe,azioni}){
+  const col=stato==='ok'?'var(--ok)':stato==='err'?'var(--err)':'var(--blue)';
+  const ico=stato==='ok'?'✅':stato==='err'?'⚠️':'ℹ️';
+  return `<div class="esito ${stato}">
+    <div class="esito-tit" style="color:${col}">${ico} ${titolo}</div>
+    ${(righe||[]).length?`<div class="esito-righe">${righe.join('')}</div>`:''}
+    ${(azioni||[]).length?`<div class="esito-azioni">${azioni.join('')}</div>`:''}
+  </div>`;
+}
 function renderEsito(data){
   const errs=data.righe.filter(x=>!x.ok);
-  let h=`<div style="margin-top:12px"><span class="pill ${errs.length?'err':'ok'}">${data.valide}/${data.totali} valide${data.mode==='send'?' · inviate':''}</span> <span class="muted">${data.struttura}</span></div>`;
-  if(errs.length) h+='<div style="margin-top:8px">'+errs.map(e=>`<div class="muted">Riga ${e.riga+1}: ${e.errore}</div>`).join('')+'</div>';
-  return h;
+  const inviato=data.mode==='send';
+  const righe=[];
+  if(errs.length){
+    righe.push(`<div class="esito-riga"><b>${errs.length} schedin${errs.length===1?'a':'e'} da sistemare:</b></div>`);
+    errs.forEach(e=>righe.push(`<div class="esito-riga err">• ospite ${e.riga+1}: ${escText(e.errore)}</div>`));
+  }
+  if(inviato&&data.valide) righe.unshift(`<div class="esito-riga"><b>${data.valide}</b> schedin${data.valide===1?'a inviata':'e inviate'} alla Questura · ${escText(data.struttura||'')}</div>`);
+  if(!inviato&&!errs.length) righe.push(`<div class="esito-riga">${data.totali} schedin${data.totali===1?'a controllata':'e controllate'} · ${escText(data.struttura||'')}<br>Nessun errore: puoi inviare.</div>`);
+  const stato=errs.length?(inviato&&data.valide?'attesa':'err'):'ok';
+  const titolo=inviato
+    ? (errs.length? (data.valide?'Inviate con alcuni errori':'Invio non riuscito') : 'Invio completato')
+    : (errs.length?'Ci sono errori da correggere':'Tutto pronto per l\'invio');
+  return boxEsito({stato,titolo,righe});
 }
 async function verifica(){apriCard('invioCard');const data=await callSend('test');if(data){showSendResult(renderEsito(data));toast(data.righe.every(x=>x.ok)?'Tutte valide':'Ci sono errori');}}
 async function invia(){apriCard('invioCard');
@@ -13062,7 +13106,10 @@ async function invia(){apriCard('invioCard');
   if(!confirm(`INVIO UFFICIALE\n\n• Questura (Alloggiati Web): ${n} schedin${n===1?'a':'e'}${conRoss?'\n• Ross1000 (Regione ISTAT): incluso, parte subito dopo':''}\n\nL'operazione è irreversibile. Procedere?`))return;
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
-    showSendResult(renderEsito(data)+`<button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scaricaRicevuta()">Scarica ultima ricevuta PDF disponibile</button>`);
+    showSendResult(renderEsito(data));
+    // la riga Ross1000 e il pulsante ricevuta vivono DENTRO il riquadro di esito, non sparsi
+    if(rossAttivo()) aggiungiEsitoRiga('<div class="esito-riga" id="esitoRoss">⏳ Ross1000: invio in corso…</div>');
+    aggiungiEsitoAzione(`<button class="btn ghost sm" style="width:100%" onclick="scaricaRicevuta()">🧾 Scarica ricevuta PDF</button>`);
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     const snap=snapshotOspiti();
     aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
@@ -13223,7 +13270,10 @@ function setStrutturaPreferita(id){
 /* ===== Ross1000 (flussi ISTAT, es. Bologna/Emilia-Romagna) ===== */
 function rossStrutturaId(){ return currentStruttura() || (struttureList[0]&&struttureList[0].id); }
 function rossAttivo(){ const id=rossStrutturaId(); return struttureList.some(s=>s.id===id&&s.ross); }
-function aggiornaRossUI(){ const w=$('#rossWrap'); if(w) w.style.display=rossAttivo()?'':'none'; if(typeof aggiornaElencoInvio==='function')aggiornaElencoInvio(); }
+function aggiornaRossUI(){
+  const r=$('#rowRoss'); if(r) r.style.display=struttureList.some(s=>s.ross)?'':'none';
+  if(typeof aggiornaElencoInvio==='function')aggiornaElencoInvio();
+}
 
 // dati per Ross1000: solo gli ospiti completi (stessi controlli delle schedine),
 // con residenza approssimata al luogo di nascita (i documenti non riportano la residenza)
@@ -13263,7 +13313,8 @@ async function scaricaRossXml(){
 }
 async function inviaRoss(manuale){
   const p=rossPayload();
-  const out=$('#rossResult');
+  const out=$(manuale?'#rossResultManuale':'#rossResult');
+  const riga=$('#esitoRoss');
   if(!p){if(manuale)toast('Nessun ospite completo da trasmettere');return;}
   const btn=$('#rossSendBtn'); if(btn)btn.disabled=true;
   if(out)out.innerHTML='<div class="muted" style="margin-top:10px"><span class="spin"></span> Invio a Ross1000…</div>';
@@ -13271,12 +13322,14 @@ async function inviaRoss(manuale){
     const r=await fetch('/api/ross',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'invia',...p})});
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Errore');
+    if(riga)riga.innerHTML='✅ Ross1000 (Regione ISTAT): trasmesso';
     if(out)out.innerHTML='<div class="pill ok" style="margin-top:10px">Ross1000: trasmesso ✓</div>';
     toast('Ross1000: dati trasmessi');
     // segna nello storico che per questo soggiorno Ross1000 è fatto (per gli "arretrati")
     const ent=storico.find(x=>x.tipo==='inviata'&&x.arrivo===(bookings[0]&&bookings[0].arrivo));
     if(ent)segnaRossFatto(ent.ts);
   }catch(e){
+    if(riga){ riga.className='esito-riga err'; riga.innerHTML='⚠️ Ross1000 non trasmesso: '+escText(e.message)+' — puoi riprovare da ⚙️ Impostazioni → Ross1000'; }
     if(out)out.innerHTML=`<div class="pill err" style="margin-top:10px">Ross1000: ${e.message}</div>`;
     if(manuale)toast('Ross1000: '+e.message);
   }finally{ if(btn)btn.disabled=false; }
