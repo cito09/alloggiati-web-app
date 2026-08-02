@@ -226,6 +226,9 @@
   .esito-tit{font-weight:800; font-size:14.5px}
   .esito-righe{margin-top:7px; font-size:12.5px; line-height:1.5; color:var(--ink)}
   .esito-riga.err{color:var(--err)}
+  .esito-fix{display:flex; flex-wrap:wrap; gap:8px; margin-top:7px}
+  @keyframes lampeggiaCampo{0%,100%{box-shadow:0 0 0 0 rgba(239,71,111,0)}50%{box-shadow:0 0 0 4px rgba(239,71,111,.45)}}
+  .campo-lampeggia{border-color:var(--err)!important; animation:lampeggiaCampo 1s ease-in-out 2}
   .esito-azioni{display:flex; flex-direction:column; gap:8px; margin-top:11px}
   .invio-elenco{margin-top:8px}
   .invio-riga{display:flex; align-items:flex-start; gap:9px; padding:7px 0; font-size:13px; line-height:1.45}
@@ -12151,7 +12154,24 @@ function datePickerBtn(valoreItaliano,onChangeExpr){
   return `<div class="datepick"><button type="button" class="btn ghost sm datepick-btn" tabindex="-1">📅</button>
     <input type="date" class="datepick-input" value="${italianToIso(valoreItaliano)}" onchange="${onChangeExpr}"></div>`;
 }
-function cleanName(v){return (v||'').replace(/[^A-Za-zÀ-ÿ '’]/g,'').replace(/’/g,"'").slice(0,50).toUpperCase();}
+// Alloggiati Web accetta solo lettere semplici A-Z (più spazio e apostrofo): i caratteri
+// stranieri vanno CONVERTITI, non cancellati, altrimenti il portale rifiuta la schedina
+// ("Cognome con caratteri non validi") o registra un nome storpiato (ČERNÝ → ERNÝ).
+function translittera(v){
+  return String(v||'')
+    .replace(/[’`´]/g,"'")
+    .replace(/[-–—]/g,' ')                                   // cognomi doppi: trattino → spazio
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')         // toglie gli accenti: Č→C, Ý→Y, Ñ→N, É→E
+    .replace(/Đ/g,'D').replace(/đ/g,'d')
+    .replace(/Ł/g,'L').replace(/ł/g,'l')
+    .replace(/Ø/g,'O').replace(/ø/g,'o')
+    .replace(/Æ/g,'AE').replace(/æ/g,'ae')
+    .replace(/Œ/g,'OE').replace(/œ/g,'oe')
+    .replace(/Þ/g,'TH').replace(/þ/g,'th')
+    .replace(/Ð/g,'D').replace(/ð/g,'d')
+    .replace(/ß/g,'ss');
+}
+function cleanName(v){return translittera(v).replace(/[^A-Za-z ']/g,'').replace(/\s+/g,' ').trim().slice(0,50).toUpperCase();}
 function cleanDoc(v){return (v||'').replace(/[^A-Za-z0-9.\-/]/g,'').slice(0,20);}
 function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/ /g,'·');}
 
@@ -13074,13 +13094,82 @@ function boxEsito({stato,titolo,righe,azioni}){
     ${(azioni||[]).length?`<div class="esito-azioni">${azioni.join('')}</div>`:''}
   </div>`;
 }
+// gli ospiti nello stesso ordine delle righe mandate al portale (solo quelli validi),
+// così l'errore "riga 2" si può ricondurre alla persona e al campo giusto
+function ospitiPerRiga(){
+  const out=[];
+  bookings.forEach(b=>b.guests.forEach((g,idx)=>{
+    if(!(g.cognome||g.nome))return;
+    const rec=buildRecord(b,g,idx);
+    if(rec.bad.length===0&&rec.len===168) out.push({b,g});
+  }));
+  return out;
+}
+// dal testo dell'errore del portale capiamo QUALE campo è da correggere
+const CAMPI_ERRORE=[
+  [/cognome/i,'cognome'],[/\bnome\b/i,'nome'],[/sesso/i,'sesso'],
+  [/data.*nascit|nascit.*data/i,'dataNascita'],[/comune.*nascit/i,'comuneNascita'],
+  [/stato.*nascit|luogo.*nascit/i,'statoNascita'],[/cittadinanz/i,'cittadinanza'],
+  [/tipo.*documento/i,'tipoDoc'],[/numero.*documento|documento.*numero/i,'numeroDoc'],
+  [/luogo.*rilascio|rilasci/i,'luogoRilascio'],
+];
+function campoDaErrore(msg){ const m=CAMPI_ERRORE.find(([re])=>re.test(String(msg||''))); return m?m[1]:null; }
+const ETICHETTA_CAMPO={cognome:'Cognome',nome:'Nome',sesso:'Sesso',dataNascita:'Data di nascita',
+  comuneNascita:'Comune di nascita',statoNascita:'Stato di nascita',cittadinanza:'Cittadinanza',
+  tipoDoc:'Tipo documento',numeroDoc:'Numero documento',luogoRilascio:'Luogo di rilascio'};
+// correzione proposta: per i nomi convertiamo i caratteri stranieri in lettere semplici
+function correzioneSuggerita(g,campo){
+  if(campo==='cognome'||campo==='nome'){
+    const v=cleanName(g[campo]);
+    if(v && v!==String(g[campo]||'').trim().toUpperCase()) return v;
+  }
+  if(campo==='numeroDoc'){
+    const v=cleanDoc(g.numeroDoc);
+    if(v && v!==String(g.numeroDoc||'').trim()) return v;
+  }
+  return null;
+}
+function idCampo(g,campo){
+  const diretti={cognome:'cogn-',nome:'nome-',sesso:'sesso-',dataNascita:'nasc-',numeroDoc:'numdoc-'};
+  return diretti[campo]?diretti[campo]+g.id:'ta-'+g.id+'-'+campo;
+}
+window.vaiAlCampo=(bid,gid,campo)=>{
+  const g=getG(bid,gid); if(!g)return;
+  const el=document.getElementById(idCampo(g,campo));
+  if(!el){ toast('Campo non trovato: scorri alla scheda dell\'ospite'); return; }
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.classList.add('campo-lampeggia');
+  setTimeout(()=>el.classList.remove('campo-lampeggia'),2600);
+  try{ el.focus({preventScroll:true}); }catch(e){}
+};
+window.correggiCampo=(bid,gid,campo,valore)=>{
+  const g=getG(bid,gid); if(!g)return;
+  g[campo]=valore; g[campo+'Code']=null; g._touched=true;
+  if((g._warn||[]).includes(campo)){ g._warn=g._warn.filter(x=>x!==campo); g._warnOk=[...new Set([...(g._warnOk||[]),campo])]; }
+  render();
+  toast(`${ETICHETTA_CAMPO[campo]||campo} corretto: ${valore}`);
+  setTimeout(()=>vaiAlCampo(bid,gid,campo),120);
+};
 function renderEsito(data){
   const errs=data.righe.filter(x=>!x.ok);
   const inviato=data.mode==='send';
+  const mappa=ospitiPerRiga();
   const righe=[];
   if(errs.length){
     righe.push(`<div class="esito-riga"><b>${errs.length} schedin${errs.length===1?'a':'e'} da sistemare:</b></div>`);
-    errs.forEach(e=>righe.push(`<div class="esito-riga err">• ospite ${e.riga+1}: ${escText(e.errore)}</div>`));
+    errs.forEach(e=>{
+      const o=mappa[e.riga];
+      const chi=o?`${o.g.cognome||''} ${o.g.nome||''}`.trim():`ospite ${e.riga+1}`;
+      const campo=campoDaErrore(e.errore);
+      const sugg=o&&campo?correzioneSuggerita(o.g,campo):null;
+      righe.push(`<div class="esito-riga err" style="margin-top:6px">
+        <b>${escText(chi||('ospite '+(e.riga+1)))}</b>${campo?` — ${ETICHETTA_CAMPO[campo]}`:''}<br>${escText(e.errore)}
+        ${o&&campo?`<div class="esito-fix">
+          ${sugg?`<button class="btn primary sm" style="width:auto;padding:9px 13px" onclick="correggiCampo('${o.b.id}','${o.g.id}','${campo}','${String(sugg).replace(/'/g,"\\'")}')">✨ Correggi in ${escText(sugg)}</button>`:''}
+          <button class="btn ghost sm" style="width:auto;padding:9px 13px" onclick="vaiAlCampo('${o.b.id}','${o.g.id}','${campo}')">↓ Vai al campo</button>
+        </div>`:''}
+      </div>`);
+    });
   }
   if(inviato&&data.valide) righe.unshift(`<div class="esito-riga"><b>${data.valide}</b> schedin${data.valide===1?'a inviata':'e inviate'} alla Questura · ${escText(data.struttura||'')}</div>`);
   if(!inviato&&!errs.length) righe.push(`<div class="esito-riga">${data.totali} schedin${data.totali===1?'a controllata':'e controllate'} · ${escText(data.struttura||'')}<br>Nessun errore: puoi inviare.</div>`);
