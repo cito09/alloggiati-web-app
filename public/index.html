@@ -12020,7 +12020,42 @@ const statiByName=new Map(); STATI.forEach(([c,n])=>{const k=normKey(n); if(!sta
 const STATI_ALIASES={'STATI UNITI':"STATI UNITI D'AMERICA",'USA':"STATI UNITI D'AMERICA",'STATI UNITI D AMERICA':"STATI UNITI D'AMERICA",
   'INGHILTERRA':'REGNO UNITO','GRAN BRETAGNA':'REGNO UNITO','UK':'REGNO UNITO',
   'OLANDA':'PAESI BASSI','VATICANO':"STATO DELLA CITTA' DEL VATICANO",'CITTA DEL VATICANO':"STATO DELLA CITTA' DEL VATICANO",
-  'COREA':'COREA DEL SUD','RUSSIA':'FEDERAZIONE RUSSA','CECHIA':'REPUBBLICA CECA','EMIRATI ARABI':'EMIRATI ARABI UNITI'};
+  'COREA':'COREA DEL SUD','RUSSIA':'FEDERAZIONE RUSSA','CECHIA':'REPUBBLICA CECA','EMIRATI ARABI':'EMIRATI ARABI UNITI',
+  // nomi in inglese o nella lingua locale che compaiono sui documenti: l'anagrafica della
+  // Polizia vuole il nome ufficiale italiano (un passaporto moldavo dice MOLDOVA → MOLDAVIA)
+  "MOLDOVA":"MOLDAVIA","REPUBBLICA DI MOLDOVA":"MOLDAVIA","REPUBLICA MOLDOVA":"MOLDAVIA","UKRAINE":"UCRAINA",
+  "UKRAINA":"UCRAINA","BELARUS":"BIELORUSSIA","RUSSIAN FEDERATION":"FEDERAZIONE RUSSA",
+  "ROSSIYA":"FEDERAZIONE RUSSA","LITHUANIA":"LITUANIA","LIETUVA":"LITUANIA","LATVIA":"LETTONIA",
+  "LATVIJA":"LETTONIA","EESTI":"ESTONIA","CZECH REPUBLIC":"REPUBBLICA CECA","CZECHIA":"REPUBBLICA CECA",
+  "CESKA REPUBLIKA":"REPUBBLICA CECA","CESKO":"REPUBBLICA CECA","SLOVACCHIA":"REPUBBLICA SLOVACCA",
+  "SLOVAKIA":"REPUBBLICA SLOVACCA","SLOVENSKO":"REPUBBLICA SLOVACCA","SLOVAK REPUBLIC":"REPUBBLICA SLOVACCA",
+  "POLAND":"POLONIA","POLSKA":"POLONIA","HUNGARY":"UNGHERIA","MAGYARORSZAG":"UNGHERIA","CROATIA":"CROAZIA",
+  "HRVATSKA":"CROAZIA","SRBIJA":"SERBIA","CRNA GORA":"MONTENEGRO","SHQIPERIA":"ALBANIA","SLOVENIJA":"SLOVENIA",
+  "BOSNIA":"BOSNIA ED ERZEGOVINA","BOSNIA HERZEGOVINA":"BOSNIA ED ERZEGOVINA",
+  "BOSNIA ERZEGOVINA":"BOSNIA ED ERZEGOVINA","BOSNIA E ERZEGOVINA":"BOSNIA ED ERZEGOVINA",
+  "NORTH MACEDONIA":"MACEDONIA DEL NORD","SEVERNA MAKEDONIJA":"MACEDONIA DEL NORD","GERMANY":"GERMANIA",
+  "DEUTSCHLAND":"GERMANIA","FRANCE":"FRANCIA","SPAIN":"SPAGNA","ESPANA":"SPAGNA","PORTUGAL":"PORTOGALLO",
+  "BELGIUM":"BELGIO","BELGIQUE":"BELGIO","BELGIE":"BELGIO","NETHERLANDS":"PAESI BASSI",
+  "THE NETHERLANDS":"PAESI BASSI","NEDERLAND":"PAESI BASSI","HOLLAND":"PAESI BASSI","SWITZERLAND":"SVIZZERA",
+  "SCHWEIZ":"SVIZZERA","SUISSE":"SVIZZERA","AUSTRIA REPUBLIK":"AUSTRIA","OSTERREICH":"AUSTRIA",
+  "SWEDEN":"SVEZIA","SVERIGE":"SVEZIA","NORWAY":"NORVEGIA","NORGE":"NORVEGIA","DENMARK":"DANIMARCA",
+  "DANMARK":"DANIMARCA","FINLAND":"FINLANDIA","SUOMI":"FINLANDIA","IRELAND":"IRLANDA","EIRE":"IRLANDA",
+  "ICELAND":"ISLANDA","GREECE":"GRECIA","HELLAS":"GRECIA","ELLADA":"GRECIA","ENGLAND":"REGNO UNITO",
+  "UNITED KINGDOM":"REGNO UNITO","GREAT BRITAIN":"REGNO UNITO","SCOTLAND":"REGNO UNITO","SCOZIA":"REGNO UNITO",
+  "GALLES":"REGNO UNITO","WALES":"REGNO UNITO","IRLANDA DEL NORD":"REGNO UNITO","LUXEMBOURG":"LUSSEMBURGO",
+  "LUXEMBURG":"LUSSEMBURGO","CYPRUS":"CIPRO","MALTA REPUBLIC":"MALTA","UNITED STATES":"STATI UNITI D'AMERICA",
+  "UNITED STATES OF AMERICA":"STATI UNITI D'AMERICA","AMERICA":"STATI UNITI D'AMERICA","BRAZIL":"BRASILE",
+  "BRASIL":"BRASILE","MEXICO":"MESSICO","CHILE":"CILE","PERU":"PERU'",
+  "DOMINICAN REPUBLIC":"REPUBBLICA DOMINICANA","COSTARICA":"COSTA RICA","CHINA":"CINA",
+  "PEOPLES REPUBLIC OF CHINA":"CINA","JAPAN":"GIAPPONE","NIPPON":"GIAPPONE","SOUTH KOREA":"COREA DEL SUD",
+  "REPUBLIC OF KOREA":"COREA DEL SUD","KOREA":"COREA DEL SUD","NORTH KOREA":"COREA DEL NORD",
+  "PHILIPPINES":"FILIPPINE","PILIPINAS":"FILIPPINE","FILIPINAS":"FILIPPINE","THAILAND":"THAILANDIA",
+  "VIET NAM":"VIETNAM","TURKEY":"TURCHIA","TURKIYE":"TURCHIA","ISRAEL":"ISRAELE","EGYPT":"EGITTO",
+  "MOROCCO":"MAROCCO","MAROC":"MAROCCO","SOUTH AFRICA":"SUDAFRICA","SUD AFRICA":"SUDAFRICA",
+  "INDIA REPUBLIC":"INDIA","SRI LANKA":"SRI LANKA (CEYLON)","MYANMAR":"MYANMAR-BIRMANIA",
+  "BURMA":"MYANMAR-BIRMANIA","BIRMANIA":"MYANMAR-BIRMANIA","KAZAKHSTAN":"KAZAKISTAN","AZERBAIJAN":"AZERBAIGIAN",
+  "NEW ZEALAND":"NUOVA ZELANDA","SAUDI ARABIA":"ARABIA SAUDITA","UNITED ARAB EMIRATES":"EMIRATI ARABI UNITI",
+  "UAE":"EMIRATI ARABI UNITI","IVORY COAST":"COSTA D'AVORIO","COTE D'IVOIRE":"COSTA D'AVORIO"};
 Object.entries(STATI_ALIASES).forEach(([alias,nomeUfficiale])=>{
   const target=statiByName.get(normKey(nomeUfficiale));
   if(target)statiByName.set(normKey(alias),target);
@@ -12693,6 +12728,12 @@ async function handleBookingImgs(bid,files){const list=onlyImages(files); avvisa
 // mappa nome campo dell'AI -> chiave usata internamente sull'ospite
 const CAMPO_AI_TO_G={cognome:'cognome',nome:'nome',sesso:'sesso',data_nascita:'dataNascita',comune_nascita:'comuneNascita',
   stato_nascita:'statoNascita',cittadinanza:'cittadinanza',tipo_documento:'tipoDoc',numero_documento:'numeroDoc',luogo_rilascio:'luogoRilascio'};
+// nome ufficiale dell'anagrafica: se sul documento c'è un nome alternativo riconosciuto
+// (MOLDOVA, NETHERLANDS, CZECH REPUBLIC…) lo sostituiamo con quello che vuole il portale
+function nomeStatoUfficiale(v){
+  const c=lookupStato(v);
+  return (c && statoNameByCode.get(c)) || v;
+}
 // Rete di sicurezza per il luogo di rilascio: se il valore non corrisponde a nessuno Stato
 // né comune riconosciuto (es. "WHITBY", città dell'ufficio su un passaporto estero) ma la
 // cittadinanza è uno Stato estero valido, usiamo lo Stato emittente (per i passaporti coincide).
@@ -12705,8 +12746,8 @@ function correggiLuogoRilascio(luogo,cittadinanza){
 }
 function applyAI(g,j){
   Object.assign(g,{cognome:j.cognome||g.cognome,nome:j.nome||g.nome,sesso:j.sesso||g.sesso,
-    dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:j.stato_nascita||g.statoNascita,
-    cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
+    dataNascita:j.data_nascita||g.dataNascita,comuneNascita:j.comune_nascita||'',statoNascita:nomeStatoUfficiale(j.stato_nascita||g.statoNascita),
+    cittadinanza:nomeStatoUfficiale(j.cittadinanza||g.cittadinanza),tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
     luogoRilascio:correggiLuogoRilascio(j.luogo_rilascio||g.luogoRilascio, j.cittadinanza||g.cittadinanza),_touched:true});
   g.comuneNascitaCode=g.statoNascitaCode=g.cittadinanzaCode=g.tipoDocCode=g.luogoRilascioCode=null;
   g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
