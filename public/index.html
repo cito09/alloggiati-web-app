@@ -216,6 +216,21 @@
   .stat-tile{flex:1; background:var(--surface2); border:none; border-radius:16px; padding:12px 8px; text-align:center}
   .stat-tile b{display:block; font-size:19px}
   .stat-tile span{font-size:10.5px; color:var(--muted)}
+  .stat-bar .lbl.wide{width:64px}
+  .stat-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .stat-chip{background:var(--surface2); color:var(--txt); border:1.5px solid transparent; border-radius:999px;
+    padding:7px 12px; font-size:12.5px; font-weight:700; cursor:pointer; line-height:1; white-space:nowrap}
+  .stat-chip.on{background:var(--amber); color:#0a0a0c}
+  .stat-chip.mese{font-weight:600; padding:6px 10px; font-size:12px}
+  .stat-lab{font-size:11.5px; margin:14px 0 4px; font-weight:700; color:var(--muted); letter-spacing:.3px}
+  .stat-lab:first-child{margin-top:0}
+  .stat-riga{display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--surface2); font-size:13px}
+  .stat-riga:last-child{border-bottom:none}
+  .stat-riga .pallino{width:10px; height:10px; border-radius:50%; flex:0 0 auto}
+  .stat-riga .nome{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .stat-riga .num{flex:0 0 auto; font-weight:700}
+  .stat-riga .sub{display:block; font-size:10.5px; color:var(--muted); font-weight:500; text-align:right}
+  .stat-vuoto{background:var(--surface2); border-radius:16px; padding:18px 14px; text-align:center; font-size:13px; color:var(--muted)}
   #fotoLightboxImg{max-width:100%; max-height:100%; object-fit:contain; border-radius:10px;
     box-shadow:0 10px 40px rgba(0,0,0,.6); cursor:zoom-in; transition:max-width .15s, max-height .15s}
   #fotoLightboxImg.zoom{max-width:none; max-height:none; width:250%; cursor:zoom-out; border-radius:0}
@@ -13753,46 +13768,212 @@ function nomeStrutturaCanonico(n){
   const perId=struttureList.find(x=>x.id&&low.includes(String(x.id).toLowerCase()));
   return perId?perId.nome:n;
 }
-let statsAnno=0;
+const STAT_MESI=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+// filtri della pagina Statistiche: periodo (rapido / anno / mesi scelti / date libere),
+// casa e nazionalità. Restano in memoria finché la pagina è aperta.
+let statsF={per:'anno',anno:0,mesi:[],da:'',a:''};
+let statsStrutt='';        // '' = tutte le case
+let statsNaz='';           // '' = tutte le nazionalità
+let statsMetrica='ospiti'; // cosa mostrano le barre e le classifiche
+let statsNazTutte=false;
+
 function statSoggiorno(e){
   const rec=(e.records||[])[0]; if(!rec||rec.length!==168)return null;
   const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(e.arrivo||rec.slice(2,12).trim()); if(!m)return null;
   const notti=parseInt(rec.slice(12,14),10)||0;
   const ospiti=e.records.length;
-  return {anno:+m[3], mese:+m[2], notti, ospiti, presenze:notti*ospiti, struttura:nomeStrutturaCanonico(e.struttura)||'—',
-    nazioni:e.records.filter(r=>r.length===168).map(r=>r.slice(125,134).trim()).filter(Boolean)};
+  // una cittadinanza per ospite (stessa lunghezza di records): serve per filtrare per nazionalità
+  const nazioni=e.records.map(r=>(r&&r.length===168)?r.slice(125,134).trim():'');
+  return {data:new Date(+m[3],+m[2]-1,+m[1],12), anno:+m[3], mese:+m[2], meseKey:`${m[3]}-${m[2]}`,
+    notti, ospiti, presenze:notti*ospiti, struttura:nomeStrutturaCanonico(e.struttura)||'—', nazioni};
+}
+function statIso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function statMeseNome(k,corto){
+  const [a,m]=k.split('-');
+  if(corto)return `${STAT_MESI[+m-1]} ${a.slice(2)}`;
+  const n=new Date(+a,+m-1,1).toLocaleDateString('it-IT',{month:'long'});
+  return n.charAt(0).toUpperCase()+n.slice(1)+' '+a;
+}
+function statGiorno(d){return d?d.toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'}):'';}
+// traduce la scelta del menu "periodo" in un intervallo + una funzione che dice se un soggiorno ci rientra
+function statPeriodo(){
+  const oggi=new Date(); oggi.setHours(23,59,59,0);
+  const indietro=(n)=>{const d=new Date(); d.setDate(d.getDate()-(n-1)); d.setHours(0,0,0,0); return d;};
+  const range=(da,a,label)=>({tipo:'range',da,a,label,test:d=>(!da||d.data>=da)&&(!a||d.data<=a)});
+  switch(statsF.per){
+    case 'g30': return range(indietro(30),oggi,'Ultimi 30 giorni');
+    case 'g60': return range(indietro(60),oggi,'Ultimi 60 giorni');
+    case 'g90': return range(indietro(90),oggi,'Ultimi 90 giorni');
+    case 'g365': {const da=new Date(); da.setFullYear(da.getFullYear()-1); da.setDate(da.getDate()+1); da.setHours(0,0,0,0); return range(da,oggi,'Ultimi 12 mesi');}
+    case 'mesi': {
+      const set=new Set(statsF.mesi);
+      return {tipo:'mesi',label:statsF.mesi.length?statsF.mesi.slice().sort().map(k=>statMeseNome(k,true)).join(' + '):'Nessun mese scelto',
+        test:d=>set.has(d.meseKey)};
+    }
+    case 'pers': {
+      const da=statsF.da?new Date(statsF.da+'T00:00'):null, a=statsF.a?new Date(statsF.a+'T23:59'):null;
+      return range(da,a,[statGiorno(da),statGiorno(a)].filter(Boolean).join(' → ')||'Periodo personalizzato');
+    }
+    case 'tutto': return {tipo:'tutto',label:'Tutto lo storico',test:()=>true};
+    default: return {tipo:'anno',label:'Anno '+statsF.anno,test:d=>d.anno===statsF.anno};
+  }
+}
+// cambia periodo dal menu a tendina
+function statPer(v){
+  if(v.startsWith('anno:')){ statsF.per='anno'; statsF.anno=+v.slice(5); }
+  else statsF.per=v;
+  if(statsF.per==='mesi'&&!statsF.mesi.length){
+    const k=[...new Set(storico.map(statSoggiorno).filter(Boolean).map(d=>d.meseKey))].sort().pop();
+    if(k)statsF.mesi=[k];
+  }
+  if(statsF.per==='pers'&&!statsF.da&&!statsF.a){
+    const a=new Date(), da=new Date(); da.setDate(da.getDate()-29);
+    statsF.da=statIso(da); statsF.a=statIso(a);
+  }
+  renderStatistiche();
+}
+function statMese(k){
+  const i=statsF.mesi.indexOf(k);
+  if(i<0)statsF.mesi.push(k); else statsF.mesi.splice(i,1);
+  renderStatistiche();
+}
+function statCasa(n){ statsStrutt=(statsStrutt===n?'':n); renderStatistiche(); }
+function statNazione(c){ statsNaz=(statsNaz===c?'':c); renderStatistiche(); }
+function statMetrica(m){ statsMetrica=m; renderStatistiche(); }
+function statAzzera(){ statsStrutt=''; statsNaz=''; statsNazTutte=false; renderStatistiche(); }
+// quando filtro per nazionalità conto solo gli ospiti di quel paese (e le loro presenze)
+function statSoloNazione(dati,cod){
+  if(!cod)return dati;
+  return dati.map(d=>{
+    const n=d.nazioni.filter(c=>c===cod).length;
+    return n?Object.assign({},d,{ospiti:n,presenze:d.notti*n,nazioni:d.nazioni.filter(c=>c===cod)}):null;
+  }).filter(Boolean);
+}
+// stringa sicura da mettere dentro un onclick="..." (nomi delle case con apostrofi ecc.)
+function statArg(v){return JSON.stringify(String(v)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function statValore(d){ return statsMetrica==='soggiorni'?1:(statsMetrica==='presenze'?d.presenze:d.ospiti); }
+function statSomma(arr){ return arr.reduce((a,d)=>a+statValore(d),0); }
+// chiavi dei mesi da disegnare nel grafico (o degli anni, se il periodo è troppo lungo)
+function statColonne(sel,per){
+  const presenti=[...new Set(sel.map(d=>d.meseKey))].sort();
+  let keys=[];
+  if(per.tipo==='anno'){ for(let m=1;m<=12;m++)keys.push(`${statsF.anno}-${String(m).padStart(2,'0')}`); }
+  else if(per.tipo==='range'&&per.da&&per.a){
+    const c=new Date(per.da.getFullYear(),per.da.getMonth(),1), fine=new Date(per.a.getFullYear(),per.a.getMonth(),1);
+    while(c<=fine&&keys.length<400){ keys.push(`${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,'0')}`); c.setMonth(c.getMonth()+1); }
+  }
+  else keys=presenti;
+  if(keys.length>18){
+    const anni=[...new Set(keys.map(k=>k.slice(0,4)))].sort();
+    return {perAnno:true,keys:anni};
+  }
+  return {perAnno:false,keys};
 }
 function renderStatistiche(){
   const w=$('#statsBody'); if(!w)return;
-  const dati=storico.map(statSoggiorno).filter(Boolean);
-  if(!dati.length){ w.innerHTML='<div class="muted">Ancora nessun dato: le statistiche si riempiono con le schedine registrate.</div>'; return; }
-  const anni=[...new Set(dati.map(d=>d.anno))].sort().reverse();
-  if(!statsAnno||!anni.includes(statsAnno))statsAnno=anni[0];
-  const anno=dati.filter(d=>d.anno===statsAnno);
-  const tot=(k)=>anno.reduce((a,d)=>a+d[k],0);
-  const mesi=Array.from({length:12},(_,i)=>anno.filter(d=>d.mese===i+1).reduce((a,d)=>a+d.presenze,0));
-  const maxM=Math.max(...mesi,1);
-  const nomiMesi=['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-  const perStruttura={}; anno.forEach(d=>{const x=perStruttura[d.struttura]=perStruttura[d.struttura]||{s:0,o:0,p:0}; x.s++; x.o+=d.ospiti; x.p+=d.presenze;});
-  const naz={}; anno.forEach(d=>d.nazioni.forEach(c=>{naz[c]=(naz[c]||0)+1;}));
-  const topNaz=Object.entries(naz).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const tutti=storico.map(statSoggiorno).filter(Boolean);
+  if(!tutti.length){ w.innerHTML='<div class="muted">Ancora nessun dato: le statistiche si riempiono con le schedine registrate.</div>'; return; }
+  const anni=[...new Set(tutti.map(d=>d.anno))].sort().reverse();
+  if(!statsF.anno||!anni.includes(statsF.anno))statsF.anno=anni[0];
+  const per=statPeriodo();
+  const nelPeriodo=tutti.filter(per.test);
+  const case_=[...new Set(tutti.map(d=>d.struttura))].sort();
+  if(statsStrutt&&!case_.includes(statsStrutt))statsStrutt='';
+  const perCasa=statsStrutt?nelPeriodo.filter(d=>d.struttura===statsStrutt):nelPeriodo;
+  // classifica nazionalità (calcolata prima del filtro nazionalità, così l'elenco non si svuota)
+  const conta={}; perCasa.forEach(d=>d.nazioni.forEach(c=>{ if(c)conta[c]=(conta[c]||0)+1; }));
+  const nazOrd=Object.entries(conta).sort((a,b)=>b[1]-a[1]||String(nomeStato(a[0])).localeCompare(String(nomeStato(b[0]))));
+  const sel=statSoloNazione(perCasa,statsNaz);
+
+  const totSogg=sel.length, totOsp=sel.reduce((a,d)=>a+d.ospiti,0), totPres=sel.reduce((a,d)=>a+d.presenze,0);
+  const totNotti=sel.reduce((a,d)=>a+d.notti,0);
+  const col=statColonne(sel,per);
+  const valPer={}; sel.forEach(d=>{ const k=col.perAnno?String(d.anno):d.meseKey; valPer[k]=(valPer[k]||0)+statValore(d); });
+  const maxCol=Math.max(1,...col.keys.map(k=>valPer[k]||0));
+  const nomeMetrica={ospiti:'ospiti',presenze:'presenze',soggiorni:'soggiorni'}[statsMetrica];
+
+  const casaTot={}; sel.forEach(d=>{ const x=casaTot[d.struttura]=casaTot[d.struttura]||{s:0,o:0,p:0,n:0}; x.s++; x.o+=d.ospiti; x.p+=d.presenze; x.n+=d.notti; });
+  const casaOrd=Object.entries(casaTot).sort((a,b)=>b[1].o-a[1].o);
+  const maxCasa=Math.max(1,...casaOrd.map(([,x])=>statsMetrica==='soggiorni'?x.s:(statsMetrica==='presenze'?x.p:x.o)));
+  const nazMostra=statsNazTutte?nazOrd:nazOrd.slice(0,8);
+  const maxNaz=Math.max(1,...nazOrd.map(([,n])=>n));
+
+  const mesiTutti=[...new Set(tutti.map(d=>d.meseKey))].sort().reverse().slice(0,24);
+  const attivi=[statsStrutt?`🏠 ${statsStrutt}`:'', statsNaz?`🌍 ${nomeStato(statsNaz)||statsNaz}`:''].filter(Boolean);
+
   w.innerHTML=`
-    ${anni.length>1?`<select style="margin-bottom:10px" onchange="statsAnno=+this.value;renderStatistiche()">${anni.map(a=>`<option value="${a}"${a===statsAnno?' selected':''}>${a}</option>`).join('')}</select>`:''}
-    <div style="display:flex;gap:8px">
-      <div class="stat-tile"><b>${anno.length}</b><span>soggiorni</span></div>
-      <div class="stat-tile"><b>${tot('ospiti')}</b><span>ospiti</span></div>
-      <div class="stat-tile"><b>${tot('presenze')}</b><span>presenze (notti·ospite)</span></div>
+    <select style="margin-bottom:2px" onchange="statPer(this.value)">
+      <optgroup label="Periodi rapidi">
+        <option value="g30"${statsF.per==='g30'?' selected':''}>Ultimi 30 giorni</option>
+        <option value="g60"${statsF.per==='g60'?' selected':''}>Ultimi 60 giorni</option>
+        <option value="g90"${statsF.per==='g90'?' selected':''}>Ultimi 90 giorni</option>
+        <option value="g365"${statsF.per==='g365'?' selected':''}>Ultimi 12 mesi</option>
+      </optgroup>
+      <optgroup label="Per anno">
+        ${anni.map(a=>`<option value="anno:${a}"${statsF.per==='anno'&&statsF.anno===a?' selected':''}>Anno ${a}</option>`).join('')}
+      </optgroup>
+      <optgroup label="Scegli tu">
+        <option value="mesi"${statsF.per==='mesi'?' selected':''}>Mesi scelti…</option>
+        <option value="pers"${statsF.per==='pers'?' selected':''}>Dal… al… (date libere)</option>
+        <option value="tutto"${statsF.per==='tutto'?' selected':''}>Tutto lo storico</option>
+      </optgroup>
+    </select>
+    ${statsF.per==='mesi'?`
+      <div class="muted" style="font-size:11.5px;margin-top:8px">Tocca i mesi che vuoi vedere insieme:</div>
+      <div class="stat-chips">${mesiTutti.map(k=>`<button class="stat-chip mese${statsF.mesi.includes(k)?' on':''}" onclick="statMese('${k}')">${escText(statMeseNome(k,true))}</button>`).join('')}</div>`:''}
+    ${statsF.per==='pers'?`
+      <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 8px;align-items:center;margin-top:8px">
+        <span class="muted" style="font-size:12.5px">Dal</span><input type="date" value="${statsF.da}" style="min-width:0" onchange="statsF.da=this.value;renderStatistiche()">
+        <span class="muted" style="font-size:12.5px">Al</span><input type="date" value="${statsF.a}" style="min-width:0" onchange="statsF.a=this.value;renderStatistiche()">
+      </div>`:''}
+    ${case_.length>1?`<div class="stat-chips">
+      <button class="stat-chip${statsStrutt?'':' on'}" onclick="statCasa('')">Tutte le case</button>
+      ${case_.map(n=>`<button class="stat-chip${statsStrutt===n?' on':''}" onclick="statCasa(${statArg(n)})">${strutturaInfo(n).emoji} ${escText(n)}</button>`).join('')}
+    </div>`:''}
+    ${nazOrd.length>1?`<select style="margin-top:8px" onchange="statNazione(this.value)">
+      <option value="">🌍 Tutte le nazionalità</option>
+      ${nazOrd.map(([c,n])=>`<option value="${escText(c)}"${statsNaz===c?' selected':''}>${escText(nomeStato(c)||c)} (${n})</option>`).join('')}
+    </select>`:''}
+
+    ${attivi.length||per.tipo==='mesi'||per.tipo==='range'?`<div class="muted" style="font-size:11.5px;margin:12px 0 0">${escText(per.label)}${attivi.length?' · '+escText(attivi.join(' · ')):''}
+      ${attivi.length?`<button class="btn ghost sm" style="width:auto;padding:3px 9px;margin-left:6px;font-size:11px" onclick="statAzzera()">azzera filtri</button>`:''}</div>`:''}
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <div class="stat-tile"><b>${totSogg}</b><span>soggiorni</span></div>
+      <div class="stat-tile"><b>${totOsp}</b><span>ospiti</span></div>
+      <div class="stat-tile"><b>${totPres}</b><span>presenze (notti·ospite)</span></div>
     </div>
-    <div class="muted" style="font-size:11.5px;margin:14px 0 4px;font-weight:700">PRESENZE PER MESE · ${statsAnno}</div>
-    ${mesi.map((v,i)=>`<div class="stat-bar"><span class="lbl">${nomiMesi[i]}</span><span class="track"><span class="fill" style="width:${Math.round(v/maxM*100)}%"></span></span><span class="val">${v||''}</span></div>`).join('')}
-    <div class="muted" style="font-size:11.5px;margin:14px 0 2px;font-weight:700">PER STRUTTURA</div>
-    ${Object.entries(perStruttura).map(([n,x])=>`<div class="oggi-row"><span>🏠 ${escText(n)}</span><span class="muted">${x.s} soggiorn${x.s===1?'o':'i'} · ${x.o} ospiti · ${x.p} presenze</span></div>`).join('')}
-    ${topNaz.length?`<div class="muted" style="font-size:11.5px;margin:14px 0 2px;font-weight:700">PROVENIENZA OSPITI (TOP 5)</div>
-    ${topNaz.map(([c,n])=>`<div class="oggi-row"><span>${escText(nomeStato(c)||c)}</span><span class="muted">${n} ospit${n===1?'e':'i'}</span></div>`).join('')}`:''}
-    <div class="muted" style="font-size:11.5px;margin:16px 0 4px;font-weight:700">📦 FASCICOLO MENSILE</div>
+    <div class="muted" style="font-size:11.5px;margin-top:6px;text-align:center">
+      ${totSogg?`media ${(totNotti/totSogg).toFixed(1).replace('.',',')} notti e ${(totOsp/totSogg).toFixed(1).replace('.',',')} ospiti a soggiorno`:'Nessun soggiorno in questo periodo'}</div>
+
+    ${totSogg?`
+    <div class="stat-chips" style="margin-top:12px">
+      ${[['ospiti','Ospiti'],['presenze','Presenze'],['soggiorni','Soggiorni']].map(([k,l])=>`<button class="stat-chip${statsMetrica===k?' on':''}" onclick="statMetrica('${k}')">${l}</button>`).join('')}
+    </div>
+    ${col.keys.length<2?'':`<div class="stat-lab">${col.perAnno?'PER ANNO':'PER MESE'} · ${escText(nomeMetrica.toUpperCase())}</div>`}
+    ${col.keys.length<2?'':col.keys.map(k=>{const v=valPer[k]||0; return `<div class="stat-bar"><span class="lbl wide">${escText(col.perAnno?k:statMeseNome(k,true))}</span><span class="track"><span class="fill" style="width:${Math.round(v/maxCol*100)}%"></span></span><span class="val">${v||''}</span></div>`;}).join('')}
+
+    <div class="stat-lab">PER CASA</div>
+    ${casaOrd.map(([n,x])=>{const v=statsMetrica==='soggiorni'?x.s:(statsMetrica==='presenze'?x.p:x.o); const info=strutturaInfo(n);
+      return `<div class="stat-riga" onclick="statCasa(${statArg(n)})" style="cursor:pointer">
+        <span class="pallino" style="background:${info.colore}"></span>
+        <span class="nome">${escText(n)}<span class="sub" style="text-align:left">${x.s} soggiorn${x.s===1?'o':'i'} · ${x.o} ospiti · ${x.p} presenze</span></span>
+        <span class="num">${v}<span class="sub">${escText(nomeMetrica)}</span></span></div>`;}).join('')}
+    ${casaOrd.length>1?`<div class="stat-bar" style="margin-top:8px">${casaOrd.map(([n,x])=>{const v=statsMetrica==='soggiorni'?x.s:(statsMetrica==='presenze'?x.p:x.o);
+      return `<span style="flex:${Math.max(v,0.001)};height:10px;background:${strutturaInfo(n).colore};border-radius:5px"></span>`;}).join('')}</div>`:''}
+
+    ${nazOrd.length?`<div class="stat-lab">PROVENIENZA OSPITI${statsNazTutte||nazOrd.length<=8?'':' · TOP 8'}</div>
+    ${nazMostra.map(([c,n])=>`<div class="stat-riga" onclick="statNazione('${escText(c)}')" style="cursor:pointer">
+        <span class="nome">${statsNaz===c?'✓ ':''}${escText(nomeStato(c)||c)}</span>
+        <span class="track" style="display:block;flex:0 0 90px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${Math.round(n/maxNaz*100)}%;background:var(--amber);border-radius:4px"></span></span>
+        <span class="num" style="width:52px;text-align:right">${n}</span></div>`).join('')}
+    ${nazOrd.length>8?`<button class="btn ghost sm" style="margin-top:8px" onclick="statsNazTutte=${statsNazTutte?'false':'true'};renderStatistiche()">${statsNazTutte?'Mostra solo le prime 8':`Mostra tutte (${nazOrd.length} paesi)`}</button>`:''}`:''}
+    `:'<div class="stat-vuoto">Nessun soggiorno con questi filtri.<br>Prova a cambiare periodo o ad azzerare i filtri.</div>'}
+
+    <div class="stat-lab">📦 FASCICOLO MENSILE</div>
     <div class="muted" style="font-size:11.5px;margin-bottom:8px">Zip con registro CSV + contratti firmati del mese, inviato alla tua email. Parte anche da solo il giorno 1 di ogni mese (mese precedente).</div>
     <div style="display:flex;gap:8px">
-      <select id="fascicoloMese" style="flex:1">${mesiConDati(dati).map(k=>`<option value="${k.v}">${k.l}</option>`).join('')}</select>
+      <select id="fascicoloMese" style="flex:1">${mesiConDati(tutti).map(k=>`<option value="${k.v}">${k.l}</option>`).join('')}</select>
       <button class="btn ghost sm" style="flex:0 0 auto;width:auto" id="fascicoloBtn" onclick="inviaFascicoloMese()">📤 Invia via email</button>
     </div>
     <div id="fascicoloMsg" class="muted" style="font-size:12px;margin-top:6px"></div>`;
