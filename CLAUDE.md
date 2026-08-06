@@ -42,6 +42,8 @@ Produzione: **https://keyflowcheckin.vercel.app** (Vercel, piano Hobby). Repo: `
 - **"Ospiti in attesa"**: due colonne parallele colorate per struttura, anteprime brevi, tap per dettaglio.
 - **Home "Da fare"**: solo titolare + 👤 conteggio ospiti, pulsante a 3 stati (Registra/Da inviare/Riaggiungi).
 - **Revisione GDPR** fatta: file privati, cookie/localStorage ok per uso personale.
+- **Statistiche** (`renderStatistiche` + funzioni `stat*` in index.html): filtri periodo (ultimi 30/60/90 giorni, 12 mesi, anno, mesi scelti a pastiglie, date libere, tutto), casa e nazionalità; metrica commutabile ospiti/presenze/soggiorni. Stato nelle variabili `statsF`/`statsStrutt`/`statsNaz`/`statsMetrica`. `nomeStrutturaCanonico()` unisce i vecchi nomi delle strutture ai nuovi.
+- **App Android (TWA `app.keyflow.gestionale`)**: se compare la barra del browser con la X, è la verifica Digital Asset Links fallita. La config (assetlinks, fingerprint `28:70:28:79:…`, `asset_statements` nell'APK, Chrome forzato) è già stata verificata corretta: la causa era `/.well-known/assetlinks.json` servito con `max-age=0, must-revalidate` → ora `vercel.json` gli mette una `Cache-Control` lunga. Non toccare quella regola.
 
 ## Idee discusse ma NON ancora fatte
 
