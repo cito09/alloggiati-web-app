@@ -231,6 +231,8 @@
   .stat-riga .num{flex:0 0 auto; font-weight:700}
   .stat-riga .sub{display:block; font-size:10.5px; color:var(--muted); font-weight:500; text-align:right}
   .stat-vuoto{background:var(--surface2); border-radius:16px; padding:18px 14px; text-align:center; font-size:13px; color:var(--muted)}
+  .storico-filtro{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:space-between;
+    background:rgba(132,227,211,.13); border-radius:14px; padding:9px 12px; margin-bottom:10px; font-size:12.5px; font-weight:700}
   #fotoLightboxImg{max-width:100%; max-height:100%; object-fit:contain; border-radius:10px;
     box-shadow:0 10px 40px rgba(0,0,0,.6); cursor:zoom-in; transition:max-width .15s, max-height .15s}
   #fotoLightboxImg.zoom{max-width:none; max-height:none; width:250%; cursor:zoom-out; border-radius:0}
@@ -12283,10 +12285,42 @@ function snapshotOspiti(){
   if(!b) return {arrivo:'',ospiti:[],foto:[],contratti:[]};
   const validi=b.guests.filter(g=>g.cognome||g.nome);
   const ospiti=validi.map(g=>`${g.cognome||''} ${g.nome||''}`.trim());
-  // solo foto già online (Blob, arrivate dal check-in): le foto caricate a mano sono
-  // dati base64 non persistenti, non le salviamo nell'archivio per non appesantirlo
+  // solo documenti già online: quelli caricati a mano vengono messi online da
+  // archiviaDocumentiManuali() poco prima, così finiscono anche loro nello storico
   const foto=validi.flatMap(g=>(g.imgs||[]).filter(u=>/^https?:\/\//.test(u)));
   return {arrivo:b.arrivo||'', ospiti, foto, contratti:(b._contratti||[])};
+}
+
+/* I documenti caricati a mano (foto e PDF che gli ospiti mandano per chat) esistono solo
+   come dati dentro questo browser. Prima di salvare la schedina nello storico li mettiamo
+   nell'archivio online uno per volta, così restano collegati alla prenotazione per sempre.
+   Se qualcosa non va, l'invio prosegue lo stesso: si perde solo l'allegato. */
+async function archiviaDocumentiManuali(){
+  const b=bookings[0]; if(!b)return;
+  const daCaricare=[];
+  (b.guests||[]).forEach(g=>{
+    (g.imgs||[]).forEach((im,i)=>{ if(im&&!/^https?:\/\//.test(im)) daCaricare.push({g,i}); });
+  });
+  if(!daCaricare.length)return;
+  toast(`Salvo ${daCaricare.length} document${daCaricare.length===1?'o':'i'} nell'archivio…`);
+  let falliti=0;
+  for(const {g,i} of daCaricare){
+    try{
+      let file=g.imgs[i];
+      if(!/^data:application\/pdf/i.test(file)){
+        const [ridotto]=await comprimiPerLimite([file],{max:1600,q:0.82,limiteBytes:2.6*1024*1024});
+        if(ridotto)file=ridotto;
+      }
+      if(eccedeLimite(file))throw new Error('file troppo grande');
+      const r=await fetch('/api/storico',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+        body:JSON.stringify({azione:'documento',file})});
+      const testo=await r.text();
+      let d={}; try{ d=JSON.parse(testo); }catch(e){ throw new Error('risposta non valida'); }
+      if(!r.ok||!d.url)throw new Error(d.error||'errore');
+      g.imgs[i]=d.url;
+    }catch(e){ falliti++; }
+  }
+  if(falliti)toast(`${falliti} document${falliti===1?'o non è stato salvato':'i non sono stati salvati'} nell'archivio`);
 }
 function currentStrutturaNome(){
   const sel=$('#strutturaSel');
@@ -12331,18 +12365,40 @@ function toggleStoricoDettaglio(ts){
   renderStorico();
 }
 const escText=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* filtro che arriva dalle Statistiche ("vedi le prenotazioni"): null = nessun filtro */
+let storicoF=null;
+function filtroStorico(e){
+  if(!storicoF)return true;
+  const d=statSoggiorno(e); if(!d)return false;
+  if(storicoF.test&&!storicoF.test(d))return false;
+  if(storicoF.casa&&d.struttura!==storicoF.casa)return false;
+  if(storicoF.naz&&!d.nazioni.includes(storicoF.naz))return false;
+  return true;
+}
+// elenca i nomi degli ospiti della nazionalità cercata, per rispondere a "chi erano?"
+function ospitiDellaNazione(e,cod){
+  if(!cod)return [];
+  return (e.records||[]).filter(r=>r&&r.length===168&&r.slice(125,134).trim()===cod)
+    .map(r=>{const p=parseRecord(r); return [p.cognome,p.nome].filter(Boolean).join(' ');}).filter(Boolean);
+}
+function azzeraFiltroStorico(){ storicoF=null; renderStorico(); }
 function renderStorico(){
   const w=$('#storicoList'); if(!w)return;
   if(typeof aggiornaOggi==='function')aggiornaOggi();
   if(typeof renderStatistiche==='function')renderStatistiche();
   if(!storico.length){ w.innerHTML='<div class="muted">Nessun invio o esportazione ancora registrato.</div>'; return; }
   const q=(($('#storicoSearch')||{}).value||'').trim().toLowerCase();
-  const lista=q?storico.filter(e=>{
+  let lista=q?storico.filter(e=>{
     const blob=[new Date(e.ts).toLocaleString('it-IT'), e.struttura, e.arrivo, (e.ospiti||[]).join(' ')].join(' ').toLowerCase();
     return blob.includes(q);
   }):storico;
-  if(!lista.length){ w.innerHTML='<div class="muted">Nessuna voce trovata per "'+escText(q)+'".</div>'; return; }
-  w.innerHTML=lista.map(e=>{
+  if(storicoF)lista=lista.filter(filtroStorico);
+  const banner=storicoF?`<div class="storico-filtro">
+      <span>🔎 ${escText(storicoF.label||'filtro dalle statistiche')} — ${lista.length} prenotazion${lista.length===1?'e':'i'}</span>
+      <button class="btn ghost sm" style="width:auto;padding:4px 10px;font-size:11.5px" onclick="azzeraFiltroStorico()">✕ mostra tutto</button>
+    </div>`:'';
+  if(!lista.length){ w.innerHTML=banner+'<div class="muted">'+(storicoF?'Nessuna prenotazione con questo filtro.':'Nessuna voce trovata per "'+escText(q)+'".')+'</div>'; return; }
+  w.innerHTML=banner+lista.map(e=>{
     const quando=new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>':'');
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
@@ -12370,6 +12426,8 @@ function renderStorico(){
         <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rimuoviStorico(${e.ts})">🗑</button></span></div>
       <div class="storico-meta">${sInfo?`<span style="color:${sInfo.colore}">${sInfo.emoji}</span> `:''}${meta}</div>
       ${e.ospiti&&e.ospiti.length?`<div class="storico-ospiti">${escText(e.ospiti.join(', '))}</div>`:''}
+      ${(()=>{ const n=storicoF&&storicoF.naz?ospitiDellaNazione(e,storicoF.naz):[];
+        return n.length?`<div class="storico-sub" style="color:var(--amber)">🌍 ${escText(nomeStato(storicoF.naz)||storicoF.naz)}: ${escText(n.join(', '))}</div>`:''; })()}
       ${allegati}
       ${dettaglio}
     </div>`;
@@ -13098,7 +13156,7 @@ function wireDropzone(){
 }
 
 /* ===== download ===== */
-function downloadTxt(){
+async function downloadTxt(){
   const recs=allRecords().filter(r=>r.bad.length===0&&r.len===168).map(r=>r.rec);
   if(!recs.length){toast('Nessuna schedina valida');return;}
   const blob=new Blob([recs.join('\r\n')],{type:'text/plain;charset=utf-8'});
@@ -13106,6 +13164,7 @@ function downloadTxt(){
   const d=new Date();const st=`${String(d.getDate()).padStart(2,'0')}${String(d.getMonth()+1).padStart(2,'0')}${d.getFullYear()}`;
   a.href=url;a.download=`schedine_${st}.txt`;a.click();URL.revokeObjectURL(url);
   toast(recs.length+' schedine esportate');
+  await archiviaDocumentiManuali();
   const snap=snapshotOspiti();
   aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recs});
   if(bookings[0]){
@@ -13256,6 +13315,7 @@ async function invia(){apriCard('invioCard');
     if(rossAttivo()) aggiungiEsitoRiga('<div class="esito-riga" id="esitoRoss">⏳ Ross1000: invio in corso…</div>');
     aggiungiEsitoAzione(`<button class="btn ghost sm" style="width:100%" onclick="scaricaRicevuta()">🧾 Scarica ricevuta PDF</button>`);
     toast(ok?'Schedine inviate':'Inviate con avvisi');
+    await archiviaDocumentiManuali();
     const snap=snapshotOspiti();
     aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
     if(bookings[0]){
@@ -13841,6 +13901,17 @@ function statCasa(n){ statsStrutt=(statsStrutt===n?'':n); renderStatistiche(); }
 function statNazione(c){ statsNaz=(statsNaz===c?'':c); renderStatistiche(); }
 function statMetrica(m){ statsMetrica=m; renderStatistiche(); }
 function statAzzera(){ statsStrutt=''; statsNaz=''; statsNazTutte=false; renderStatistiche(); }
+// porta i filtri delle statistiche giù nello Storico: "chi erano quegli sloveni?"
+function vediInStorico(){
+  const per=statPeriodo();
+  storicoF={test:per.test, casa:statsStrutt, naz:statsNaz,
+    label:[per.label, statsStrutt?'🏠 '+statsStrutt:'', statsNaz?'🌍 '+(nomeStato(statsNaz)||statsNaz):''].filter(Boolean).join(' · ')};
+  const cerca=$('#storicoSearch'); if(cerca)cerca.value='';
+  if(typeof apriCard==='function')apriCard('storicoCard');
+  renderStorico();
+  const card=document.getElementById('storicoCard');
+  if(card)setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
 // quando filtro per nazionalità conto solo gli ospiti di quel paese (e le loro presenze)
 function statSoloNazione(dati,cod){
   if(!cod)return dati;
@@ -13968,6 +14039,8 @@ function renderStatistiche(){
         <span class="track" style="display:block;flex:0 0 90px;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden"><span style="display:block;height:100%;width:${Math.round(n/maxNaz*100)}%;background:var(--amber);border-radius:4px"></span></span>
         <span class="num" style="width:52px;text-align:right">${n}</span></div>`).join('')}
     ${nazOrd.length>8?`<button class="btn ghost sm" style="margin-top:8px" onclick="statsNazTutte=${statsNazTutte?'false':'true'};renderStatistiche()">${statsNazTutte?'Mostra solo le prime 8':`Mostra tutte (${nazOrd.length} paesi)`}</button>`:''}`:''}
+    <button class="btn ghost sm" style="margin-top:14px" onclick="vediInStorico()">🔎 Vedi le ${totSogg} prenotazion${totSogg===1?'e':'i'} qui sotto</button>
+    <div class="muted" style="font-size:11px;margin-top:4px;text-align:center">Apre lo Storico con gli stessi filtri: nomi, documenti e contratti</div>
     `:'<div class="stat-vuoto">Nessun soggiorno con questi filtri.<br>Prova a cambiare periodo o ad azzerare i filtri.</div>'}
 
     <div class="stat-lab">📦 FASCICOLO MENSILE</div>

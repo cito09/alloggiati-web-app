@@ -4,15 +4,39 @@
 // resta sullo storico salvato solo nel browser (localStorage), senza errori.
 // GET  -> { configurato, storico }
 // POST { ...voce } -> aggiunge una voce in testa, risponde { configurato, storico }
+// POST { azione:"documento", file } -> salva UN documento su Blob, risponde { ok, url }
 // DELETE { ts } -> rimuove la voce con quel timestamp, risponde { configurato, storico }
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
+const { salvaBlob } = require("./_blob");
 
 const KEY = "storico_schedine";
 const MAX_VOCI = 500;
 
+function toBuffer(dataUrl) {
+  const base64 = String(dataUrl).includes(",") ? String(dataUrl).split(",")[1] : String(dataUrl);
+  return Buffer.from(base64, "base64");
+}
+
 module.exports = async (req, res) => {
   if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
+
+  // Un documento per volta (le foto caricate a mano nella scheda Registra): il browser lo
+  // manda da solo, così la richiesta non supera mai il limite di dimensione (~4,5 MB).
+  // Non serve Upstash: risponde con il link del file appena salvato.
+  if (req.method === "POST" && (req.body || {}).azione === "documento") {
+    const file = (req.body || {}).file;
+    if (!file) return res.status(400).json({ error: "Nessun file" });
+    try {
+      const isPdf = String(file).startsWith("data:application/pdf");
+      const nome = `archivio/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${isPdf ? "pdf" : "jpg"}`;
+      const blob = await salvaBlob(nome, toBuffer(file), isPdf ? "application/pdf" : "image/jpeg");
+      return res.status(200).json({ ok: true, url: blob.url });
+    } catch (e) {
+      return res.status(500).json({ error: String((e && e.message) || e) });
+    }
+  }
+
   const conn = upstash();
   if (!conn) return res.status(200).json({ configurato: false, storico: [] });
 
