@@ -243,6 +243,11 @@
   .esito-tit{font-weight:800; font-size:14.5px}
   .esito-righe{margin-top:7px; font-size:12.5px; line-height:1.5; color:var(--ink)}
   .esito-riga.err{color:var(--err)}
+  .esito-riga.ok{color:var(--ok); font-weight:700}
+  .esito-riga.warn{color:#ffb703; font-weight:700}
+  .ricevuta-esito{margin-top:10px; padding:10px 12px; border-radius:12px; font-size:12.5px; font-weight:700; line-height:1.45}
+  .ricevuta-esito.ok{background:rgba(45,198,83,.1); color:var(--ok)}
+  .ricevuta-esito.warn{background:rgba(255,183,3,.12); color:#ffb703}
   .esito-fix{display:flex; flex-wrap:wrap; gap:8px; margin-top:7px}
   @keyframes lampeggiaCampo{0%,100%{box-shadow:0 0 0 0 rgba(239,71,111,0)}50%{box-shadow:0 0 0 4px rgba(239,71,111,.45)}}
   .campo-lampeggia{border-color:var(--err)!important; animation:lampeggiaCampo 1s ease-in-out 2}
@@ -436,6 +441,8 @@
         <label>Giorno preciso (facoltativo)</label>
         <input type="date" id="ricevutaData">
         <div id="ricevuteBtns"></div>
+        <div id="ricevutaUltimoEsito"></div>
+        <div id="ricevuteFatteBox" style="margin-top:16px"></div>
 
         <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
           <div style="font-weight:700;font-size:13px">☁️ Salvataggio automatico su Google Drive</div>
@@ -12277,6 +12284,8 @@ function sincronizzaPrenotazioniPendenti(){
 /* ===== storico (solo invii ufficiali riusciti e download .txt, salvato in questo browser) ===== */
 let storico=[];
 try{ storico=JSON.parse(localStorage.getItem('storico_schedine')||'[]'); }catch(e){ storico=[]; }
+// ricevute già scaricate/salvate su Drive (registro online, vedi caricaRicevuteFatte)
+let ricevuteFatte=[];
 function salvaStorico(){
   try{ localStorage.setItem('storico_schedine', JSON.stringify(storico.slice(0,200))); }catch(e){/* storage pieno o non disponibile: lo storico resta solo in memoria */}
 }
@@ -12400,7 +12409,13 @@ function renderStorico(){
   if(!lista.length){ w.innerHTML=banner+'<div class="muted">'+(storicoF?'Nessuna prenotazione con questo filtro.':'Nessuna voce trovata per "'+escText(q)+'".')+'</div>'; return; }
   w.innerHTML=banner+lista.map(e=>{
     const quando=new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>':'');
+    // spunta della ricevuta: verde se fatta, gialla "da scaricare" solo per gli invii
+    // recenti (sulle voci vecchie non lo sappiamo, non ha senso allarmare)
+    const ric=ricevutaDiVoce(e);
+    const recente=(Date.now()-e.ts)<8*24*3600*1000;
+    const pillRic=ric?` <span class="pill ok" title="${escText(etichettaRicevuta(ric))}">🧾 ${ric.modo==='drive'?'su Drive':'scaricata'}</span>`
+      :((e.tipo==='inviata'&&recente)?' <span class="pill wait">🧾 ricevuta da fare</span>':'');
+    const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>':'')+pillRic;
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
     const sInfo=e.struttura?strutturaInfo(e.struttura):null;
     const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null].filter(Boolean).map(escText).join(' · ');
@@ -13328,6 +13343,50 @@ async function invia(){apriCard('invioCard');
 }
 // senza argomenti (dopo un invio): struttura corrente, ultima ricevuta disponibile.
 // con strutturaId (dalle Impostazioni): quella struttura + eventuale giorno scelto nel campo data.
+/* ===== registro delle ricevute: la conferma non è più un messaggio che sparisce =====
+   Ogni ricevuta scaricata o salvata su Drive viene segnata nell'archivio online dal
+   server. Così la si ritrova sempre: nel riquadro dell'invio, nell'elenco "Ricevute
+   già fatte" delle Impostazioni e come spunta accanto alla voce nello Storico. */
+async function caricaRicevuteFatte(){
+  try{
+    const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'ricevuteFatte'})});
+    const d=await r.json();
+    if(Array.isArray(d.ricevute)){ ricevuteFatte=d.ricevute; renderRicevuteFatte(); renderStorico(); }
+  }catch(e){/* offline: si riprova alla prossima apertura */}
+}
+function idStrutturaDaNome(n){
+  n=String(n||'').trim(); if(!n)return '';
+  const uguale=struttureList.find(x=>x.nome===n); if(uguale)return uguale.id;
+  const low=n.toLowerCase();
+  const perId=struttureList.find(x=>x.id&&low.includes(String(x.id).toLowerCase()));
+  return perId?perId.id:'';
+}
+function giornoIso(ts){ const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+// la ricevuta della Questura è per giorno di invio e per struttura
+function ricevutaDiVoce(e){
+  if(!ricevuteFatte.length||!e||e.tipo!=='inviata')return null;
+  const id=idStrutturaDaNome(e.struttura), g=giornoIso(e.ts);
+  return ricevuteFatte.find(v=>v&&v.giorno===g&&(!id||!v.strutturaId||v.strutturaId===id))||null;
+}
+function etichettaRicevuta(v){
+  const quando=String(v.giorno||'').split('-').reverse().join('/');
+  return v.modo==='drive'
+    ? `☁️ Ricevuta del ${quando} salvata su Google Drive${v.cartella?' → cartella «'+v.cartella+'»':''}`
+    : `⬇️ Ricevuta del ${quando} scaricata su questo dispositivo${v.errore?' (Drive non riuscito: '+v.errore+')':''}`;
+}
+function renderRicevuteFatte(){
+  const w=$('#ricevuteFatteBox'); if(!w)return;
+  if(!ricevuteFatte.length){ w.innerHTML='<div class="muted" style="font-size:12px">Nessuna ricevuta ancora scaricata da qui.</div>'; return; }
+  w.innerHTML=`<div style="font-weight:700;font-size:13px;margin-bottom:6px">✅ Ricevute già fatte</div>
+    <div class="muted" style="font-size:11.5px;margin-bottom:8px">Elenco salvato online: lo ritrovi anche da un altro telefono, non serve ricordarselo.</div>
+    ${ricevuteFatte.slice(0,20).map(v=>`<div class="stat-riga">
+      <span class="nome">${v.modo==='drive'?'☁️':'⬇️'} ${escText(String(v.giorno||'').split('-').reverse().join('/'))}
+        <span class="sub" style="text-align:left">${escText(v.strutturaNome||v.strutturaId||'')}${v.modo==='drive'?(v.cartella?' · cartella «'+escText(v.cartella)+'»':' · su Drive'):' · scaricata sul dispositivo'}</span></span>
+      <span class="num" style="color:${v.modo==='drive'?'var(--ok)':'#ffb703'}">${v.modo==='drive'?'su Drive':'scaricata'}
+        <span class="sub">${escText(new Date(v.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'}))}</span></span>
+    </div>`).join('')}`;
+}
 async function scaricaRicevuta(strutturaId){
   toast('Recupero ricevuta…');
   try{
@@ -13338,20 +13397,37 @@ async function scaricaRicevuta(strutturaId){
     if(!r.ok) throw new Error(data.error||'Errore');
     const s=struttureList.find(x=>x.id===strutturaId);
     const quando=data.data.split('-').reverse().join('/');
+    let riga, esitoOk=true;
     if(data.drive&&data.drive.ok){
       // salvata su Drive: NIENTE download locale (evita la finestra "Salva con nome")
-      toast('☁️ Ricevuta del '+quando+(s?' · '+s.nome:'')+' salvata su Drive');
+      riga='☁️ Ricevuta del '+quando+(s?' · '+s.nome:'')+' salvata su Google Drive';
+      toast(riga);
       if(data.drive.avviso) alert('⚠️ '+data.drive.avviso);
     }else{
       // Drive non attivo (o fallito): scarico in locale come sempre
       const bin=atob(data.pdfBase64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
       const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
       const a=document.createElement('a');a.href=url;a.download=`ricevuta_${data.data}${strutturaId?'_'+strutturaId:''}.pdf`;a.click();URL.revokeObjectURL(url);
-      let msg='Ricevuta del '+quando+(s?' · '+s.nome:'')+' scaricata';
-      if(data.drive) msg+=' (⚠️ Drive: '+data.drive.errore+')';
-      toast(msg);
+      riga='⬇️ Ricevuta del '+quando+(s?' · '+s.nome:'')+' scaricata';
+      if(data.drive){ riga+=' — ⚠️ su Drive NON è andata: '+data.drive.errore; esitoOk=false; }
+      toast('Ricevuta del '+quando+' scaricata');
     }
-  }catch(e){toast('Ricevuta: '+e.message);}
+    // conferma che RESTA: nel riquadro dell'invio e nella pagina Ricevute
+    const box=`<div class="esito-riga ${esitoOk?'ok':'warn'}">${escText(riga)}</div>`;
+    if($('#sendResult .esito')) aggiungiEsitoRiga(box);
+    const u=$('#ricevutaUltimoEsito');
+    if(u)u.innerHTML=`<div class="ricevuta-esito ${esitoOk?'ok':'warn'}">${escText(riga)}</div>`;
+    // aggiorna subito l'elenco e la spunta nello Storico
+    if(data.registrata){
+      ricevuteFatte=[data.registrata].concat(ricevuteFatte.filter(v=>!(v&&v.giorno===data.registrata.giorno&&v.strutturaId===data.registrata.strutturaId)));
+      renderRicevuteFatte(); renderStorico();
+    }else caricaRicevuteFatte();
+  }catch(e){
+    toast('Ricevuta: '+e.message);
+    const u=$('#ricevutaUltimoEsito');
+    if(u)u.innerHTML=`<div class="ricevuta-esito warn">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`;
+    if($('#sendResult .esito')) aggiungiEsitoRiga(`<div class="esito-riga err">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`);
+  }
 }
 
 /* ===== salvataggio automatico ricevute su Google Drive (config in Impostazioni) ===== */
@@ -14301,6 +14377,8 @@ function apriRicevute(){
   $('#ricevuteOverlay').classList.add('open');
   document.body.style.overflow='hidden';
   caricaDriveConfig();
+  renderRicevuteFatte();
+  caricaRicevuteFatte();
 }
 function chiudiRicevute(){
   $('#ricevuteOverlay').classList.remove('open');
@@ -14439,6 +14517,7 @@ function apriCard(id){
   wireChangeCodeForm();
   renderStorico();
   syncStoricoFromServer();
+  caricaRicevuteFatte();
   isRenderStorico();
   isWireDrop();
   osservaBlobProtetti();

@@ -8,6 +8,35 @@ const { upstash, redisCmd } = require("./_kv");
 
 const KEY_DRIVE = "drive_ricevute";
 const KEY_STORICO = "storico_schedine";
+const KEY_RICEVUTE = "ricevute_fatte";
+const MAX_RICEVUTE = 300;
+
+// Registro di cosa è stato fatto con ogni ricevuta: resta nell'archivio online, così
+// la conferma non è più un messaggio che sparisce ma un dato consultabile per sempre
+// (e visibile anche da un altro telefono).
+async function segnaRicevuta(voce) {
+  const conn = upstash();
+  if (!conn) return null;
+  try {
+    const raw = await redisCmd(conn, ["GET", KEY_RICEVUTE]);
+    const lista = raw ? JSON.parse(raw) : [];
+    // una sola riga per giorno+struttura: se la riscarichi, aggiorna quella
+    const senzaDoppia = lista.filter((v) => !(v && v.giorno === voce.giorno && v.strutturaId === voce.strutturaId));
+    senzaDoppia.unshift(voce);
+    if (senzaDoppia.length > MAX_RICEVUTE) senzaDoppia.length = MAX_RICEVUTE;
+    await redisCmd(conn, ["SET", KEY_RICEVUTE, JSON.stringify(senzaDoppia)]);
+    return voce;
+  } catch { return null; }
+}
+
+async function leggiRicevute() {
+  const conn = upstash();
+  if (!conn) return [];
+  try {
+    const raw = await redisCmd(conn, ["GET", KEY_RICEVUTE]);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
 
 // giorno (ora italiana, YYYY-MM-DD) dell'ultimo invio ufficiale registrato nell'Archivio
 // per questa struttura: il portale emette la ricevuta solo per i giorni con un invio,
@@ -63,6 +92,11 @@ module.exports = async (req, res) => {
   if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   try {
     const { data, struttura, azione, url, secret, cartelle } = req.body || {};
+
+    // --- elenco delle ricevute già scaricate/salvate (per il riepilogo "l'ho fatta?") ---
+    if (azione === "ricevuteFatte") {
+      return res.status(200).json({ ricevute: await leggiRicevute() });
+    }
 
     // --- configurazione Google Drive (letta/salvata nell'archivio, vale su tutti i dispositivi) ---
     if (azione === "driveGet") {
@@ -138,7 +172,19 @@ module.exports = async (req, res) => {
       }
     }
 
-    return res.status(200).json({ data: giorno, pdfBase64, drive });
+    // registra l'esito nell'archivio: la conferma resta anche se non si guarda lo schermo
+    const registrata = await segnaRicevuta({
+      ts: Date.now(),
+      giorno,
+      strutturaId: s.id || "",
+      strutturaNome: s.nome || "",
+      modo: drive && drive.ok ? "drive" : "locale",
+      nomeFile: (drive && drive.nome) || `ricevuta_${giorno}.pdf`,
+      cartella: drive && drive.ok ? ((cfg && cfg.cartelle && cfg.cartelle[s.id]) || `Ricevute ${s.nome || s.id}`) : "",
+      errore: drive && !drive.ok ? drive.errore : "",
+    });
+
+    return res.status(200).json({ data: giorno, pdfBase64, drive, registrata });
   } catch (e) {
     return res.status(500).json({ error: String(e.message || e) });
   }
