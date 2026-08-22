@@ -253,6 +253,18 @@
   .campo-lampeggia{border-color:var(--err)!important; animation:lampeggiaCampo 1s ease-in-out 2}
   .esito-azioni{display:flex; flex-direction:column; gap:8px; margin-top:11px}
   .invio-elenco{margin-top:8px}
+  .esito-passi{margin-top:4px}
+  .esito-passo{display:flex; align-items:flex-start; gap:10px; padding:11px 0; border-bottom:1px solid var(--line)}
+  .esito-passo:last-child{border-bottom:none; padding-bottom:2px}
+  .esito-passo .ck{flex:0 0 auto; font-size:17px; line-height:1.25}
+  .esito-passo .txt{flex:1; min-width:0}
+  .esito-passo .txt b{display:block; font-size:13.5px}
+  .esito-passo .det{display:block; color:var(--muted); font-size:12px; margin-top:1px}
+  .esito-passo.ok .txt b{color:var(--ok)}
+  .esito-passo.ko .txt b{color:var(--err)}
+  .esito-passo.ko .det{color:var(--err)}
+  .esito-passo.na{opacity:.55}
+  .esito-passo .azione{margin-top:8px}
   .invio-riga{display:flex; align-items:flex-start; gap:9px; padding:7px 0; font-size:13px; line-height:1.45}
   .invio-riga .ck{flex:0 0 auto; font-size:14px}
   .invio-riga b{display:block}
@@ -607,8 +619,10 @@ function doGet() {
 
     <!-- un solo pulsante che manda TUTTO il dovuto, con l'elenco esplicito di cosa parte -->
     <div class="portale">
-      <div class="ptit">📤 Cosa viene inviato</div>
-      <div id="invioElenco" class="invio-elenco"></div>
+      <div id="invioPre">
+        <div class="ptit">📤 Cosa viene inviato</div>
+        <div id="invioElenco" class="invio-elenco"></div>
+      </div>
       <div style="display:flex;gap:10px;margin-top:12px">
         <button class="btn ghost sm" style="flex:0 0 auto;width:auto;padding:12px 18px" id="testBtn" onclick="verifica()" disabled>Verifica</button>
         <button class="btn primary sm" style="flex:1" id="sendBtn" onclick="invia()" disabled>Invia</button>
@@ -12355,6 +12369,8 @@ function sincronizzaPrenotazioniPendenti(){
 /* ===== storico (solo invii ufficiali riusciti e download .txt, salvato in questo browser) ===== */
 let storico=[];
 try{ storico=JSON.parse(localStorage.getItem('storico_schedine')||'[]'); }catch(e){ storico=[]; }
+// esito dell'ultimo invio ufficiale (Questura / Ross1000 / ricevuta) — vedi renderPannelloInvio
+let esitoInvio=null;
 // ricevute già scaricate/salvate su Drive (registro online, vedi caricaRicevuteFatte)
 let ricevuteFatte=[];
 function salvaStorico(){
@@ -12823,6 +12839,11 @@ function renderPreview(){const recs=allRecords();const w=$('#previewWrap');const
 // mostra nero su bianco COSA parte con il pulsante, così non serve indovinare
 function aggiornaElencoInvio(nValide){
   const w=$('#invioElenco'); if(!w)return;
+  // a invio fatto comanda il pannello dell'esito: la lista "cosa parte" sparirebbe
+  // solo a metà, lasciando due elenchi quasi uguali uno sopra l'altro
+  const pre=$('#invioPre');
+  if(pre)pre.style.display=esitoInvio?'none':'';
+  if(esitoInvio)return;
   if(nValide===undefined){ const recs=allRecords(); nValide=recs.filter(r=>r.bad.length===0&&r.len===168).length; }
   const ross=rossAttivo();
   const nome=currentStrutturaNome()||'';
@@ -13286,6 +13307,46 @@ async function callSend(mode){
 }
 // Riquadro di esito unico e leggibile: dice subito com'è andata (verifica o invio),
 // elenca gli eventuali errori riga per riga e raccoglie qui le azioni successive.
+/* ===== esito dell'invio: SEMPRE le stesse tre voci, ognuna con la sua spunta =====
+   Prima l'esito era sparso in tre punti (la lista "cosa parte" che restava verde, il
+   riquadro con le righe di testo e una pastiglia Ross1000 a parte): a colpo d'occhio non
+   si capiva cosa fosse davvero andato a buon fine. Ora c'è un solo pannello con
+   Questura, Ross1000 e Ricevuta, e lo stato di ognuna. */
+const ICO_PASSO={ok:'✅',corso:'⏳',ko:'⚠️',todo:'⬜',na:'➖'};
+function segnaPasso(quale,stato,det,azione){
+  if(!esitoInvio)return;
+  esitoInvio[quale]={stato,det,azione:azione||''};
+  renderPannelloInvio();
+}
+function passoHtml(v,titolo){
+  const st=(v&&v.stato)||'na';
+  return `<div class="esito-passo ${st}">
+    <span class="ck">${ICO_PASSO[st]||'⬜'}</span>
+    <span class="txt"><b>${titolo}</b><span class="det">${(v&&v.det)||''}</span>${(v&&v.azione)||''}</span>
+  </div>`;
+}
+function renderPannelloInvio(){
+  const w=$('#sendResult'); if(!w||!esitoInvio)return;
+  const e=esitoInvio;
+  const passi=['questura','ross','ricevuta'].map(k=>e[k]||{stato:'na',det:''});
+  const finito=passi.every(v=>v.stato==='ok'||v.stato==='na');
+  const guasto=passi.some(v=>v.stato==='ko');
+  const inCorso=passi.some(v=>v.stato==='corso');
+  const stato=guasto?'attesa':(finito?'ok':'attesa');
+  const titolo=guasto?'Qualcosa non è andato'
+    :(finito?'Tutto fatto ✓':(inCorso?'Invio in corso…':'Invio riuscito — manca la ricevuta'));
+  const col=guasto?'var(--err)':(finito?'var(--ok)':'var(--amber)');
+  const ico=guasto?'⚠️':(finito?'✅':'⏳');
+  w.innerHTML=`<div class="esito ${stato}">
+    <div class="esito-tit" style="color:${col}">${ico} ${titolo}</div>
+    <div class="esito-passi">
+      ${passoHtml(e.questura,'Questura · Alloggiati Web')}
+      ${passoHtml(e.ross,'Ross1000 · Regione (ISTAT)')}
+      ${passoHtml(e.ricevuta,'Ricevuta della Questura')}
+    </div>
+    ${(e.errori||[]).length?`<div class="esito-righe" style="margin-top:10px">${e.errori.join('')}</div>`:''}
+  </div>`;
+}
 function boxEsito({stato,titolo,righe,azioni}){
   const col=stato==='ok'?'var(--ok)':stato==='err'?'var(--err)':'var(--blue)';
   const ico=stato==='ok'?'✅':stato==='err'?'⚠️':'ℹ️';
@@ -13351,9 +13412,8 @@ window.correggiCampo=(bid,gid,campo,valore)=>{
   toast(`${ETICHETTA_CAMPO[campo]||campo} corretto: ${valore}`);
   setTimeout(()=>vaiAlCampo(bid,gid,campo),120);
 };
-function renderEsito(data){
+function righeErrore(data){
   const errs=data.righe.filter(x=>!x.ok);
-  const inviato=data.mode==='send';
   const mappa=ospitiPerRiga();
   const righe=[];
   if(errs.length){
@@ -13372,15 +13432,17 @@ function renderEsito(data){
       </div>`);
     });
   }
-  if(inviato&&data.valide) righe.unshift(`<div class="esito-riga"><b>${data.valide}</b> schedin${data.valide===1?'a inviata':'e inviate'} alla Questura · ${escText(data.struttura||'')}</div>`);
-  if(!inviato&&!errs.length) righe.push(`<div class="esito-riga">${data.totali} schedin${data.totali===1?'a controllata':'e controllate'} · ${escText(data.struttura||'')}<br>Nessun errore: puoi inviare.</div>`);
-  const stato=errs.length?(inviato&&data.valide?'attesa':'err'):'ok';
-  const titolo=inviato
-    ? (errs.length? (data.valide?'Inviate con alcuni errori':'Invio non riuscito') : 'Invio completato')
-    : (errs.length?'Ci sono errori da correggere':'Tutto pronto per l\'invio');
-  return boxEsito({stato,titolo,righe});
+  return righe;
 }
-async function verifica(){apriCard('invioCard');const data=await callSend('test');if(data){showSendResult(renderEsito(data));toast(data.righe.every(x=>x.ok)?'Tutte valide':'Ci sono errori');}}
+// riquadro della sola VERIFICA (nessun invio ancora fatto)
+function renderEsito(data){
+  const errs=data.righe.filter(x=>!x.ok);
+  const righe=righeErrore(data);
+  if(!errs.length) righe.push(`<div class="esito-riga">${data.totali} schedin${data.totali===1?'a controllata':'e controllate'} · ${escText(data.struttura||'')}<br>Nessun errore: puoi inviare.</div>`);
+  return boxEsito({stato:errs.length?'err':'ok',
+    titolo:errs.length?'Ci sono errori da correggere':'Tutto pronto per l\'invio', righe});
+}
+async function verifica(){apriCard('invioCard');esitoInvio=null;aggiornaElencoInvio();const data=await callSend('test');if(data){showSendResult(renderEsito(data));toast(data.righe.every(x=>x.ok)?'Tutte valide':'Ci sono errori');}}
 async function invia(){apriCard('invioCard');
   const recordsInviati=validRecords();
   const n=recordsInviati.length;
@@ -13396,10 +13458,20 @@ async function invia(){apriCard('invioCard');
   if(!confirm(`INVIO UFFICIALE\n\n• Questura (Alloggiati Web): ${n} schedin${n===1?'a':'e'}${conRoss?'\n• Ross1000 (Regione ISTAT): incluso, parte subito dopo':''}\n\nL'operazione è irreversibile. Procedere?`))return;
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
-    showSendResult(renderEsito(data));
-    // la riga Ross1000 e il pulsante ricevuta vivono DENTRO il riquadro di esito, non sparsi
-    if(rossAttivo()) aggiungiEsitoRiga('<div class="esito-riga" id="esitoRoss">⏳ Ross1000: invio in corso…</div>');
-    aggiungiEsitoAzione(`<button class="btn ghost sm" style="width:100%" onclick="scaricaRicevuta()">🧾 Scarica ricevuta PDF</button>`);
+    const errs=data.righe.filter(x=>!x.ok);
+    esitoInvio={
+      questura: data.valide
+        ? {stato:errs.length?'ko':'ok',
+           det:`${data.valide} schedin${data.valide===1?'a inviata':'e inviate'}${errs.length?` · ${errs.length} da sistemare`:''} · ${escText(data.struttura||'')}`}
+        : {stato:'ko', det:'nessuna schedina inviata'},
+      ross: rossAttivo() ? {stato:'corso', det:'invio in corso…'}
+                         : {stato:'na', det:'non previsto per questa struttura'},
+      ricevuta: {stato:'todo', det:'non ancora scaricata',
+        azione:`<div class="azione"><button class="btn ghost sm" onclick="scaricaRicevuta()">🧾 Scarica ricevuta PDF</button></div>`},
+      errori: errs.length?righeErrore(data):[],
+    };
+    renderPannelloInvio();
+    aggiornaElencoInvio();
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     await archiviaDocumentiManuali();
     const snap=snapshotOspiti();
@@ -13483,9 +13555,12 @@ async function scaricaRicevuta(strutturaId){
       if(data.drive){ riga+=' — ⚠️ su Drive NON è andata: '+data.drive.errore; esitoOk=false; }
       toast('Ricevuta del '+quando+' scaricata');
     }
-    // conferma che RESTA: nel riquadro dell'invio e nella pagina Ricevute
+    // conferma che RESTA: la terza spunta del pannello d'invio e la pagina Ricevute
+    segnaPasso('ricevuta', esitoOk?'ok':'ko',
+      esitoOk?((data.drive&&data.drive.ok)?('salvata su Google Drive · '+escText(quando)):('scaricata sul dispositivo · '+escText(quando)))
+             :escText(riga));
     const box=`<div class="esito-riga ${esitoOk?'ok':'warn'}">${escText(riga)}</div>`;
-    if($('#sendResult .esito')) aggiungiEsitoRiga(box);
+    if(!esitoInvio && $('#sendResult .esito')) aggiungiEsitoRiga(box);
     const u=$('#ricevutaUltimoEsito');
     if(u)u.innerHTML=`<div class="ricevuta-esito ${esitoOk?'ok':'warn'}">${escText(riga)}</div>`;
     // aggiorna subito l'elenco e la spunta nello Storico
@@ -13497,7 +13572,8 @@ async function scaricaRicevuta(strutturaId){
     toast('Ricevuta: '+e.message);
     const u=$('#ricevutaUltimoEsito');
     if(u)u.innerHTML=`<div class="ricevuta-esito warn">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`;
-    if($('#sendResult .esito')) aggiungiEsitoRiga(`<div class="esito-riga err">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`);
+    segnaPasso('ricevuta','ko','non scaricata: '+escText(e.message));
+    if(!esitoInvio && $('#sendResult .esito')) aggiungiEsitoRiga(`<div class="esito-riga err">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`);
   }
 }
 
@@ -13667,7 +13743,12 @@ async function inviaRoss(manuale){
   const p=rossPayload();
   const out=$(manuale?'#rossResultManuale':'#rossResult');
   const riga=$('#esitoRoss');
-  if(!p){if(manuale)toast('Nessun ospite completo da trasmettere');return;}
+  if(!p){
+    // niente da trasmettere: la spunta non deve restare a "in corso" per sempre
+    if(manuale)toast('Nessun ospite completo da trasmettere');
+    else segnaPasso('ross','ko','nessun ospite completo da trasmettere — riprova da ⚙️ Impostazioni → Ross1000');
+    return;
+  }
   const btn=$('#rossSendBtn'); if(btn)btn.disabled=true;
   if(out)out.innerHTML='<div class="muted" style="margin-top:10px"><span class="spin"></span> Invio a Ross1000…</div>';
   try{
@@ -13675,14 +13756,18 @@ async function inviaRoss(manuale){
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Errore');
     if(riga)riga.innerHTML='✅ Ross1000 (Regione ISTAT): trasmesso';
-    if(out)out.innerHTML='<div class="pill ok" style="margin-top:10px">Ross1000: trasmesso ✓</div>';
+    if(!manuale)segnaPasso('ross','ok','trasmesso alla Regione');
+    if(out&&(manuale||!esitoInvio))out.innerHTML='<div class="pill ok" style="margin-top:10px">Ross1000: trasmesso ✓</div>';
+    else if(out)out.innerHTML='';
     toast('Ross1000: dati trasmessi');
     // segna nello storico che per questo soggiorno Ross1000 è fatto (per gli "arretrati")
     const ent=storico.find(x=>x.tipo==='inviata'&&x.arrivo===(bookings[0]&&bookings[0].arrivo));
     if(ent)segnaRossFatto(ent.ts);
   }catch(e){
     if(riga){ riga.className='esito-riga err'; riga.innerHTML='⚠️ Ross1000 non trasmesso: '+escText(e.message)+' — puoi riprovare da ⚙️ Impostazioni → Ross1000'; }
-    if(out)out.innerHTML=`<div class="pill err" style="margin-top:10px">Ross1000: ${e.message}</div>`;
+    if(!manuale)segnaPasso('ross','ko',escText(e.message)+' — riprova da ⚙️ Impostazioni → Ross1000');
+    if(out&&(manuale||!esitoInvio))out.innerHTML=`<div class="pill err" style="margin-top:10px">Ross1000: ${escText(e.message)}</div>`;
+    else if(out)out.innerHTML='';
     if(manuale)toast('Ross1000: '+e.message);
   }finally{ if(btn)btn.disabled=false; }
 }
