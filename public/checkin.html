@@ -267,6 +267,7 @@
     <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
     <div class="prog-pct" id="progPct">0%</div>
     <div class="prog-text" id="progText"></div>
+    <button class="btn ghost" id="progSkipBtn" style="display:none;margin-top:14px" onclick="saltaVerifica()"></button>
   </div>
 </div>
 
@@ -857,21 +858,21 @@ function t(key){ return (T[lang]||T.it)[key]; }
 // per non intervenire sui grandi oggetti T (una riga per lingua, delicati da editare).
 const T2={
   it:{ titolare_title:'Chi è il titolare della prenotazione?', titolare_spoiler:'Sul titolare scelto verrà fatta la verifica d\'identità con selfie e sarà l\'intestatario del contratto. Assicurati di scegliere la persona giusta.', titolare_hint:'Tocca il nome di chi ha effettuato la prenotazione.', titolare_for:'Verifica identità per',
-    verif_title:'Verifica dell\'identità', verif_prep:'Preparo la verifica…', verif_selfie:'Analizzo il selfie…', verif_doc:'Leggo il volto sul documento…', verif_compare:'Confronto i volti…', verif_done_bar:'Completata', verif_done_title:'Verifica terminata', verif_done_sub:'Grazie, puoi continuare.', cam_selfie_hint:'Inquadra il tuo viso nell\'ovale, ben illuminato' },
+    verif_title:'Verifica dell\'identità', verif_prep:'Preparo la verifica…', verif_selfie:'Analizzo il selfie…', verif_doc:'Leggo il volto sul documento…', verif_compare:'Confronto i volti…', verif_done_bar:'Completata', verif_done_title:'Verifica terminata', verif_done_sub:'Grazie, puoi continuare.', cam_selfie_hint:'Inquadra il tuo viso nell\'ovale, ben illuminato', verif_skip:'Continua senza verifica', verif_failed:'La verifica non è riuscita su questo telefono: puoi proseguire lo stesso.' },
   en:{ titolare_title:'Who is the booking holder?', titolare_spoiler:'The selected holder will do the selfie identity check and will be named on the rental contract. Make sure you pick the right person.', titolare_hint:'Tap the name of the person who made the booking.', titolare_for:'Identity check for',
-    verif_title:'Identity check', verif_prep:'Preparing the check…', verif_selfie:'Analysing the selfie…', verif_doc:'Reading the face on the document…', verif_compare:'Comparing the faces…', verif_done_bar:'Done', verif_done_title:'Check complete', verif_done_sub:'Thank you, you can continue.', cam_selfie_hint:'Fit your face in the oval, well lit' },
+    verif_title:'Identity check', verif_prep:'Preparing the check…', verif_selfie:'Analysing the selfie…', verif_doc:'Reading the face on the document…', verif_compare:'Comparing the faces…', verif_done_bar:'Done', verif_done_title:'Check complete', verif_done_sub:'Thank you, you can continue.', cam_selfie_hint:'Fit your face in the oval, well lit', verif_skip:'Continue without the check', verif_failed:'The check didn\'t work on this phone: you can carry on anyway.' },
   fr:{ titolare_title:'Qui est le titulaire de la réservation ?', titolare_spoiler:'Le titulaire choisi effectuera la vérification d\'identité par selfie et figurera sur le contrat de location. Assurez-vous de choisir la bonne personne.', titolare_hint:'Touchez le nom de la personne qui a réservé.', titolare_for:'Vérification d\'identité pour',
-    verif_title:'Vérification d\'identité', verif_prep:'Préparation de la vérification…', verif_selfie:'Analyse du selfie…', verif_doc:'Lecture du visage sur le document…', verif_compare:'Comparaison des visages…', verif_done_bar:'Terminé', verif_done_title:'Vérification terminée', verif_done_sub:'Merci, vous pouvez continuer.', cam_selfie_hint:'Placez votre visage dans l\'ovale, bien éclairé' },
+    verif_title:'Vérification d\'identité', verif_prep:'Préparation de la vérification…', verif_selfie:'Analyse du selfie…', verif_doc:'Lecture du visage sur le document…', verif_compare:'Comparaison des visages…', verif_done_bar:'Terminé', verif_done_title:'Vérification terminée', verif_done_sub:'Merci, vous pouvez continuer.', cam_selfie_hint:'Placez votre visage dans l\'ovale, bien éclairé', verif_skip:'Continuer sans la vérification', verif_failed:'La vérification n\'a pas fonctionné sur ce téléphone : vous pouvez continuer.' },
   es:{ titolare_title:'¿Quién es el titular de la reserva?', titolare_spoiler:'El titular elegido hará la verificación de identidad con selfie y figurará en el contrato de alquiler. Asegúrate de elegir a la persona correcta.', titolare_hint:'Toca el nombre de quien hizo la reserva.', titolare_for:'Verificación de identidad para',
-    verif_title:'Verificación de identidad', verif_prep:'Preparando la verificación…', verif_selfie:'Analizando el selfie…', verif_doc:'Leyendo el rostro del documento…', verif_compare:'Comparando los rostros…', verif_done_bar:'Completada', verif_done_title:'Verificación terminada', verif_done_sub:'Gracias, puedes continuar.', cam_selfie_hint:'Encaja tu cara en el óvalo, bien iluminada' },
+    verif_title:'Verificación de identidad', verif_prep:'Preparando la verificación…', verif_selfie:'Analizando el selfie…', verif_doc:'Leyendo el rostro del documento…', verif_compare:'Comparando los rostros…', verif_done_bar:'Completada', verif_done_title:'Verificación terminada', verif_done_sub:'Gracias, puedes continuar.', cam_selfie_hint:'Encaja tu cara en el óvalo, bien iluminada', verif_skip:'Continuar sin la verificación', verif_failed:'La verificación no ha funcionado en este teléfono: puedes continuar igualmente.' },
   de:{ titolare_title:'Wer ist der Buchungsinhaber?', titolare_spoiler:'Der ausgewählte Inhaber macht die Selfie-Identitätsprüfung und steht im Mietvertrag. Bitte die richtige Person auswählen.', titolare_hint:'Tippen Sie auf den Namen der Person, die gebucht hat.', titolare_for:'Identitätsprüfung für',
-    verif_title:'Identitätsprüfung', verif_prep:'Prüfung wird vorbereitet…', verif_selfie:'Selfie wird analysiert…', verif_doc:'Gesicht auf dem Dokument wird gelesen…', verif_compare:'Gesichter werden verglichen…', verif_done_bar:'Fertig', verif_done_title:'Prüfung abgeschlossen', verif_done_sub:'Danke, Sie können fortfahren.', cam_selfie_hint:'Halten Sie Ihr Gesicht ins Oval, gut beleuchtet' },
+    verif_title:'Identitätsprüfung', verif_prep:'Prüfung wird vorbereitet…', verif_selfie:'Selfie wird analysiert…', verif_doc:'Gesicht auf dem Dokument wird gelesen…', verif_compare:'Gesichter werden verglichen…', verif_done_bar:'Fertig', verif_done_title:'Prüfung abgeschlossen', verif_done_sub:'Danke, Sie können fortfahren.', cam_selfie_hint:'Halten Sie Ihr Gesicht ins Oval, gut beleuchtet', verif_skip:'Ohne Prüfung fortfahren', verif_failed:'Die Prüfung hat auf diesem Handy nicht funktioniert: Sie können trotzdem fortfahren.' },
   ro:{ titolare_title:'Cine este titularul rezervării?', titolare_spoiler:'Titularul ales va face verificarea de identitate cu selfie și va figura în contractul de închiriere. Asigurați-vă că alegeți persoana corectă.', titolare_hint:'Atingeți numele persoanei care a făcut rezervarea.', titolare_for:'Verificare identitate pentru',
-    verif_title:'Verificarea identității', verif_prep:'Se pregătește verificarea…', verif_selfie:'Se analizează selfie-ul…', verif_doc:'Se citește chipul de pe document…', verif_compare:'Se compară chipurile…', verif_done_bar:'Gata', verif_done_title:'Verificare finalizată', verif_done_sub:'Mulțumim, puteți continua.', cam_selfie_hint:'Încadrează-ți fața în oval, bine luminată' },
+    verif_title:'Verificarea identității', verif_prep:'Se pregătește verificarea…', verif_selfie:'Se analizează selfie-ul…', verif_doc:'Se citește chipul de pe document…', verif_compare:'Se compară chipurile…', verif_done_bar:'Gata', verif_done_title:'Verificare finalizată', verif_done_sub:'Mulțumim, puteți continua.', cam_selfie_hint:'Încadrează-ți fața în oval, bine luminată', verif_skip:'Continuă fără verificare', verif_failed:'Verificarea nu a funcționat pe acest telefon: poți continua oricum.' },
   pt:{ titolare_title:'Quem é o titular da reserva?', titolare_spoiler:'O titular escolhido fará a verificação de identidade com selfie e constará no contrato de locação. Certifique-se de escolher a pessoa certa.', titolare_hint:'Toque no nome de quem fez a reserva.', titolare_for:'Verificação de identidade para',
-    verif_title:'Verificação de identidade', verif_prep:'A preparar a verificação…', verif_selfie:'A analisar a selfie…', verif_doc:'A ler o rosto no documento…', verif_compare:'A comparar os rostos…', verif_done_bar:'Concluída', verif_done_title:'Verificação terminada', verif_done_sub:'Obrigado, pode continuar.', cam_selfie_hint:'Enquadre o seu rosto no oval, bem iluminado' },
+    verif_title:'Verificação de identidade', verif_prep:'A preparar a verificação…', verif_selfie:'A analisar a selfie…', verif_doc:'A ler o rosto no documento…', verif_compare:'A comparar os rostos…', verif_done_bar:'Concluída', verif_done_title:'Verificação terminada', verif_done_sub:'Obrigado, pode continuar.', cam_selfie_hint:'Enquadre o seu rosto no oval, bem iluminado', verif_skip:'Continuar sem a verificação', verif_failed:'A verificação não funcionou neste telemóvel: pode continuar à mesma.' },
   pl:{ titolare_title:'Kto jest osobą rezerwującą?', titolare_spoiler:'Wybrana osoba przejdzie weryfikację tożsamości selfie i zostanie wpisana w umowie najmu. Upewnij się, że wybierasz właściwą osobę.', titolare_hint:'Dotknij imienia osoby, która dokonała rezerwacji.', titolare_for:'Weryfikacja tożsamości dla',
-    verif_title:'Weryfikacja tożsamości', verif_prep:'Przygotowuję weryfikację…', verif_selfie:'Analizuję selfie…', verif_doc:'Odczytuję twarz z dokumentu…', verif_compare:'Porównuję twarze…', verif_done_bar:'Gotowe', verif_done_title:'Weryfikacja zakończona', verif_done_sub:'Dziękujemy, możesz kontynuować.', cam_selfie_hint:'Umieść twarz w owalu, dobrze oświetloną' },
+    verif_title:'Weryfikacja tożsamości', verif_prep:'Przygotowuję weryfikację…', verif_selfie:'Analizuję selfie…', verif_doc:'Odczytuję twarz z dokumentu…', verif_compare:'Porównuję twarze…', verif_done_bar:'Gotowe', verif_done_title:'Weryfikacja zakończona', verif_done_sub:'Dziękujemy, możesz kontynuować.', cam_selfie_hint:'Umieść twarz w owalu, dobrze oświetloną', verif_skip:'Kontynuuj bez weryfikacji', verif_failed:'Weryfikacja nie zadziałała na tym telefonie: możesz kontynuować.' },
 };
 function t2(key){ return (T2[lang]||T2.it)[key]; }
 // bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
@@ -1158,26 +1159,84 @@ async function onSelfieFiles(files){
   verificaSelfie();
 }
 // overlay di avanzamento della verifica (riusa lo stesso overlay della lettura documenti)
-function mostraVerifProgress(){ const o=$('#progressOverlay'); if(!o)return; $('#progTitle').textContent=t2('verif_title'); aggiornaProgresso(0,''); o.classList.add('show'); }
+/* Su alcuni telefoni il riconoscimento facciale (WebGL/TensorFlow) non va in errore:
+   si pianta e basta, e la barra resta ferma per sempre. Il check-in NON deve mai
+   dipendere da questo: ogni passaggio ha un tempo massimo, e dopo pochi secondi
+   compare comunque un pulsante per proseguire senza verifica. */
+const VERIF_TIMEOUT={modelli:25000, volto:20000, doc:25000, totale:60000};
+function conTimeout(promessa,ms,etichetta){
+  return Promise.race([
+    promessa,
+    new Promise((_,ko)=>setTimeout(()=>ko(new Error('timeout '+(etichetta||''))),ms)),
+  ]);
+}
+// Su certi telefoni si pianta l'accelerazione grafica (WebGL), non il riconoscimento in sé:
+// ripiegando sul calcolo normale (CPU) la verifica di solito riesce, solo più lentamente.
+let _cpuGiaProvata=false;
+async function passaAllaCpu(){
+  if(_cpuGiaProvata)return false; _cpuGiaProvata=true;
+  try{
+    const tf=(window.faceapi&&faceapi.tf)||window.tf;
+    if(!tf||!tf.setBackend)return false;
+    await tf.setBackend('cpu');
+    if(tf.ready)await tf.ready();
+    return true;
+  }catch(e){ return false; }
+}
+let _verifToken=0;
+function mostraVerifProgress(){
+  const o=$('#progressOverlay'); if(!o)return;
+  $('#progTitle').textContent=t2('verif_title'); aggiornaProgresso(0,'');
+  const b=$('#progSkipBtn');
+  if(b){ b.textContent=t2('verif_skip'); b.style.display='none';
+    clearTimeout(b._t); b._t=setTimeout(()=>{ b.style.display=''; },7000); }
+  o.classList.add('show');
+}
+function nascondiVerifProgress(){
+  const b=$('#progSkipBtn'); if(b){ clearTimeout(b._t); b.style.display='none'; }
+  nascondiProgresso();
+}
+// via d'uscita sempre disponibile: si prosegue senza verifica, come quando i modelli mancano
+function saltaVerifica(){
+  _verifToken++;                       // quello in corso, se finisce, non tocca più nulla
+  deVisu.esito='non_disponibile'; deVisu.ts=Date.now();
+  nascondiVerifProgress();
+  aggiornaDevisuUI('nd');
+  toast(t2('verif_failed'));
+}
 async function verificaSelfie(){
   deVisu.tentativi++;
+  const mio=++_verifToken;
+  const vivo=()=>mio===_verifToken;    // false se l'ospite ha premuto "continua senza verifica"
   const pausa=ms=>new Promise(r=>setTimeout(r,ms));
   mostraVerifProgress();
   try{
     aggiornaProgresso(12,t2('verif_prep'));
-    await caricaFaceApi();
+    await conTimeout(caricaFaceApi(),VERIF_TIMEOUT.modelli,'modelli');
+    if(!vivo())return;
     aggiornaProgresso(40,t2('verif_selfie')); await pausa(320);
-    const dSelfie=await descriptorDa(deVisu.selfie);
+    let dSelfie;
+    try{
+      dSelfie=await conTimeout(descriptorDa(deVisu.selfie),VERIF_TIMEOUT.volto,'selfie');
+    }catch(err){
+      // primo tentativo piantato: si riprova una volta sola senza accelerazione grafica
+      if(!vivo())return;
+      if(!(await passaAllaCpu()))throw err;
+      aggiornaProgresso(48,t2('verif_selfie'));
+      dSelfie=await conTimeout(descriptorDa(deVisu.selfie),VERIF_TIMEOUT.volto,'selfie cpu');
+    }
+    if(!vivo())return;
     deVisu.ts=Date.now();
     if(!dSelfie){
       // nessun volto nel selfie: chiediamo di rifarlo (max 2 volte), poi si prosegue comunque
-      aggiornaProgresso(100,''); await pausa(200); nascondiProgresso();
+      aggiornaProgresso(100,''); await pausa(200); nascondiVerifProgress();
       deVisu.esito='volto_non_rilevato';
       aggiornaDevisuUI(statoDevisu());
       return;
     }
     aggiornaProgresso(66,t2('verif_doc')); await pausa(360);
-    const dDoc=await descriptorDocumento();
+    const dDoc=await conTimeout(descriptorDocumento(),VERIF_TIMEOUT.doc,'documento');
+    if(!vivo())return;
     aggiornaProgresso(88,t2('verif_compare')); await pausa(320);
     if(!dDoc){ deVisu.esito='documento_non_confrontabile'; }
     else {
@@ -1191,9 +1250,9 @@ async function verificaSelfie(){
         for(const altro of guests.slice(1)){
           for(const src of (altro&&altro._docImg)||[]){
             if(String(src).startsWith('data:application/pdf')) continue;
-            try{ const dA=await descriptorDa(src);
+            try{ const dA=await conTimeout(descriptorDa(src),VERIF_TIMEOUT.volto,'altro documento');
               if(dA && faceapi.euclideanDistance(dA,dSelfie)<dist){ esito='non_corrispondente'; break; }
-            }catch(e){/* documento illeggibile: si ignora */}
+            }catch(e){/* documento illeggibile o troppo lento: si ignora */}
           }
           if(esito!=='verificata')break;
         }
@@ -1201,12 +1260,17 @@ async function verificaSelfie(){
       deVisu.esito=esito;
     }
     aggiornaProgresso(100,t2('verif_done_bar')); await pausa(380);
-    nascondiProgresso();
+    if(!vivo())return;
+    nascondiVerifProgress();
     aggiornaDevisuUI(statoDevisu());
   }catch(e){
+    // modelli non disponibili, telefono troppo lento o riconoscimento piantato:
+    // il check-in prosegue lo stesso, l'host vedrà "verifica non disponibile"
+    if(!vivo())return;
     deVisu.esito='non_disponibile'; deVisu.ts=Date.now();
-    nascondiProgresso();
+    nascondiVerifProgress();
     aggiornaDevisuUI('nd');
+    toast(t2('verif_failed'));
   }
 }
 // esito -> stato UI per l'ospite (senza mai mostrare la foto)
