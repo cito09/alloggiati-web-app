@@ -130,6 +130,30 @@ async function inviaModuloIstat(conn, dati) {
   if (!struttureConModulo().includes(struttura)) {
     return { ok: false, error: "Per questa struttura non c'è il modulo ISTAT precompilato" };
   }
+  // più moduli in una sola email (arretrati / invii manuali), come si faceva a mano
+  if (Array.isArray(dati.moduli) && dati.moduli.length) {
+    const allegati = [];
+    for (const m of dati.moduli.slice(0, 30)) {
+      const arr = dataIt(m.arrivo);
+      const per = parseInt(m.persone, 10) || 0;
+      if (!arr || !per) continue;
+      const part = dataIt(m.partenza);
+      allegati.push({
+        nome: nomeFileIstat(arr, part),
+        buffer: await costruisciModuloIstat({ struttura, persone: per, residenza: String(m.residenza || "").trim(), arrivo: arr, partenza: part }),
+      });
+    }
+    if (!allegati.length) return { ok: false, error: "Nessun modulo da mandare" };
+    const esitoM = await inviaEmailConAllegato({
+      to: cfg.email,
+      subject: cfg.oggetto || "moduli istat",
+      testo: cfg.testo || "Allegato schede ISTAT,\nCordiali saluti",
+      allegati,
+    });
+    if (!esitoM.ok) return { ok: false, error: esitoM.error || "Email non inviata" };
+    return { ok: true, destinatario: cfg.email, moduli: allegati.map((a) => a.nome) };
+  }
+
   const persone = parseInt(dati.persone, 10) || 0;
   if (!persone) return { ok: false, error: "Numero di persone mancante" };
   const arrivo = dataIt(dati.arrivo);
@@ -143,7 +167,12 @@ async function inviaModuloIstat(conn, dati) {
   if (dati.soloPdf) {
     return { ok: true, anteprima: true, nomeFile, pdfBase64: buffer.toString("base64"), persone, residenza, arrivo, partenza };
   }
-  const dest = dati.prova ? (process.env.GMAIL_USER || cfg.email) : cfg.email;
+  // La prova deve arrivare SOLO a me: se non c'è un mio indirizzo non la mando affatto,
+  // altrimenti un "invio di prova" finirebbe davvero all'ufficio del turismo.
+  if (dati.prova && !process.env.GMAIL_USER) {
+    return { ok: false, error: "Non posso mandare la prova: manca il tuo indirizzo (GMAIL_USER). Non la mando all'ufficio del turismo per sbaglio." };
+  }
+  const dest = dati.prova ? process.env.GMAIL_USER : cfg.email;
   const esito = await inviaEmailConAllegato({
     to: dest,
     subject: (cfg.oggetto || "moduli istat") + (dati.prova ? " (PROVA)" : ""),

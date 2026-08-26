@@ -97,10 +97,12 @@
   .card>.card-body{margin-top:26px}
   .card.closed>.card-body{display:none}
   label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
-  input[type=text], input[type=date], input[type=number], input[type=password], input[type=search], select{
+  input[type=text], input[type=date], input[type=number], input[type=password], input[type=search],
+  input[type=email], input[type=tel], input[type=url], select, textarea.campo{
     width:100%; background:var(--surface2); border:1px solid transparent; color:var(--ink);
     border-radius:14px; padding:13px 15px; font-size:16px; font-family:inherit;}
-  input:focus, select:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:transparent}
+  textarea.campo{line-height:1.5; resize:vertical}
+  input:focus, select:focus, textarea.campo:focus{outline:2px solid var(--amber); outline-offset:1px; border-color:transparent}
   input:disabled{opacity:.45; cursor:not-allowed; background:var(--surface)}
   .row{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px}
@@ -542,12 +544,26 @@ function doGet() {
     <label style="margin-top:12px">Oggetto dell'email</label>
     <input type="text" id="istatOggetto" placeholder="moduli istat" autocomplete="off">
     <label style="margin-top:12px">Testo dell'email</label>
-    <textarea id="istatTesto" rows="3" placeholder="Allegato schede ISTAT,&#10;Cordiali saluti"></textarea>
+    <textarea id="istatTesto" class="campo" rows="3" placeholder="Allegato schede ISTAT,&#10;Cordiali saluti"></textarea>
 
-    <button class="btn primary sm" style="margin-top:14px" onclick="salvaIstatConfig()">Salva</button>
-    <button class="btn ghost sm" style="margin-top:8px" onclick="anteprimaIstat()">👁 Guarda com'è fatto il modulo</button>
-    <button class="btn ghost sm" style="margin-top:8px" onclick="provaIstat()">✉️ Mandami una prova (solo a me)</button>
+    <button class="btn primary sm" style="width:100%;margin-top:14px" onclick="salvaIstatConfig()">Salva</button>
+    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="anteprimaIstat()">👁 Guarda com'è fatto il modulo</button>
+    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="provaIstat()">✉️ Mandami una prova (solo a me)</button>
     <div id="istatMsg" class="muted" style="font-size:12px;margin-top:10px"></div>
+
+    <div class="stat-lab" style="margin-top:22px">📬 INVIO A MANO E ARRETRATI</div>
+    <div class="muted" style="font-size:11.5px;line-height:1.55">
+      Tutte le registrazioni di questa casa. Scegli quelle che vuoi mandare — anche vecchie —
+      e partono <b>in un'unica email</b> con un modulo allegato per ognuna, come facevi a mano.
+      Quelle già mandate sono segnate ✓.
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn ghost sm" style="width:auto;flex:0 0 auto;padding:9px 13px" onclick="istatSelezionaMancanti()">Scegli i non inviati</button>
+      <button class="btn ghost sm" style="width:auto;flex:0 0 auto;padding:9px 13px" onclick="istatSeleziona(false)">Deseleziona</button>
+    </div>
+    <div id="istatElenco" style="margin-top:10px"></div>
+    <button class="btn primary sm" style="width:100%;margin-top:10px" id="istatInviaBtn" onclick="inviaIstatSelezionati()">📤 Invia i selezionati</button>
+    <div id="istatElencoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
   </div>
 </div>
 
@@ -13839,6 +13855,9 @@ async function inviaIstat(records){
     segnaPasso('istat','ok',
       `inviato a ${escText(data.destinatario||'')} · ${d.persone} person${d.persone===1?'a':'e'} · ${escText(d.residenza||'')}`,
       BTN_VEDI_ISTAT);
+    // la registrazione appena salvata risulta già fatta nell'elenco degli arretrati
+    const voce=storico.find(x=>x.tipo==='inviata'&&x.arrivo===d.arrivo);
+    if(voce)segnaIstatFatto(voce.ts);
   }catch(e){
     segnaPasso('istat','ko',escText(e.message)+' — riprova da ⚙️ Impostazioni → Modulo ISTAT',
       '<div class="azione"><button class="btn ghost sm" onclick="apriModuloIstat()">👁 Guarda il modulo</button></div>');
@@ -13862,9 +13881,11 @@ function apriIstat(){
   const o=$('#istatOggetto'); if(o)o.value=c.oggetto||'moduli istat';
   const t=$('#istatTesto'); if(t)t.value=c.testo||'Allegato schede ISTAT,\nCordiali saluti';
   renderIstatCasa();
+  istatScelti=new Set();
+  renderIstatElenco();
   caricaIstatConfig().then(()=>{ if($('#istatOverlay').classList.contains('open')){
     const e2=$('#istatEmail'); if(e2&&!e2.value)e2.value=(istatConfig||{}).email||'';
-    renderIstatCasa();
+    renderIstatCasa(); renderIstatElenco();
   }});
 }
 function renderIstatCasa(){
@@ -13892,6 +13913,71 @@ async function salvaIstatConfig(){
     aggiornaElencoInvio();
     toast('Modulo ISTAT: impostazioni salvate');
   }catch(e){ m.textContent='Errore: '+e.message; }
+}
+/* --- invio a mano e arretrati: le registrazioni di questa casa già nello storico --- */
+let istatScelti=new Set();
+// ricostruisce il modulo da una voce di storico (le schedine da 168 caratteri ci sono tutte)
+function istatDaStorico(e){
+  const d=datiIstat(e.records||[]);
+  if(!d)return null;
+  return {ts:e.ts, struttura:istatStrutturaId(), persone:d.persone, residenza:d.residenza,
+    arrivo:d.arrivo, partenza:d.partenza, fatto:!!e.istatOk,
+    ospiti:(e.ospiti||[]).join(', ')};
+}
+function istatVociStorico(){
+  const nome=istatNomeCasa();
+  return storico
+    .filter(e=>e.tipo==='inviata'&&nomeStrutturaCanonico(e.struttura)===nome&&(e.records||[]).length)
+    .map(istatDaStorico).filter(Boolean);
+}
+function renderIstatElenco(){
+  const w=$('#istatElenco'); if(!w)return;
+  const voci=istatVociStorico();
+  if(!voci.length){ w.innerHTML='<div class="muted" style="font-size:12px">Nessuna registrazione per questa casa.</div>'; return; }
+  w.innerHTML=voci.map(v=>`<label class="stat-riga" style="cursor:pointer;gap:10px">
+    <input type="checkbox" style="width:auto;margin:0;flex:0 0 auto" ${istatScelti.has(v.ts)?'checked':''}
+      onchange="istatScegli(${v.ts},this.checked)">
+    <span class="nome">${v.fatto?'✓ ':''}${escText(v.arrivo)}${v.partenza?' → '+escText(v.partenza):''}
+      <span class="sub" style="text-align:left">${v.persone} person${v.persone===1?'a':'e'} · ${escText(v.residenza||'—')}${v.ospiti?' · '+escText(v.ospiti):''}</span></span>
+    <button class="btn ghost sm" style="width:auto;flex:0 0 auto;padding:7px 10px;font-size:11.5px"
+      onclick="event.preventDefault();istatVediVoce(${v.ts})">👁</button>
+  </label>`).join('');
+  const b=$('#istatInviaBtn');
+  if(b)b.textContent=istatScelti.size?`📤 Invia i ${istatScelti.size} selezionati in un'unica email`:'📤 Invia i selezionati';
+}
+function istatScegli(ts,on){ if(on)istatScelti.add(ts); else istatScelti.delete(ts); renderIstatElenco(); }
+function istatSeleziona(on){ istatScelti=new Set(on?istatVociStorico().map(v=>v.ts):[]); renderIstatElenco(); }
+function istatSelezionaMancanti(){ istatScelti=new Set(istatVociStorico().filter(v=>!v.fatto).map(v=>v.ts)); renderIstatElenco(); }
+function istatVediVoce(ts){
+  const v=istatVociStorico().find(x=>x.ts===ts);
+  if(v)apriModuloIstat({struttura:v.struttura,persone:v.persone,residenza:v.residenza,arrivo:v.arrivo,partenza:v.partenza});
+}
+async function inviaIstatSelezionati(){
+  const m=$('#istatElencoMsg'), b=$('#istatInviaBtn');
+  const voci=istatVociStorico().filter(v=>istatScelti.has(v.ts));
+  if(!voci.length){ m.textContent='Prima scegli quali mandare.'; return; }
+  if(!confirm(`Mandare ${voci.length} modul${voci.length===1?'o':'i'} in un'unica email a ${(istatConfig&&istatConfig.email)||'?'}?`))return;
+  b.disabled=true; m.textContent='Preparo i moduli e mando l\'email…';
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'istat', struttura:istatStrutturaId(),
+        moduli:voci.map(v=>({persone:v.persone,residenza:v.residenza,arrivo:v.arrivo,partenza:v.partenza}))})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Errore');
+    voci.forEach(v=>segnaIstatFatto(v.ts));
+    istatScelti=new Set();
+    m.innerHTML=`✓ Mandati a <b>${escText(d.destinatario||'')}</b>: ${(d.moduli||[]).map(escText).join(', ')}`;
+    renderIstatElenco();
+    toast('Moduli ISTAT inviati');
+  }catch(e){ m.textContent='Errore: '+e.message; }
+  finally{ b.disabled=false; }
+}
+// segna nello storico che per quella registrazione il modulo è stato mandato
+function segnaIstatFatto(ts){
+  const e=storico.find(x=>x.ts===ts);
+  if(e&&!e.istatOk){ e.istatOk=true; salvaStorico(); renderStorico(); }
+  fetch('/api/storico',{method:'PATCH',headers:adminHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({ts,campi:{istatOk:true}})}).catch(()=>{/* offline: resta segnato in locale */});
 }
 // anteprima dalla schermata di registrazione: mostra il modulo con gli ospiti di adesso
 async function anteprimaIstatOra(){
@@ -14332,7 +14418,7 @@ function statPeriodo(){
       return range(da,a,[statGiorno(da),statGiorno(a)].filter(Boolean).join(' → ')||'Periodo personalizzato');
     }
     case 'tutto': return {tipo:'tutto',label:'Tutto lo storico',test:()=>true};
-    default: return {tipo:'anno',label:'Anno '+statsF.anno,test:d=>d.anno===statsF.anno};
+    default: { const anno=statsF.anno; return {tipo:'anno',label:'Anno '+anno,test:d=>d.anno===anno}; }
   }
 }
 // cambia periodo dal menu a tendina

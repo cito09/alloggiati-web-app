@@ -7,8 +7,13 @@
 // l'invio viene saltato senza bloccare il check-in.
 const nodemailer = require("nodemailer");
 
-async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegatoBuffer }) {
+// Accetta un allegato solo (allegatoNome + allegatoBuffer) oppure più allegati
+// (allegati: [{nome, buffer}]), come quando si mandano insieme più moduli ISTAT.
+async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegatoBuffer, allegati }) {
   if (!to) return { ok: false, error: "Nessun indirizzo email di destinazione" };
+  const lista = (allegati && allegati.length)
+    ? allegati.map((a) => ({ filename: a.nome, content: a.buffer }))
+    : (allegatoBuffer ? [{ filename: allegatoNome, content: allegatoBuffer }] : []);
 
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
@@ -27,7 +32,7 @@ async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegat
         to,
         subject,
         text: testo,
-        attachments: [{ filename: allegatoNome, content: allegatoBuffer }],
+        attachments: lista,
       });
       return { ok: true };
     } catch (e) {
@@ -46,7 +51,7 @@ async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegat
         to: [to],
         subject,
         text: testo,
-        attachments: [{ filename: allegatoNome, content: allegatoBuffer.toString("base64") }],
+        attachments: lista.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })),
       }),
     });
     const data = await r.json().catch(() => ({}));
