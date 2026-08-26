@@ -123,9 +123,11 @@ async function leggiConfigIstat(conn) {
 // l'utente non ha scritto l'indirizzo e acceso la struttura nelle Impostazioni.
 async function inviaModuloIstat(conn, dati) {
   const cfg = await leggiConfigIstat(conn);
-  if (!cfg || !cfg.email) return { ok: false, error: "Invio ISTAT non configurato: manca l'indirizzo email (⚙️ Impostazioni → Modulo ISTAT)" };
+  if (!dati.soloPdf && (!cfg || !cfg.email)) {
+    return { ok: false, error: "Invio ISTAT non configurato: manca l'indirizzo email (⚙️ Impostazioni → Modulo ISTAT)" };
+  }
   const struttura = String(dati.struttura || "");
-  if (!dati.prova && !(cfg.strutture || {})[struttura]) {
+  if (!dati.prova && !dati.soloPdf && !(cfg.strutture || {})[struttura]) {
     return { ok: false, error: "Invio ISTAT non attivo per questa struttura" };
   }
   const persone = parseInt(dati.persone, 10) || 0;
@@ -137,6 +139,10 @@ async function inviaModuloIstat(conn, dati) {
 
   const buffer = await costruisciModuloIstat({ struttura, persone, residenza, arrivo, partenza });
   const nomeFile = nomeFileIstat(arrivo, partenza);
+  // solo anteprima: restituisce il modulo senza mandare niente a nessuno
+  if (dati.soloPdf) {
+    return { ok: true, anteprima: true, nomeFile, pdfBase64: buffer.toString("base64"), persone, residenza, arrivo, partenza };
+  }
   const dest = dati.prova ? (process.env.GMAIL_USER || cfg.email) : cfg.email;
   const esito = await inviaEmailConAllegato({
     to: dest,

@@ -545,6 +545,7 @@ function doGet() {
     <textarea id="istatTesto" rows="3" placeholder="Allegato schede ISTAT,&#10;Cordiali saluti"></textarea>
 
     <button class="btn primary sm" style="margin-top:14px" onclick="salvaIstatConfig()">Salva</button>
+    <button class="btn ghost sm" style="margin-top:8px" onclick="anteprimaIstat()">👁 Guarda com'è fatto il modulo</button>
     <button class="btn ghost sm" style="margin-top:8px" onclick="provaIstat()">✉️ Mandami una prova (solo a me)</button>
     <div id="istatMsg" class="muted" style="font-size:12px;margin-top:10px"></div>
   </div>
@@ -13776,17 +13777,46 @@ function datiIstat(records){
     partenza=`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
   return {struttura:currentStruttura(), persone:validi.length, residenza:residenzaIstat(capo), arrivo, partenza};
 }
+// ultimo modulo preparato: serve al pulsante "guarda il modulo"
+let istatUltimo=null;
+const BTN_VEDI_ISTAT='<div class="azione"><button class="btn ghost sm" onclick="apriModuloIstat()">👁 Guarda il modulo inviato</button></div>';
+// scarica il modulo così com'è (senza mandarlo a nessuno) e lo apre
+async function apriModuloIstat(dati){
+  const d=dati||istatUltimo;
+  if(!d){ toast('Nessun modulo da mostrare'); return; }
+  toast('Preparo il modulo…');
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'istat', soloPdf:true, ...d})});
+    const data=await r.json();
+    if(!r.ok||!data.pdfBase64)throw new Error(data.error||'Errore');
+    const bin=atob(data.pdfBase64); const arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    const url=URL.createObjectURL(new Blob([arr],{type:'application/pdf'}));
+    const w=window.open(url,'_blank');
+    if(!w){ // il telefono ha bloccato la finestra: allora lo salvo
+      const a=document.createElement('a'); a.href=url; a.download=data.nomeFile||'modulo_istat.pdf'; a.click();
+      toast('Modulo scaricato: aprilo dai file');
+    }
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    return data;
+  }catch(e){ toast('Modulo ISTAT: '+e.message); }
+}
 async function inviaIstat(records){
   const d=datiIstat(records);
   if(!d){ segnaPasso('istat','ko','nessun dato da comunicare'); return; }
+  istatUltimo=d;
   try{
     const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({azione:'istat',...d})});
     const data=await r.json();
     if(!r.ok)throw new Error(data.error||'Errore');
-    segnaPasso('istat','ok',`inviato a ${escText(data.destinatario||'')} · ${d.persone} person${d.persone===1?'a':'e'} · ${escText(d.residenza||'')}`);
+    segnaPasso('istat','ok',
+      `inviato a ${escText(data.destinatario||'')} · ${d.persone} person${d.persone===1?'a':'e'} · ${escText(d.residenza||'')}`,
+      BTN_VEDI_ISTAT);
   }catch(e){
-    segnaPasso('istat','ko',escText(e.message)+' — riprova da ⚙️ Impostazioni → Modulo ISTAT');
+    segnaPasso('istat','ko',escText(e.message)+' — riprova da ⚙️ Impostazioni → Modulo ISTAT',
+      '<div class="azione"><button class="btn ghost sm" onclick="apriModuloIstat()">👁 Guarda il modulo</button></div>');
   }
 }
 // --- pagina Impostazioni → Modulo ISTAT ---
@@ -13839,6 +13869,17 @@ async function salvaIstatConfig(){
     aggiornaElencoInvio();
     toast('Modulo ISTAT: impostazioni salvate');
   }catch(e){ m.textContent='Errore: '+e.message; }
+}
+// anteprima dalle Impostazioni: usa l'ultimo modulo preparato, o un esempio
+async function anteprimaIstat(){
+  const m=$('#istatMsg');
+  const d=istatUltimo||{struttura:(struttureList[0]||{}).id, persone:2, residenza:'Germania',
+    arrivo:'25/03/2026', partenza:'31/03/2026'};
+  if(m)m.textContent='Preparo il modulo…';
+  const data=await apriModuloIstat(d);
+  if(m)m.innerHTML=data
+    ? `👁 Aperto <b>${escText(data.nomeFile||'')}</b>${istatUltimo?'':' (dati di esempio)'}. Non è stato mandato a nessuno.`
+    : '';
 }
 async function provaIstat(){
   const m=$('#istatMsg'); m.textContent='Preparo il modulo di prova…';
