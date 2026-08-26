@@ -149,6 +149,7 @@ async function inviaModuloIstat(conn, dati) {
       subject: cfg.oggetto || "moduli istat",
       testo: cfg.testo || "Allegato schede ISTAT,\nCordiali saluti",
       allegati,
+      mittente: cfg.mittente,
     });
     if (!esitoM.ok) return { ok: false, error: esitoM.error || "Email non inviata" };
     return { ok: true, destinatario: cfg.email, moduli: allegati.map((a) => a.nome) };
@@ -180,6 +181,7 @@ async function inviaModuloIstat(conn, dati) {
       (dati.prova ? "\n\n(Questo è un invio di prova fatto da KeyFlow: il modulo allegato NON è stato mandato all'ufficio del turismo.)" : ""),
     allegatoNome: nomeFile,
     allegatoBuffer: buffer,
+    mittente: cfg.mittente,
   });
   if (!esito.ok) return { ok: false, error: esito.error || "Email non inviata" };
   return { ok: true, destinatario: dest, nomeFile, persone, residenza, arrivo, partenza, prova: !!dati.prova };
@@ -198,9 +200,10 @@ module.exports = async (req, res) => {
     }
     if ((req.body || {}).azione === "istatSet") {
       try {
-        const { email, oggetto, testo } = req.body || {};
+        const { email, oggetto, testo, mittente } = req.body || {};
         const cfg = { email: String(email || "").trim(),
-          oggetto: String(oggetto || "").trim(), testo: String(testo || "").trim() };
+          oggetto: String(oggetto || "").trim(), testo: String(testo || "").trim(),
+          mittente: String(mittente || "").trim().slice(0, 60) };
         if (cfg.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cfg.email)) {
           return res.status(400).json({ error: "Indirizzo email non valido" });
         }

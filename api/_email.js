@@ -9,7 +9,7 @@ const nodemailer = require("nodemailer");
 
 // Accetta un allegato solo (allegatoNome + allegatoBuffer) oppure più allegati
 // (allegati: [{nome, buffer}]), come quando si mandano insieme più moduli ISTAT.
-async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegatoBuffer, allegati }) {
+async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegatoBuffer, allegati, mittente }) {
   if (!to) return { ok: false, error: "Nessun indirizzo email di destinazione" };
   const lista = (allegati && allegati.length)
     ? allegati.map((a) => ({ filename: a.nome, content: a.buffer }))
@@ -28,7 +28,9 @@ async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegat
         auth: { user: gmailUser, pass: gmailPass.replace(/\s+/g, "") },
       });
       await transporter.sendMail({
-        from: `KeyFlow <${gmailUser}>`,
+        // il nome che vede chi riceve: l'indirizzo resta il tuo Gmail (obbligatorio),
+        // ma l'etichetta si può cambiare (es. "Loft Canazei" invece di "KeyFlow")
+        from: `${(mittente || "KeyFlow").replace(/["<>\r\n]/g, " ").trim() || "KeyFlow"} <${gmailUser}>`,
         to,
         subject,
         text: testo,
@@ -47,7 +49,9 @@ async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegat
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || "KeyFlow <onboarding@resend.dev>",
+        from: mittente
+          ? `${mittente.replace(/["<>\r\n]/g, " ").trim()} <${(process.env.RESEND_FROM || "onboarding@resend.dev").replace(/^.*<|>.*$/g, "")}>`
+          : (process.env.RESEND_FROM || "KeyFlow <onboarding@resend.dev>"),
         to: [to],
         subject,
         text: testo,

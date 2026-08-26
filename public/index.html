@@ -541,6 +541,10 @@ function doGet() {
 
     <div id="istatStrutture" class="muted" style="font-size:12px;margin-top:10px"></div>
 
+    <label style="margin-top:12px">Nome che vede chi riceve</label>
+    <input type="text" id="istatMittente" placeholder="Loft Canazei" autocomplete="off">
+    <div class="muted" style="font-size:11px;margin-top:4px">Al posto di «KeyFlow». L'indirizzo resta il tuo, così se rispondono ti arriva la risposta.</div>
+
     <label style="margin-top:12px">Oggetto dell'email</label>
     <input type="text" id="istatOggetto" placeholder="moduli istat" autocomplete="off">
     <label style="margin-top:12px">Testo dell'email</label>
@@ -13878,6 +13882,7 @@ function apriIstat(){
   apriPagina('istatOverlay');
   const c=istatConfig||{};
   const e=$('#istatEmail'); if(e)e.value=c.email||'';
+  const mi=$('#istatMittente'); if(mi)mi.value=c.mittente||'';
   const o=$('#istatOggetto'); if(o)o.value=c.oggetto||'moduli istat';
   const t=$('#istatTesto'); if(t)t.value=c.testo||'Allegato schede ISTAT,\nCordiali saluti';
   renderIstatCasa();
@@ -13885,6 +13890,7 @@ function apriIstat(){
   renderIstatElenco();
   caricaIstatConfig().then(()=>{ if($('#istatOverlay').classList.contains('open')){
     const e2=$('#istatEmail'); if(e2&&!e2.value)e2.value=(istatConfig||{}).email||'';
+    const m2=$('#istatMittente'); if(m2&&!m2.value)m2.value=(istatConfig||{}).mittente||'';
     renderIstatCasa(); renderIstatElenco();
   }});
 }
@@ -13896,7 +13902,7 @@ function renderIstatCasa(){
     : 'Nessun modulo precompilato caricato: al momento questa funzione non è disponibile.';
 }
 function datiIstatDaiCampi(){
-  return {email:($('#istatEmail').value||'').trim(),
+  return {email:($('#istatEmail').value||'').trim(), mittente:($('#istatMittente').value||'').trim(),
     oggetto:($('#istatOggetto').value||'').trim(), testo:($('#istatTesto').value||'').trim()};
 }
 async function salvaIstatConfig(){
@@ -13908,7 +13914,8 @@ async function salvaIstatConfig(){
     if(!r.ok)throw new Error(d.error||'Errore');
     istatConfig=d.config;
     m.innerHTML=d.config.email
-      ? `✓ Salvato: quando registri per <b>${escText(istatNomeCasa())}</b> il modulo partirà da solo verso <b>${escText(d.config.email)}</b>.`
+      ? `✓ Salvato: quando registri per <b>${escText(istatNomeCasa())}</b> il modulo partirà da solo verso <b>${escText(d.config.email)}</b>,
+         a nome di <b>${escText(d.config.mittente||'KeyFlow')}</b>.`
       : '✓ Salvato. Senza indirizzo email non partirà nulla.';
     aggiornaElencoInvio();
     toast('Modulo ISTAT: impostazioni salvate');
