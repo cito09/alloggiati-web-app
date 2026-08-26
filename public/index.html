@@ -551,7 +551,6 @@ function doGet() {
     <textarea id="istatTesto" class="campo" rows="3" placeholder="Allegato schede ISTAT,&#10;Cordiali saluti"></textarea>
 
     <button class="btn primary sm" style="width:100%;margin-top:14px" onclick="salvaIstatConfig()">Salva</button>
-    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="anteprimaIstat()">👁 Guarda com'è fatto il modulo</button>
     <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="provaIstat()">✉️ Mandami una prova (solo a me)</button>
     <div id="istatMsg" class="muted" style="font-size:12px;margin-top:10px"></div>
 
@@ -13991,17 +13990,6 @@ async function anteprimaIstatOra(){
   const d=datiIstat(validRecords());
   if(!d){ toast('Nessuna schedina pronta da mettere nel modulo'); return; }
   await apriModuloIstat(d);
-}
-// anteprima dalle Impostazioni: usa l'ultimo modulo preparato, o un esempio
-async function anteprimaIstat(){
-  const m=$('#istatMsg');
-  const d=istatUltimo||{struttura:istatStrutturaId(), persone:2, residenza:'Germania',
-    arrivo:'25/03/2026', partenza:'31/03/2026'};
-  if(m)m.textContent='Preparo il modulo…';
-  const data=await apriModuloIstat(d);
-  if(m)m.innerHTML=data
-    ? `👁 Aperto <b>${escText(data.nomeFile||'')}</b>${istatUltimo?'':' (dati di esempio)'}. Non è stato mandato a nessuno.`
-    : '';
 }
 async function provaIstat(){
   const m=$('#istatMsg'); m.textContent='Preparo il modulo di prova…';
