@@ -19,10 +19,25 @@ const POS = {
 };
 const CORPO = 10;
 
+const DIR_MODULI = path.join(process.cwd(), "public", "vendor", "istat");
+
+// Il modulo è PRECOMPILATO con i dati di UNA struttura (proprietario, indirizzo, codice
+// CIPAT): esiste quindi solo per le strutture per cui abbiamo il loro modulo. Niente
+// ripieghi su un modulo di un'altra casa, sarebbe una comunicazione sbagliata.
 function percorsoModulo(idStruttura) {
-  const dir = path.join(process.cwd(), "public", "vendor", "istat");
-  const suo = path.join(dir, `modulo-${String(idStruttura || "").replace(/[^\w-]/g, "")}.pdf`);
-  return fs.existsSync(suo) ? suo : path.join(dir, "modulo-canazei.pdf");
+  const id = String(idStruttura || "").replace(/[^\w-]/g, "");
+  if (!id) return null;
+  const suo = path.join(DIR_MODULI, `modulo-${id}.pdf`);
+  return fs.existsSync(suo) ? suo : null;
+}
+// id delle strutture che hanno il proprio modulo (oggi: canazei)
+function struttureConModulo() {
+  try {
+    return fs.readdirSync(DIR_MODULI)
+      .map((f) => /^modulo-(.+)\.pdf$/i.exec(f))
+      .filter(Boolean)
+      .map((m) => m[1]);
+  } catch { return []; }
 }
 
 // "2026-03-25" oppure "25/03/2026" -> "25/03/2026"
@@ -40,7 +55,9 @@ function oggiIt() {
 }
 
 async function costruisciModuloIstat({ struttura, persone, residenza, arrivo, partenza, compilazione }) {
-  const base = fs.readFileSync(percorsoModulo(struttura));
+  const percorso = percorsoModulo(struttura);
+  if (!percorso) throw new Error("Per questa struttura non c'è il modulo ISTAT precompilato");
+  const base = fs.readFileSync(percorso);
   const doc = await PDFDocument.load(base);
   const pagina = doc.getPages()[0];
   // Helvetica basta: sul modulo vanno numeri, date e nomi di luoghi
@@ -67,4 +84,4 @@ function nomeFileIstat(arrivo, partenza) {
   return `${aa}-${ma}-${ga}${gp ? "_" + gp : ""}.pdf`;
 }
 
-module.exports = { costruisciModuloIstat, nomeFileIstat, dataIt, oggiIt };
+module.exports = { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt, oggiIt };

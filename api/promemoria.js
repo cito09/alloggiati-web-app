@@ -20,7 +20,7 @@
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
 const { inviaEmailConAllegato } = require("./_email");
-const { costruisciModuloIstat, nomeFileIstat, dataIt } = require("./_istat");
+const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
@@ -127,8 +127,8 @@ async function inviaModuloIstat(conn, dati) {
     return { ok: false, error: "Invio ISTAT non configurato: manca l'indirizzo email (⚙️ Impostazioni → Modulo ISTAT)" };
   }
   const struttura = String(dati.struttura || "");
-  if (!dati.prova && !dati.soloPdf && !(cfg.strutture || {})[struttura]) {
-    return { ok: false, error: "Invio ISTAT non attivo per questa struttura" };
+  if (!struttureConModulo().includes(struttura)) {
+    return { ok: false, error: "Per questa struttura non c'è il modulo ISTAT precompilato" };
   }
   const persone = parseInt(dati.persone, 10) || 0;
   if (!persone) return { ok: false, error: "Numero di persone mancante" };
@@ -164,22 +164,19 @@ module.exports = async (req, res) => {
     if (!conn) return res.status(200).json({ configurato: false });
     // --- comunicazione ISTAT via email (Canazei: l'APT Val di Fassa la vuole così) ---
     if ((req.body || {}).azione === "istatGet") {
-      return res.status(200).json({ config: await leggiConfigIstat(conn) });
+      const cfg = (await leggiConfigIstat(conn)) || {};
+      return res.status(200).json({ config: { ...cfg, strutture: struttureConModulo() } });
     }
     if ((req.body || {}).azione === "istatSet") {
       try {
-        const { email, strutture, oggetto, testo } = req.body || {};
-        const pulite = {};
-        if (strutture && typeof strutture === "object") {
-          for (const [k, v] of Object.entries(strutture)) if (v) pulite[String(k)] = true;
-        }
-        const cfg = { email: String(email || "").trim(), strutture: pulite,
+        const { email, oggetto, testo } = req.body || {};
+        const cfg = { email: String(email || "").trim(),
           oggetto: String(oggetto || "").trim(), testo: String(testo || "").trim() };
         if (cfg.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cfg.email)) {
           return res.status(400).json({ error: "Indirizzo email non valido" });
         }
         await redisCmd(conn, ["SET", KEY_ISTAT, JSON.stringify(cfg)]);
-        return res.status(200).json({ ok: true, config: cfg });
+        return res.status(200).json({ ok: true, config: { ...cfg, strutture: struttureConModulo() } });
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }
