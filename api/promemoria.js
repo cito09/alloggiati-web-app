@@ -20,8 +20,10 @@
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
 const { inviaEmailConAllegato } = require("./_email");
+const { costruisciModuloIstat, nomeFileIstat, dataIt } = require("./_istat");
 
 const KEY_PENDENTI = "bookings_pending";
+const KEY_ISTAT = "istat_config";
 const MAX_PENDENTI = 200;
 
 // FASCICOLO MENSILE: zip con registro CSV + contratti firmati del mese (per arrivo).
@@ -109,12 +111,83 @@ function giorniDaArrivoOggi(arrivoStr) {
   return Math.round((oggi - arr) / 86400000);
 }
 
+// --- comunicazione ISTAT (presenze turistiche negli alloggi privati) ---
+async function leggiConfigIstat(conn) {
+  if (!conn) return null;
+  try {
+    const raw = await redisCmd(conn, ["GET", KEY_ISTAT]);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+// Compila il modulo ufficiale e lo manda all'ufficio del turismo. Non parte nulla finché
+// l'utente non ha scritto l'indirizzo e acceso la struttura nelle Impostazioni.
+async function inviaModuloIstat(conn, dati) {
+  const cfg = await leggiConfigIstat(conn);
+  if (!cfg || !cfg.email) return { ok: false, error: "Invio ISTAT non configurato: manca l'indirizzo email (⚙️ Impostazioni → Modulo ISTAT)" };
+  const struttura = String(dati.struttura || "");
+  if (!dati.prova && !(cfg.strutture || {})[struttura]) {
+    return { ok: false, error: "Invio ISTAT non attivo per questa struttura" };
+  }
+  const persone = parseInt(dati.persone, 10) || 0;
+  if (!persone) return { ok: false, error: "Numero di persone mancante" };
+  const arrivo = dataIt(dati.arrivo);
+  if (!arrivo) return { ok: false, error: "Data di arrivo mancante o non valida" };
+  const partenza = dataIt(dati.partenza);
+  const residenza = String(dati.residenza || "").trim();
+
+  const buffer = await costruisciModuloIstat({ struttura, persone, residenza, arrivo, partenza });
+  const nomeFile = nomeFileIstat(arrivo, partenza);
+  const dest = dati.prova ? (process.env.GMAIL_USER || cfg.email) : cfg.email;
+  const esito = await inviaEmailConAllegato({
+    to: dest,
+    subject: (cfg.oggetto || "moduli istat") + (dati.prova ? " (PROVA)" : ""),
+    testo: (cfg.testo || "Allegato schede ISTAT,\nCordiali saluti") +
+      (dati.prova ? "\n\n(Questo è un invio di prova fatto da KeyFlow: il modulo allegato NON è stato mandato all'ufficio del turismo.)" : ""),
+    allegatoNome: nomeFile,
+    allegatoBuffer: buffer,
+  });
+  if (!esito.ok) return { ok: false, error: esito.error || "Email non inviata" };
+  return { ok: true, destinatario: dest, nomeFile, persone, residenza, arrivo, partenza, prova: !!dati.prova };
+}
+
 module.exports = async (req, res) => {
   const conn = upstash();
 
   if (req.method === "POST") {
     if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
     if (!conn) return res.status(200).json({ configurato: false });
+    // --- comunicazione ISTAT via email (Canazei: l'APT Val di Fassa la vuole così) ---
+    if ((req.body || {}).azione === "istatGet") {
+      return res.status(200).json({ config: await leggiConfigIstat(conn) });
+    }
+    if ((req.body || {}).azione === "istatSet") {
+      try {
+        const { email, strutture, oggetto, testo } = req.body || {};
+        const pulite = {};
+        if (strutture && typeof strutture === "object") {
+          for (const [k, v] of Object.entries(strutture)) if (v) pulite[String(k)] = true;
+        }
+        const cfg = { email: String(email || "").trim(), strutture: pulite,
+          oggetto: String(oggetto || "").trim(), testo: String(testo || "").trim() };
+        if (cfg.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(cfg.email)) {
+          return res.status(400).json({ error: "Indirizzo email non valido" });
+        }
+        await redisCmd(conn, ["SET", KEY_ISTAT, JSON.stringify(cfg)]);
+        return res.status(200).json({ ok: true, config: cfg });
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+    if ((req.body || {}).azione === "istat") {
+      try {
+        const esito = await inviaModuloIstat(conn, req.body || {});
+        if (!esito.ok) return res.status(400).json({ error: esito.error || "Invio non riuscito" });
+        return res.status(200).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
     // fascicolo mensile a richiesta dal gestionale
     if ((req.body || {}).azione === "fascicolo") {
       try {

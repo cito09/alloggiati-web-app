@@ -358,6 +358,7 @@
     <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriIstat()"><span class="mi">📮</span><span style="flex:1;text-align:left">Modulo ISTAT via email</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('geisOverlay')"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · nota Airbnb</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('privacyOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Privacy file</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione</span><span class="freccia">›</span></button>
@@ -513,6 +514,40 @@ function doGet() {
           <div id="driveMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
         </div>
         </div>
+</div>
+
+<div class="pagina-piena" id="istatOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('istatOverlay')" style="width:auto">← Indietro</button>
+    <h2>📮 Modulo ISTAT via email</h2>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.55">
+      Per le strutture che <b>non</b> hanno Ross1000 (es. Canazei) la comunicazione delle presenze si fa
+      mandando all'ufficio del turismo il modulo <b>«Presenze turistiche negli alloggi privati»</b>.
+      Se lo accendi qui, il modulo viene compilato da solo e parte via email <b>subito dopo l'invio alla Questura</b>.
+    </div>
+    <div class="muted" style="font-size:11.5px;margin-top:10px;line-height:1.55">
+      Cosa scrive nel modulo, preso dai documenti degli ospiti: <b>numero di persone</b>, <b>residenza</b>
+      (per gli stranieri la nazione, per gli italiani la città, come chiede il modulo stesso),
+      <b>data di arrivo</b> e <b>di partenza</b>. Il resto (proprietario, indirizzo, codice CIPAT) è già stampato sul modulo.
+    </div>
+
+    <label style="margin-top:16px">Indirizzo dell'ufficio del turismo</label>
+    <input type="email" id="istatEmail" placeholder="info@fassa.com" autocomplete="off">
+
+    <label style="margin-top:12px">Strutture per cui mandarlo</label>
+    <div id="istatStrutture"></div>
+
+    <label style="margin-top:12px">Oggetto dell'email</label>
+    <input type="text" id="istatOggetto" placeholder="moduli istat" autocomplete="off">
+    <label style="margin-top:12px">Testo dell'email</label>
+    <textarea id="istatTesto" rows="3" placeholder="Allegato schede ISTAT,&#10;Cordiali saluti"></textarea>
+
+    <button class="btn primary sm" style="margin-top:14px" onclick="salvaIstatConfig()">Salva</button>
+    <button class="btn ghost sm" style="margin-top:8px" onclick="provaIstat()">✉️ Mandami una prova (solo a me)</button>
+    <div id="istatMsg" class="muted" style="font-size:12px;margin-top:10px"></div>
+  </div>
 </div>
 
 <div class="pagina-piena" id="rossOverlay">
@@ -12855,6 +12890,9 @@ function aggiornaElencoInvio(nValide){
       <span class="det">parte in automatico subito dopo la Questura</span></span></div>`);
   else righe.push(`<div class="invio-riga"><span class="ck">➖</span><span><b>Ross1000</b>
       <span class="det">non previsto per questa struttura</span></span></div>`);
+  if(typeof istatAttivo==='function'&&istatAttivo())
+    righe.push(`<div class="invio-riga"><span class="ck">${nValide?'✅':'⬜'}</span><span><b>Modulo ISTAT · Ufficio del turismo</b>
+      <span class="det">compilato in automatico e mandato via email subito dopo la Questura</span></span></div>`);
   w.innerHTML=righe.join('');
   // etichette dei pulsanti coerenti con quello che fanno davvero
   const et=ross?'📤 Invia tutto (Questura + Ross1000)':'📤 Invia alla Questura';
@@ -13328,7 +13366,7 @@ function passoHtml(v,titolo){
 function renderPannelloInvio(){
   const w=$('#sendResult'); if(!w||!esitoInvio)return;
   const e=esitoInvio;
-  const passi=['questura','ross','ricevuta'].map(k=>e[k]||{stato:'na',det:''});
+  const passi=['questura','ross','istat','ricevuta'].map(k=>e[k]||{stato:'na',det:''});
   const finito=passi.every(v=>v.stato==='ok'||v.stato==='na');
   const guasto=passi.some(v=>v.stato==='ko');
   const inCorso=passi.some(v=>v.stato==='corso');
@@ -13342,6 +13380,7 @@ function renderPannelloInvio(){
     <div class="esito-passi">
       ${passoHtml(e.questura,'Questura · Alloggiati Web')}
       ${passoHtml(e.ross,'Ross1000 · Regione (ISTAT)')}
+      ${passoHtml(e.istat,'Modulo ISTAT · Ufficio del turismo')}
       ${passoHtml(e.ricevuta,'Ricevuta della Questura')}
     </div>
     ${(e.errori||[]).length?`<div class="esito-righe" style="margin-top:10px">${e.errori.join('')}</div>`:''}
@@ -13466,6 +13505,8 @@ async function invia(){apriCard('invioCard');
         : {stato:'ko', det:'nessuna schedina inviata'},
       ross: rossAttivo() ? {stato:'corso', det:'invio in corso…'}
                          : {stato:'na', det:'non previsto per questa struttura'},
+      istat: istatAttivo() ? {stato:'corso', det:'preparo il modulo e lo mando via email…'}
+                           : {stato:'na', det:'non previsto per questa struttura'},
       ricevuta: {stato:'todo', det:'non ancora scaricata',
         azione:`<div class="azione"><button class="btn ghost sm" onclick="scaricaRicevuta()">🧾 Scarica ricevuta PDF</button></div>`},
       errori: errs.length?righeErrore(data):[],
@@ -13482,6 +13523,7 @@ async function invia(){apriCard('invioCard');
       bookings[0]._pendingIds=[];
     }
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
+    if(istatAttivo()) inviaIstat(recordsInviati); // per Canazei: modulo ISTAT via email all'ufficio del turismo
   }
 }
 // senza argomenti (dopo un invio): struttura corrente, ultima ricevuta disponibile.
@@ -13697,6 +13739,119 @@ function setStrutturaPreferita(id){
 
 /* ===== Ross1000 (flussi ISTAT, es. Bologna/Emilia-Romagna) ===== */
 function rossStrutturaId(){ return currentStruttura() || (struttureList[0]&&struttureList[0].id); }
+/* ===== comunicazione ISTAT via email (Canazei: l'APT Val di Fassa la vuole così) =====
+   Il modulo ufficiale vuole una riga sola per soggiorno: quante persone, la loro residenza
+   (per gli stranieri SOLO la nazione, per gli italiani la città — è il modulo stesso a dirlo),
+   la data di arrivo e quella di partenza. Tutto si ricava dai documenti già letti. */
+let istatConfig=null;
+function istatAttivo(){
+  const id=currentStruttura();
+  return !!(istatConfig&&istatConfig.email&&(istatConfig.strutture||{})[id]);
+}
+// "REGNO UNITO" -> "Regno Unito"  ·  "COSTA D'AVORIO" -> "Costa d'Avorio"
+function nomeLeggibile(v){
+  return String(v||'').toLowerCase().replace(/(^|[\s'’-])([a-zàèéìòù])/g,(m,p,c)=>p+c.toUpperCase())
+    .replace(/\b(D|L)'([A-Z])/g,(m,a,b)=>a.toLowerCase()+"'"+b);
+}
+// residenza secondo il modulo: stranieri = nazione, italiani = città (col segno della provincia)
+function residenzaIstat(rec){
+  if(!rec||rec.length!==168)return '';
+  const cittadinanza=rec.slice(125,134).trim();
+  if(cittadinanza&&cittadinanza!=='100000100') return nomeLeggibile(nomeStato(cittadinanza));
+  const comune=comuneByCode.get(rec.slice(105,114).trim());
+  if(comune) return nomeLeggibile(comune.n)+(comune.p?` (${comune.p})`:'');
+  const statoNascita=rec.slice(116,125).trim();
+  return statoNascita?nomeLeggibile(nomeStato(statoNascita)):'Italia';
+}
+// i dati del modulo, dedotti dalle schedine appena inviate
+function datiIstat(records){
+  const validi=(records||[]).filter(r=>r&&r.length===168);
+  if(!validi.length)return null;
+  const capo=validi.find(r=>['16','17','18'].includes(r.slice(0,2)))||validi[0];
+  const arrivo=capo.slice(2,12).trim();
+  const notti=parseInt(capo.slice(12,14),10)||0;
+  let partenza='';
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(arrivo);
+  if(m&&notti){ const d=new Date(+m[3],+m[2]-1,+m[1]); d.setDate(d.getDate()+notti);
+    partenza=`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+  return {struttura:currentStruttura(), persone:validi.length, residenza:residenzaIstat(capo), arrivo, partenza};
+}
+async function inviaIstat(records){
+  const d=datiIstat(records);
+  if(!d){ segnaPasso('istat','ko','nessun dato da comunicare'); return; }
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'istat',...d})});
+    const data=await r.json();
+    if(!r.ok)throw new Error(data.error||'Errore');
+    segnaPasso('istat','ok',`inviato a ${escText(data.destinatario||'')} · ${d.persone} person${d.persone===1?'a':'e'} · ${escText(d.residenza||'')}`);
+  }catch(e){
+    segnaPasso('istat','ko',escText(e.message)+' — riprova da ⚙️ Impostazioni → Modulo ISTAT');
+  }
+}
+// --- pagina Impostazioni → Modulo ISTAT ---
+async function caricaIstatConfig(){
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'istatGet'})});
+    const d=await r.json();
+    istatConfig=d.config||null;
+  }catch(e){/* offline: si riprova alla prossima apertura */}
+  if(typeof aggiornaElencoInvio==='function')aggiornaElencoInvio();
+}
+function apriIstat(){
+  closeSettings();
+  apriPagina('istatOverlay');
+  const c=istatConfig||{};
+  const e=$('#istatEmail'); if(e)e.value=c.email||'';
+  const o=$('#istatOggetto'); if(o)o.value=c.oggetto||'moduli istat';
+  const t=$('#istatTesto'); if(t)t.value=c.testo||'Allegato schede ISTAT,\nCordiali saluti';
+  const w=$('#istatStrutture');
+  if(w)w.innerHTML=struttureList.map(st=>{
+    const on=(c.strutture||{})[st.id]?' checked':'';
+    return `<label class="todo-row" style="cursor:pointer"><input type="checkbox" id="istatSt_${st.id}"${on} style="width:auto;margin:0">
+      <span>${strutturaInfo(st.nome).emoji} ${escText(st.nome)}${st.ross?' <span class="muted">(ha già Ross1000)</span>':''}</span></label>`;
+  }).join('');
+  caricaIstatConfig().then(()=>{ if($('#istatOverlay').classList.contains('open'))apriIstatValori(); });
+}
+function apriIstatValori(){
+  const c=istatConfig||{};
+  const e=$('#istatEmail'); if(e&&!e.value)e.value=c.email||'';
+  struttureList.forEach(st=>{ const cb=$('#istatSt_'+st.id); if(cb)cb.checked=!!(c.strutture||{})[st.id]; });
+}
+function datiIstatDaiCampi(){
+  const strutture={};
+  struttureList.forEach(st=>{ const cb=$('#istatSt_'+st.id); if(cb&&cb.checked)strutture[st.id]=true; });
+  return {email:($('#istatEmail').value||'').trim(), strutture,
+    oggetto:($('#istatOggetto').value||'').trim(), testo:($('#istatTesto').value||'').trim()};
+}
+async function salvaIstatConfig(){
+  const m=$('#istatMsg'); m.textContent='Salvo…';
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'istatSet',...datiIstatDaiCampi()})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Errore');
+    istatConfig=d.config;
+    const quante=Object.keys(d.config.strutture||{}).length;
+    m.innerHTML=quante?`✓ Salvato: il modulo partirà da solo per ${quante} struttur${quante===1?'a':'e'}.`
+                      :'✓ Salvato. Nessuna struttura selezionata: non partirà nulla.';
+    aggiornaElencoInvio();
+    toast('Modulo ISTAT: impostazioni salvate');
+  }catch(e){ m.textContent='Errore: '+e.message; }
+}
+async function provaIstat(){
+  const m=$('#istatMsg'); m.textContent='Preparo il modulo di prova…';
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'istat', prova:true, struttura:(struttureList[0]||{}).id,
+        persone:2, residenza:'Germania', arrivo:'25/03/2026', partenza:'31/03/2026'})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Errore');
+    m.innerHTML=`✓ Prova mandata a <b>${escText(d.destinatario||'')}</b> (allegato ${escText(d.nomeFile||'')}).
+      Controlla che il modulo sia scritto bene prima di accenderlo. <b>All'ufficio del turismo non è arrivato nulla.</b>`;
+  }catch(e){ m.textContent='Errore: '+e.message; }
+}
 function rossAttivo(){ const id=rossStrutturaId(); return struttureList.some(s=>s.id===id&&s.ross); }
 function aggiornaRossUI(){
   const r=$('#rowRoss'); if(r) r.style.display=struttureList.some(s=>s.ross)?'':'none';
@@ -14674,6 +14829,7 @@ function apriCard(id){
   renderStorico();
   syncStoricoFromServer();
   caricaRicevuteFatte();
+  caricaIstatConfig();
   isRenderStorico();
   isWireDrop();
   osservaBlobProtetti();
