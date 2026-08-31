@@ -14199,6 +14199,36 @@ function mostraTab(t){
   window.scrollTo(0,0);
 }
 
+/* ===== riaprendo KeyFlow si riparte sempre dalla Home =====
+   All'avvio si apre la scheda Oggi (non l'ultima usata). E siccome l'app Android resta
+   aperta in sottofondo, se la si riprende dopo più di mezz'ora si torna alla Home da soli,
+   chiudendo i pannelli rimasti aperti e riprendendo i dati aggiornati dal server.
+   Unica eccezione: se c'è una registrazione a metà non la tocco (si esce un attimo
+   dall'app anche solo per scattare la foto del documento). */
+const RIPRESA_MS=30*60*1000;
+let appNascostaDa=0;
+function registrazioneAMeta(){
+  try{ return (bookings||[]).some(b=>b&&(String(b.arrivo||'').trim()||(b.guests||[]).length||(b.bookingImgs||[]).length)); }
+  catch(e){ return false; }
+}
+function tornaAllaHome(){
+  const lb=document.getElementById('fotoLightbox');
+  if(lb&&getComputedStyle(lb).display!=='none'){ if(typeof chiudiFoto==='function')chiudiFoto(); else lb.style.display='none'; }
+  document.querySelectorAll('.pagina-piena.open').forEach(el=>el.classList.remove('open'));
+  const so=$('#settingsOverlay'); if(so)so.classList.remove('open');
+  document.body.style.overflow='';
+  mostraTab('oggi');
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ appNascostaDa=Date.now(); return; }
+  const via=appNascostaDa?Date.now()-appNascostaDa:0;
+  appNascostaDa=0;
+  if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
+  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); }catch(e){}
+  if(registrazioneAMeta()){ aggiornaOggi(); return; }
+  tornaAllaHome();
+});
+
 /* ===== tasto Indietro di Android/browser: naviga DENTRO l'app invece di uscire =====
    Teniamo sempre una voce "sentinella" in cima alla cronologia: quando l'utente preme
    Indietro, chiudiamo prima i pannelli aperti, poi torniamo alla scheda Oggi, e solo
@@ -15117,7 +15147,7 @@ function apriCard(id){
   initCardToggles();
   document.body.classList.add('ready');
   $('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
-  mostraTab(localStorage.getItem('tabAttiva')||'oggi');
+  mostraTab('oggi');   // si riparte sempre dalla Home, non dall'ultima scheda usata
   loadStrutture();
   wireDropzone();
   wireChangeCodeForm();
