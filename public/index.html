@@ -197,6 +197,64 @@
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:none; border-left:3px solid var(--amber); border-radius:12px; padding:10px 12px; margin-top:10px}
   .storico-item{padding:9px 0; border-bottom:1px solid var(--line)}
   .storico-item:last-child{border-bottom:none}
+  /* ===== Home come dashboard: riquadri di sintesi + calendario stile Google Calendar ===== */
+  .dash-data{font-size:12.5px; color:var(--muted); font-weight:700; margin:0 2px 8px}
+  .dash-kpi{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:16px}
+  @media (max-width:359px){ .dash-kpi{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .kpi{background:var(--surface); border:none; border-radius:18px; padding:12px 5px 11px; text-align:center; cursor:pointer;
+    font-family:inherit; color:var(--ink); box-shadow:0 10px 26px -18px rgba(0,0,0,.7); transition:transform .12s}
+  .kpi:active{transform:scale(.97)}
+  .kpi .ico{font-size:13px; line-height:1}
+  .kpi b{display:block; font-size:21px; font-weight:800; line-height:1.15; margin-top:2px}
+  .kpi span.et{display:block; font-size:9.5px; color:var(--muted); font-weight:700; line-height:1.25; margin-top:2px}
+  .kpi.alert b{color:var(--err)}
+  .kpi.calmo b{color:var(--muted)}
+  .gcal-head{display:flex; align-items:center; gap:7px; margin-bottom:10px}
+  .gcal-head .mese{flex:1; font-size:15.5px; font-weight:800; text-transform:capitalize; letter-spacing:-.01em}
+  .gcal-nav{background:var(--surface2); border:none; color:var(--ink); width:32px; height:32px; border-radius:11px;
+    font-size:15px; line-height:1; cursor:pointer; font-family:inherit; flex:0 0 auto}
+  .gcal-oggi{background:var(--surface2); border:none; color:var(--ink); border-radius:999px; padding:7px 12px;
+    font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; flex:0 0 auto}
+  .gcal-dow{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px; margin-bottom:4px}
+  .gcal-dow span{font-size:9.5px; color:var(--muted); text-align:center; font-weight:700}
+  .gcal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px}
+  .gcal-day{min-height:56px; background:var(--surface2); border:1.5px solid transparent; border-radius:11px;
+    padding:4px 3px 3px; display:flex; flex-direction:column; gap:2px; cursor:pointer; overflow:hidden}
+  .gcal-day.fuori{opacity:.3}
+  .gcal-day.sel{border-color:var(--amber)}
+  .gcal-day .num{font-size:11.5px; font-weight:700; text-align:center; line-height:17px; flex:0 0 auto}
+  .gcal-day.oggi .num{background:var(--amber); color:var(--accent-ink); border-radius:999px; width:19px; height:17px; margin:0 auto}
+  .gcal-ev{font-size:9.5px; font-weight:800; line-height:1.3; padding:1.5px 4px; border-radius:5px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border:1.5px solid transparent}
+  .gcal-ev.arr{color:#0a0a0c}
+  .gcal-ev.par{background:transparent}
+  /* su telefono le caselle sono strette: i nomi diventerebbero "Ro…", quindi restano
+     solo barrette colorate (piena = arrivo, vuota = partenza) e i nomi si leggono
+     nel dettaglio del giorno e nei prossimi giorni. */
+  @media (max-width:559px){
+    .gcal-ev{font-size:0; height:6px; padding:0; border-radius:3px}
+    .gcal-day{gap:3px}
+  }
+  .gcal-more{font-size:8.5px; color:var(--muted); font-weight:800; text-align:center; line-height:1.2}
+  .gcal-legenda{font-size:10.5px; color:var(--muted); margin-top:7px; text-align:center}
+  .gcal-dett{margin-top:12px; background:var(--surface2); border-radius:16px; padding:12px 13px}
+  .gcal-dett .giorno{font-size:13.5px; font-weight:800; margin-bottom:2px}
+  .gcal-riga{display:flex; gap:9px; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.05)}
+  .gcal-riga:last-child{border-bottom:none}
+  .gcal-riga .barra{width:4px; align-self:stretch; border-radius:3px; flex:0 0 auto}
+  .agenda-g{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
+  .agenda-g:last-child{border-bottom:none}
+  .agenda-g .quando{width:74px; flex:0 0 auto; font-size:11.5px; font-weight:800; color:var(--muted); text-transform:capitalize; padding-top:2px}
+  .agenda-g .quando.oggi{color:var(--amber)}
+  .agenda-g .cosa{flex:1; min-width:0}
+  .agenda-ev{display:flex; gap:7px; align-items:center; font-size:12.5px; padding:2px 0}
+  .agenda-ev .pallo{width:8px; height:8px; border-radius:50%; flex:0 0 auto}
+  .agenda-ev .nome{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .scad-riga{display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--line); cursor:pointer}
+  .scad-riga:last-child{border-bottom:none}
+  .scad-riga .ico{width:36px; height:36px; border-radius:12px; background:rgba(132,227,211,.1); flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; font-size:16px}
+  .scad-riga .txt{flex:1; min-width:0; font-size:13px; line-height:1.4}
   .cal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
   .cal-head b{font-size:14.5px; text-transform:capitalize}
   .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
@@ -626,6 +684,7 @@ function doGet() {
 <div class="wrap">
 
   <div class="page" id="page-oggi">
+    <div id="dashSintesi"></div>
     <div class="card" id="oggiTodoCard">
       <h2><span class="n">📌</span> Da fare <span id="oggiTodoBadge" class="pill err" style="display:none"></span></h2>
       <div id="oggiTodo"><div class="muted" style="font-size:13px">…</div></div>
@@ -634,17 +693,10 @@ function doGet() {
       <h2><span class="n">📆</span> Calendario</h2>
       <div id="oggiCalendario"></div>
     </div>
-    <div class="card" id="oggiSituazioneCard">
-      <h2><span class="n">📊</span> Situazione</h2>
-      <div id="oggiStato"></div>
-    </div>
-    <div class="card" id="oggiRossCard" style="display:none">
-      <h2><span class="n">📅</span> Scadenza Ross1000</h2>
-      <div id="oggiRoss"></div>
-    </div>
-    <div class="card" id="oggiGeisCard" style="display:none">
-      <h2><span class="n">🏛️</span> Imposta di soggiorno (GEIS)</h2>
-      <div id="oggiGeis"></div>
+    <div class="card" id="oggiScadenzeCard" style="display:none">
+      <h2><span class="n">⏰</span> Scadenze</h2>
+      <div class="scad-riga" id="oggiRoss" style="display:none" onclick="mostraTab('registra')"></div>
+      <div class="scad-riga" id="oggiGeis" style="display:none" onclick="apriGeis()"></div>
     </div>
     <div class="card" id="oggiAzioniCard">
       <h2><span class="n">⚡</span> Azioni rapide</h2>
@@ -652,6 +704,7 @@ function doGet() {
         <button class="btn ghost sm" style="flex:1" onclick="mostraTab('registra')">📝 Nuova registrazione</button>
         <button class="btn ghost sm" style="flex:1" onclick="mostraTab('ospiti')">🔗 Link ospiti</button>
       </div>
+      <div id="oggiStato" style="margin-top:6px"></div>
     </div>
   </div><!-- /page-oggi -->
 
@@ -14314,87 +14367,180 @@ function aggiornaOggi(){
       <span>🕘 Ultimo invio in Questura</span>
       <span class="muted" style="text-align:right">${ultimoTxt}</span>
     </div>`;
-  const rc=$('#oggiRossCard'); const rw=$('#oggiRoss');
+  if(typeof renderSintesi==='function')renderSintesi();
+  // scadenze: una riga per Ross1000 (file dei flussi entro il 5) e una per il GEIS
+  const rw=$('#oggiRoss');
   const haRoss=struttureList.some(s=>s.ross);
-  if(rc)rc.style.display=haRoss?'':'none';
-  if(haRoss&&rw){
-    const oggi=new Date(); const giorno=oggi.getDate();
-    const meseIt=d=>d.toLocaleDateString('it-IT',{month:'long'});
-    const mesePrec=meseIt(new Date(oggi.getFullYear(),oggi.getMonth()-1,1));
-    if(giorno<=5){
-      const mancano=5-giorno;
-      rw.innerHTML=`<div class="hint" style="margin-top:0">⏰ Il file dei flussi di <b>${mesePrec}</b> va caricato su Ross1000 <b>entro il 5</b>: ${mancano===0?'<b>scade oggi</b>':`manca${mancano===1?'':'no'} <b>${mancano} giorn${mancano===1?'o':'i'}</b>`}. Generalo da Registrazione → Scarica .xml.</div>`;
-    }else{
-      rw.innerHTML=`<div class="muted">Prossima scadenza: <b>5 ${meseIt(new Date(oggi.getFullYear(),oggi.getMonth()+1,1))}</b> per i flussi di ${meseIt(oggi)}. In più, ogni "Invia ufficialmente" trasmette già il soggiorno anche a Ross1000 (se le credenziali web service sono configurate).</div>`;
+  if(rw){
+    rw.style.display=haRoss?'':'none';
+    if(haRoss){
+      const oggi=new Date(); const giorno=oggi.getDate();
+      const meseIt=d=>d.toLocaleDateString('it-IT',{month:'long'});
+      const mesePrec=meseIt(new Date(oggi.getFullYear(),oggi.getMonth()-1,1));
+      const urgente=giorno<=5; const mancano=5-giorno;
+      rw.innerHTML=`<span class="ico">📅</span>
+        <span class="txt"><b>Ross1000 · flussi di ${escText(urgente?mesePrec:meseIt(oggi))}</b><br>
+          <span class="muted">${urgente?'Da caricare entro il 5: generalo da Registrazione → Scarica .xml'
+            :'Prossima scadenza: 5 '+escText(meseIt(new Date(oggi.getFullYear(),oggi.getMonth()+1,1)))+'. Ogni invio ufficiale lo trasmette già.'}</span></span>
+        ${urgente?`<span class="pill ${mancano<=1?'err':'wait'}" style="flex:0 0 auto">${mancano===0?'oggi':'fra '+mancano+' g'}</span>`:''}`;
     }
   }
   if(typeof geisAvvisoHome==='function')geisAvvisoHome();
+  aggiornaScadenze();
+}
+// la scheda "Scadenze" si vede solo se almeno una riga ha qualcosa da dire
+function aggiornaScadenze(){
+  const card=$('#oggiScadenzeCard'); if(!card)return;
+  const righe=['#oggiRoss','#oggiGeis'].map(id=>$(id)).filter(el=>el&&el.style.display!=='none');
+  card.style.display=righe.length?'':'none';
 }
 
-/* ===== calendario arrivi/partenze (pagina Oggi) ===== */
+/* ===== Home come dashboard: sintesi del giorno, calendario e agenda =====
+   Una sola fonte per tutto: i soggiorni già registrati (storico) più i check-in degli
+   ospiti non ancora registrati. Da qui escono i riquadri in alto, il calendario mensile
+   (stile Google Calendar: pastiglie colorate per casa dentro i giorni) e l'agenda dei
+   prossimi giorni. ===== */
 let calMese=new Date(); calMese.setDate(1);
 let calSelDay='';
 const dataKey=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const parseIt=a=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(a||'');return m?new Date(+m[3],+m[2]-1,+m[1]):null;};
-// eventi: arrivi e partenze da coda in attesa + storico (partenza = arrivo + notti)
-function eventiCalendario(){
-  const ev={}; const add=(d,tipo,nome,str)=>{ if(!d)return; const k=dataKey(d); (ev[k]=ev[k]||{a:[],p:[]})[tipo].push(nome+(str?' · '+str:'')); };
-  checkinPending.forEach(v=>{
-    const nome=((v.ospiti||[])[0]&&((v.ospiti[0].cognome||'')+' '+(v.ospiti[0].nome||'')).trim())||'ospite';
-    const extra=v.ospiti&&v.ospiti.length>1?` (+${v.ospiti.length-1})`:'';
-    const arr=parseIt(v.arrivo); add(arr,'a',nome+extra,v.strutturaNome);
-    let par=parseIt(v.partenza);
-    if(!par&&arr&&v.notti){ par=new Date(arr); par.setDate(par.getDate()+Number(v.notti)); }
-    add(par,'p',nome+extra,v.strutturaNome);
-  });
+const piuGiorni=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+const maiuscola=t=>String(t||'').charAt(0).toUpperCase()+String(t||'').slice(1);
+
+// tutti i soggiorni da mostrare in Home. Se lo stesso soggiorno è sia registrato sia
+// ancora in coda (stesso arrivo e stesso titolare) vince quello registrato.
+function soggiorniHome(){
+  const out=[]; const visti=new Set();
+  const aggiungi=o=>{ if(!o.arrivo)return; const k=dataKey(o.arrivo)+'|'+String(o.nome||'').toUpperCase();
+    if(visti.has(k))return; visti.add(k); out.push(o); };
   storico.forEach(e=>{
-    if(!(e.records||[]).length)return;
-    const rec=e.records[0]; if(!rec||rec.length!==168)return;
+    const rec=(e.records||[])[0]; if(!rec||rec.length!==168)return;
     const arr=parseIt(e.arrivo||rec.slice(2,12).trim()); if(!arr)return;
     const notti=parseInt(rec.slice(12,14),10)||0;
-    const nome=(e.ospiti&&e.ospiti[0])||'ospite';
-    const extra=(e.ospiti&&e.ospiti.length>1)?` (+${e.ospiti.length-1})`:'';
-    const nomeStr=(typeof nomeStrutturaCanonico==='function')?nomeStrutturaCanonico(e.struttura):e.struttura;
-    add(arr,'a',nome+extra,nomeStr);
-    if(notti){ const par=new Date(arr); par.setDate(par.getDate()+notti); add(par,'p',nome+extra,nomeStr); }
+    const casa=(typeof nomeStrutturaCanonico==='function')?nomeStrutturaCanonico(e.struttura):e.struttura;
+    aggiungi({arrivo:arr, partenza:notti?piuGiorni(arr,notti):null, nome:(e.ospiti&&e.ospiti[0])||'ospite',
+      ospiti:(e.ospiti||[]).length||e.valide||1, struttura:casa||'', colore:strutturaInfo(casa||'').colore, registrato:true});
   });
+  checkinPending.forEach(v=>{
+    const arr=parseIt(v.arrivo); if(!arr)return;
+    const primo=(v.ospiti||[])[0]||{};
+    let par=parseIt(v.partenza);
+    if(!par&&v.notti)par=piuGiorni(arr,Number(v.notti)||0);
+    aggiungi({arrivo:arr, partenza:par, nome:[primo.cognome,primo.nome].filter(Boolean).join(' ')||'ospite',
+      ospiti:(v.ospiti||[]).length||1, struttura:v.strutturaNome||'', colore:strutturaInfo(v.strutturaNome||'').colore,
+      registrato:false, id:v.id});
+  });
+  return out;
+}
+// eventi giorno per giorno: prima le partenze, poi gli arrivi (come si fa in casa)
+function eventiCalendario(){
+  const ev={};
+  const metti=(d,o)=>{ if(!d)return; const k=dataKey(d); (ev[k]=ev[k]||[]).push(o); };
+  soggiorniHome().forEach(s=>{
+    metti(s.arrivo,Object.assign({tipo:'a'},s));
+    metti(s.partenza,Object.assign({tipo:'p'},s));
+  });
+  Object.keys(ev).forEach(k=>ev[k].sort((a,b)=>a.tipo===b.tipo?0:(a.tipo==='p'?-1:1)));
   return ev;
+}
+// i quattro numeri in cima alla Home
+function renderSintesi(){
+  const w=$('#dashSintesi'); if(!w)return;
+  const oggi=new Date(); const mezzogiorno=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate(),12);
+  const sogg=soggiorniHome();
+  const delGiorno=(eventiCalendario()[dataKey(oggi)]||[]);
+  const arrivi=delGiorno.filter(e=>e.tipo==='a').length;
+  const partenze=delGiorno.filter(e=>e.tipo==='p').length;
+  const inCasa=sogg.filter(s=>s.arrivo<=mezzogiorno&&(!s.partenza||s.partenza>mezzogiorno))
+                   .reduce((a,s)=>a+(s.ospiti||1),0);
+  const daFare=checkinPending.length;
+  const data=maiuscola(oggi.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
+  const box=(cls,ico,num,et,click)=>`<button class="kpi ${num?cls:'calmo'}" onclick="${click}"><span class="ico">${ico}</span><b>${num}</b><span class="et">${et}</span></button>`;
+  w.innerHTML=`<div class="dash-data">${escText(data)} · oggi in casa e in arrivo</div>
+    <div class="dash-kpi">
+      ${box('','🟢',arrivi,'arrivi','calVaiOggi()')}
+      ${box('','🔴',partenze,'partenze','calVaiOggi()')}
+      ${box('','🛏️',inCasa,'in casa','calVaiOggi()')}
+      ${box('alert','📌',daFare,'da fare','vaiDaFare()')}
+    </div>`;
+}
+function vaiDaFare(){
+  if(typeof apriCard==='function')apriCard('oggiTodoCard');
+  const c=document.getElementById('oggiTodoCard');
+  if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function calVaiOggi(){
+  const oggi=new Date();
+  calMese=new Date(oggi.getFullYear(),oggi.getMonth(),1);
+  calSelDay=dataKey(oggi);
+  if(typeof apriCard==='function')apriCard('oggiCalendarioCard');
+  renderCalendario();
+  const c=document.getElementById('oggiCalendarioCard');
+  if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function calNomeCorto(n){ const p=String(n||'').trim().split(/\s+/)[0]||'ospite'; return p.charAt(0).toUpperCase()+p.slice(1).toLowerCase(); }
+function calRigaEvento(e){
+  return `<div class="gcal-riga"><span class="barra" style="background:${e.colore}"></span>
+    <span style="flex:1;min-width:0">
+      <b style="font-size:13px">${e.tipo==='a'?'🟢 Arrivo':'🔴 Partenza'} · ${escText(e.nome)}</b>
+      <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${e.struttura?' · '+escText(e.struttura):''}</span></span>
+    ${e.registrato?'':'<span class="pill err" style="flex:0 0 auto">da registrare</span>'}</div>`;
+}
+// sotto al calendario: il giorno scelto, oppure l'agenda dei prossimi giorni
+function calDettaglio(ev){
+  if(calSelDay){
+    const lista=ev[calSelDay]||[];
+    const d=new Date(calSelDay+'T12:00');
+    const tit=maiuscola(d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
+    return `<div class="gcal-dett"><div class="giorno">${escText(tit)}</div>
+      ${lista.length?lista.map(calRigaEvento).join('')
+        :'<div class="muted" style="font-size:12.5px;padding-top:4px">Nessun arrivo o partenza. Tocca di nuovo il giorno per tornare ai prossimi giorni.</div>'}</div>`;
+  }
+  const oggi=new Date(); const oggi0=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate());
+  const righe=[];
+  for(let i=0;i<60&&righe.length<6;i++){
+    const d=piuGiorni(oggi0,i); const lista=ev[dataKey(d)]||[];
+    if(!lista.length)continue;
+    const quando=i===0?'Oggi':i===1?'Domani':d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
+    righe.push(`<div class="agenda-g"><span class="quando${i===0?' oggi':''}">${escText(quando)}</span>
+      <span class="cosa">${lista.map(e=>`<span class="agenda-ev"><span class="pallo" style="background:${e.colore}"></span>
+        <span class="nome">${e.tipo==='a'?'→':'←'} ${escText(e.nome)}${e.ospiti>1?' <span class="muted">👤'+e.ospiti+'</span>':''}</span>
+        ${e.registrato?'':'<span class="pill err">da fare</span>'}</span>`).join('')}</span></div>`);
+  }
+  return `<div class="stat-lab" style="margin-top:14px">PROSSIMI GIORNI</div>
+    ${righe.length?righe.join(''):'<div class="muted" style="font-size:12.5px">Nessun arrivo o partenza in programma.</div>'}`;
 }
 function renderCalendario(){
   const w=$('#oggiCalendario'); if(!w)return;
   const ev=eventiCalendario();
   const anno=calMese.getFullYear(), mese=calMese.getMonth();
   const titolo=calMese.toLocaleDateString('it-IT',{month:'long',year:'numeric'});
-  const primo=new Date(anno,mese,1);
-  const offset=(primo.getDay()+6)%7; // settimana che parte da lunedì
+  const offset=(new Date(anno,mese,1).getDay()+6)%7;           // settimana che parte da lunedì
+  const giorniMese=new Date(anno,mese+1,0).getDate();
+  const settimane=Math.ceil((offset+giorniMese)/7);
   const inizio=new Date(anno,mese,1-offset);
   const oggiK=dataKey(new Date());
   let celle='';
-  for(let i=0;i<42;i++){
-    const d=new Date(inizio); d.setDate(inizio.getDate()+i);
-    const k=dataKey(d); const e=ev[k];
-    celle+=`<div class="cal-day${d.getMonth()!==mese?' fuori':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')">
-      ${d.getDate()}<span class="dots">${e&&e.a.length?'<i class="a"></i>':''}${e&&e.p.length?'<i class="p"></i>':''}</span></div>`;
+  for(let i=0;i<settimane*7;i++){
+    const d=piuGiorni(inizio,i); const k=dataKey(d); const lista=ev[k]||[];
+    const chips=lista.slice(0,2).map(e=>`<span class="gcal-ev ${e.tipo==='a'?'arr':'par'}" style="${e.tipo==='a'?'background:'+e.colore:'color:'+e.colore+';border-color:'+e.colore}">${e.tipo==='a'?'→':'←'} ${escText(calNomeCorto(e.nome))}</span>`).join('');
+    const altri=lista.length>2?`<span class="gcal-more">+${lista.length-2}</span>`:'';
+    celle+=`<div class="gcal-day${d.getMonth()!==mese?' fuori':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')">
+      <span class="num">${d.getDate()}</span>${chips}${altri}</div>`;
   }
-  const sel=calSelDay&&ev[calSelDay];
-  const dett=calSelDay?`
-    <div style="margin-top:10px;font-size:12.5px">
-      <b>${new Date(calSelDay+'T12:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})}</b><br>
-      ${sel&&sel.a.length?sel.a.map(x=>`<div style="margin-top:4px">🟢 arrivo: ${escText(x)}</div>`).join(''):''}
-      ${sel&&sel.p.length?sel.p.map(x=>`<div style="margin-top:4px">🔴 partenza: ${escText(x)}</div>`).join(''):''}
-      ${!sel||(!sel.a.length&&!sel.p.length)?'<div class="muted" style="margin-top:4px">Nessun arrivo o partenza.</div>':''}
-    </div>`:'';
   w.innerHTML=`
-    <div class="cal-head">
-      <button class="btn ghost sm" style="width:auto;padding:8px 13px" onclick="calSposta(-1)">‹</button>
-      <b>${escText(titolo)}</b>
-      <button class="btn ghost sm" style="width:auto;padding:8px 13px" onclick="calSposta(1)">›</button>
+    <div class="gcal-head">
+      <span class="mese">${escText(titolo)}</span>
+      <button class="gcal-oggi" onclick="calVaiOggi()">Oggi</button>
+      <button class="gcal-nav" onclick="calSposta(-1)">‹</button>
+      <button class="gcal-nav" onclick="calSposta(1)">›</button>
     </div>
-    <div class="cal-grid">${['L','M','M','G','V','S','D'].map(g=>`<div class="cal-dow">${g}</div>`).join('')}${celle}</div>
-    <div class="muted" style="font-size:10.5px;margin-top:6px">🟢 arrivi · 🔴 partenze — tocca un giorno per il dettaglio</div>
-    ${dett}`;
+    <div class="gcal-dow">${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<span>${g}</span>`).join('')}</div>
+    <div class="gcal-grid">${celle}</div>
+    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa. Tocca un giorno per i nomi.</div>
+    ${calDettaglio(ev)}`;
 }
-function calSposta(n){ calMese.setMonth(calMese.getMonth()+n); calSelDay=''; renderCalendario(); }
+function calSposta(n){ calMese=new Date(calMese.getFullYear(),calMese.getMonth()+n,1); calSelDay=''; renderCalendario(); }
 function calSeleziona(k){ calSelDay=(calSelDay===k?'':k); renderCalendario(); }
 
 /* ===== statistiche (pagina Archivio) ===== */
@@ -14783,21 +14929,28 @@ function geisRender(){
 }
 // avviso nella pagina Oggi + pallino nel menu delle impostazioni
 function geisAvvisoHome(){
-  const card=$('#oggiGeisCard'), w=$('#oggiGeis'), badge=$('#geisBadgeMenu');
+  const w=$('#oggiGeis'), badge=$('#geisBadgeMenu');
   const da=geisDaFare();
   if(badge){ badge.style.display=da?'':'none'; if(da)badge.textContent=da.stato==='in-ritardo'?'in ritardo':'da mandare'; }
-  if(!card||!w)return;
-  if(!geisAttivo()||!geisLista().length){ card.style.display='none'; return; }
-  card.style.display='';
+  if(!w)return;
+  if(!geisAttivo()||!geisLista().length){ w.style.display='none'; aggiornaScadenze(); return; }
+  w.style.display='';
   if(da){
-    w.innerHTML=`<div class="hint" style="margin-top:0">${da.stato==='in-ritardo'?'⚠️':'⏰'} <b>${da.titolo}</b> (${escText(da.mesiNomi)}) da comunicare sul portale GEIS`
-      +(da.giorni>=0?`: <b>entro il ${da.scadenzaIt}</b>, ${da.giorni===0?'<b>scade oggi</b>':'manca'+(da.giorni===1?' 1 giorno':'no <b>'+da.giorni+' giorni</b>')}.`
-        :`: era entro il ${da.scadenzaIt}, <b>${-da.giorni} giorn${da.giorni===-1?'o':'i'} di ritardo</b>.`)
-      +` <button class="btn ghost sm" style="width:auto;padding:5px 10px;margin-top:8px" onclick="apriGeis()">Apri e copia la nota</button></div>`;
+    const quando=da.giorni>=0
+      ?(da.giorni===0?'oggi':'fra '+da.giorni+' g')
+      :('+'+(-da.giorni)+' g');
+    w.innerHTML=`<span class="ico">🏛️</span>
+      <span class="txt"><b>Imposta di soggiorno · ${da.titolo}</b><br>
+        <span class="muted">${escText(da.mesiNomi)} · ${da.giorni>=0?'entro il '+da.scadenzaIt:'era entro il '+da.scadenzaIt}</span></span>
+      <span class="pill ${da.stato==='in-ritardo'||da.giorni<=3?'err':'wait'}" style="flex:0 0 auto">${quando}</span>`;
   }else{
     const pross=geisLista().find(t=>t.stato==='in-corso')||geisLista()[0];
-    w.innerHTML=`<div class="muted">✅ Niente da comunicare adesso. Prossima scadenza: <b>${pross.scadenzaIt}</b> per il ${pross.titolo} (${escText(pross.mesiNomi)}).</div>`;
+    w.innerHTML=`<span class="ico">🏛️</span>
+      <span class="txt"><b>Imposta di soggiorno · a posto</b><br>
+        <span class="muted">Prossima: ${pross.scadenzaIt} per il ${pross.titolo}</span></span>
+      <span class="pill ok" style="flex:0 0 auto">✓</span>`;
   }
+  aggiornaScadenze();
 }
 
 /* ===== Imposta di soggiorno: nota Airbnb da CSV (pagina Archivio) =====
@@ -15117,7 +15270,8 @@ function wireChangeCodeForm(){
 }
 
 /* ===== schede stile app: tocca il titolo per aprire/chiudere, lo stato viene ricordato ===== */
-const CARD_CHIUSE_DEFAULT={previewCard:1, checkinLinkCard:1, oggiCalendarioCard:1, statsCard:1};
+// il calendario è il cuore della Home: parte aperto (chi vuole può sempre chiuderlo)
+const CARD_CHIUSE_DEFAULT={previewCard:1, checkinLinkCard:1, statsCard:1};
 function initCardToggles(){
   document.querySelectorAll('.wrap .card[id]').forEach(card=>{
     const h2=card.querySelector(':scope>h2'); if(!h2)return;
