@@ -21,9 +21,11 @@ const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
 const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
+const { elencoTrimestri, avvisiGeis } = require("./_geis");
 
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
+const KEY_GEIS = "geis_stato";
 const MAX_PENDENTI = 200;
 
 // FASCICOLO MENSILE: zip con registro CSV + contratti firmati del mese (per arrivo).
@@ -187,6 +189,24 @@ async function inviaModuloIstat(conn, dati) {
   return { ok: true, destinatario: dest, nomeFile, persone, residenza, arrivo, partenza, prova: !!dati.prova };
 }
 
+// --- imposta di soggiorno di Bologna (GEIS): comunicazione trimestrale ---
+// In KV tengo solo quello che il calcolo non può sapere: quali trimestri ho già mandato
+// e quali soggiorni ho tolto a mano dal conteggio. I numeri si ricavano ogni volta dalle
+// schedine registrate, così restano sempre allineati allo storico.
+async function leggiStatoGeis(conn) {
+  try {
+    const raw = await redisCmd(conn, ["GET", KEY_GEIS]);
+    const s = raw ? JSON.parse(raw) : {};
+    return { inviati: s.inviati || {}, esclusi: s.esclusi || {} };
+  } catch { return { inviati: {}, esclusi: {} }; }
+}
+async function datiGeis(conn, stato) {
+  const st = stato || (await leggiStatoGeis(conn));
+  const raw = await redisCmd(conn, ["GET", "storico_schedine"]);
+  const storico = raw ? JSON.parse(raw) : [];
+  return { ok: true, ...elencoTrimestri(storico, st, { quanti: 8 }), inviati: st.inviati, esclusi: st.esclusi };
+}
+
 module.exports = async (req, res) => {
   const conn = upstash();
 
@@ -218,6 +238,36 @@ module.exports = async (req, res) => {
         const esito = await inviaModuloIstat(conn, req.body || {});
         if (!esito.ok) return res.status(400).json({ error: esito.error || "Invio non riuscito" });
         return res.status(200).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
+    // GEIS: i dati dei trimestri, calcolati dalle schedine registrate
+    if ((req.body || {}).azione === "geisStato") {
+      try {
+        return res.status(200).json(await datiGeis(conn));
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+    // GEIS: segna un trimestre come mandato (o togli la spunta), oppure escludi un
+    // soggiorno dal conteggio (es. prenotazione non arrivata da Airbnb)
+    if ((req.body || {}).azione === "geisSet") {
+      try {
+        const stato = await leggiStatoGeis(conn);
+        const { trimestre, fatto, soggiorno, escluso } = req.body || {};
+        if (trimestre && /^\d{4}-[1-4]$/.test(String(trimestre))) {
+          if (fatto) stato.inviati[trimestre] = { ts: Date.now() };
+          else delete stato.inviati[trimestre];
+        }
+        if (soggiorno) {
+          const k = String(soggiorno).slice(0, 120);
+          if (escluso) stato.esclusi[k] = 1;
+          else delete stato.esclusi[k];
+        }
+        await redisCmd(conn, ["SET", KEY_GEIS, JSON.stringify(stato)]);
+        return res.status(200).json(await datiGeis(conn, stato));
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }
@@ -305,6 +355,18 @@ module.exports = async (req, res) => {
       avvisi.push("Ross1000: ricordati di caricare il file dei flussi del mese scorso entro il giorno 5 (dal gestionale: Scarica .xml, poi importalo sul portale).");
     }
   } catch (e) { /* ROSS_STRUTTURE assente o malformata */ }
+
+  // 3-bis) imposta di soggiorno di Bologna (GEIS): la comunicazione è TRIMESTRALE e scade
+  //        il 15 del mese dopo la fine del trimestre (15 aprile, 15 luglio, 15 ottobre,
+  //        15 gennaio). Avviso da 14 giorni prima e insisto finché non la segno come fatta.
+  try {
+    if (conn) {
+      const rawS = await redisCmd(conn, ["GET", "storico_schedine"]);
+      const storico = rawS ? JSON.parse(rawS) : [];
+      const statoGeis = await leggiStatoGeis(conn);
+      avvisiGeis(storico, statoGeis).forEach((t) => avvisi.push(t));
+    }
+  } catch (e) { /* archivio non configurato: nessun avviso GEIS */ }
 
   // 4) fascicolo mensile automatico: il giorno 1 manda via email lo zip del mese precedente
   let fascicolo = null;

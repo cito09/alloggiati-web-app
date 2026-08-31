@@ -35,9 +35,18 @@ Produzione: **https://keyflowcheckin.vercel.app** (Vercel, piano Hobby). Repo: `
 - Se il salvataggio Drive riesce, **niente download locale** (l'utente non vuole la finestra "Salva con nome"); se fallisce, download locale di riserva + errore spiegato.
 - ⚠️ La parola segreta attiva nello script dell'utente è `CAMBIAMI` (non è mai riuscito a cambiarla per via del meccanismo "Nuova versione" di Apps Script — trappola ricorrente: modificare il codice NON aggiorna lo script online finché non si pubblica una Nuova versione dal deployment esistente).
 
+## GEIS · imposta di soggiorno Bologna (agosto 2026)
+
+- La comunicazione è **trimestrale** e i trimestri sono quelli dell'anno solare — **trappola già presa una volta: il 2° trimestre è aprile-maggio-giugno, luglio sta nel 3°**. Scadenze: **15 aprile, 15 luglio, 15 ottobre, 15 gennaio** (entro il 15 del mese dopo la fine del trimestre); va mandata anche a zero ospiti.
+- I numeri si generano **da soli dalle schedine registrate in KeyFlow** (`storico_schedine`), non serve più caricare il CSV: helper condiviso `api/_geis.js` (file `_*` = non conta nel limite di 12 funzioni serverless). Regole: soggetti = tutti gli ospiti (FAQ D.4), pernottamenti = notti dell'appartamento, soggiorno a cavallo tutto nel mese di **check-out** (FAQ D.5) — quindi arrivo 28/06 con partenza 02/07 finisce nel 3° trimestre.
+- Solo la struttura di Bologna (riconosciuta con `/bologna|falegnami/i`, come `emojiStruttura`). Doppioni evitati: stessa `arrivo|titolare` conta una volta sola, vince l'invio ufficiale sul .txt.
+- API: `/api/promemoria` azioni **`geisStato`** (dati dei trimestri) e **`geisSet`** (`{trimestre,fatto}` = segna come mandato, `{soggiorno,escluso}` = togli un soggiorno perché non arrivato da Airbnb). In KV solo la chiave **`geis_stato`** = `{inviati:{"2026-2":{ts}}, esclusi:{chiave:1}}`: i numeri si ricalcolano sempre.
+- Frontend: funzioni `geis*` in index.html, pagina `geisOverlay` (pastiglie dei trimestri, nota da copiare, dettaglio per mese e per soggiorno), card "Imposta di soggiorno (GEIS)" nella pagina Oggi e pallino "da mandare" nel menu Impostazioni.
+- Promemoria push (cron di `api/promemoria.js`): avvisa 14/7/3/1/0 giorni prima della scadenza, poi ogni giorno per una settimana e infine una volta a settimana finché non si segna "L'ho mandata". Niente avvisi per i trimestri precedenti ai primi dati in KeyFlow.
+
 ## Altre funzioni fatte in questa serie di sessioni
 
-- **GEIS** (imposta di soggiorno Bologna): da CSV Airbnb calcola soggetti/pernottamenti per mese secondo le FAQ del Comune (tutti gli ospiti contano, soggiorni a cavallo → mese di check-out). Upload + drag&drop, niente incolla-testo.
+- **GEIS** (imposta di soggiorno Bologna): vedi la sezione dedicata qui sotto. Il CSV Airbnb ora è solo un controllo facoltativo (funzioni `is*` in index.html, dentro il `<details>` in fondo alla pagina GEIS).
 - **Step "titolare"** nel check-in ospiti: si sceglie chi è l'intestatario, contratto e selfie si verificano su di lui.
 - **"Ospiti in attesa"**: due colonne parallele colorate per struttura, anteprime brevi, tap per dettaglio.
 - **Home "Da fare"**: solo titolare + 👤 conteggio ospiti, pulsante a 3 stati (Registra/Da inviare/Riaggiungi).

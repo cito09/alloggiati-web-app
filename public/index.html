@@ -362,7 +362,7 @@
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriIstat()"><span class="mi">📮</span><span style="flex:1;text-align:left">Modulo ISTAT via email</span><span class="freccia">›</span></button>
-    <button class="link-row menu-riga" onclick="apriPagina('geisOverlay')"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · nota Airbnb</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriGeis()"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · imposta di soggiorno</span><span id="geisBadgeMenu" class="pill err" style="display:none;margin-right:6px">da mandare</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('privacyOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Privacy file</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione</span><span class="freccia">›</span></button>
 
@@ -407,19 +407,26 @@
 <div class="pagina-piena" id="geisOverlay">
   <div class="pp-head">
     <button class="btn ghost sm" onclick="chiudiPagina('geisOverlay')" style="width:auto">← Indietro</button>
-    <h2>🏛️ GEIS · nota Airbnb</h2>
+    <h2>🏛️ GEIS · imposta di soggiorno</h2>
   </div>
   <div class="pp-body">
-        <div class="muted" style="font-size:12px">Carica il CSV che scarichi da Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e calcolo io <b>soggetti</b> e <b>pernottamenti</b> mese per mese, pronti per il campo <i>Note</i> della comunicazione GEIS.</div>
-        <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
+        <div class="muted" style="font-size:12px">La comunicazione al Comune di Bologna è <b>trimestrale</b>: la compilo io con i dati delle schedine che hai già registrato in KeyFlow. Tu copi la nota nel portale GEIS e poi segni qui che l'hai mandata.</div>
+        <div id="geisTrimestri" class="stat-chips"></div>
+        <div id="geisRisultato" style="margin-top:12px"><div class="muted" style="font-size:13px">Carico i dati…</div></div>
+        <div class="muted" style="font-size:11.5px;margin-top:18px;line-height:1.5">ℹ️ <b>Come conto</b>, seguendo le FAQ del Comune di Bologna:<br>
+          • <b>Trimestri dell'anno solare</b>: 1° gennaio-febbraio-marzo, 2° aprile-maggio-giugno, 3° luglio-agosto-settembre, 4° ottobre-novembre-dicembre. Si manda <b>entro il 15</b> del mese dopo la fine del trimestre (15 aprile, 15 luglio, 15 ottobre, 15 gennaio), <b>anche se non c'è stato nessun ospite</b>.<br>
           • <b>Soggetti</b> = numero di ospiti, <b>tutti</b> (adulti + bambini + neonati). Il campo note chiede «il numero di ospiti» (sez. D.4). I minori di 14 anni sono esenti dal <i>pagamento</i> (sez. A.3), ma qui vanno contati lo stesso: per la locazione breve l'imposta la versa direttamente Airbnb, tu dichiari solo quanti ospiti e quante notti.<br>
           • <b>Pernottamenti</b> = notti occupate dall'appartamento.<br>
-          • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre.</div>
-        <input type="file" id="isFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="isCaricaFile(event)">
-        <button class="btn primary" style="margin-top:10px" onclick="document.getElementById('isFile').click()">📎 Carica il file CSV di Airbnb</button>
-        <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">…oppure <b>trascina qui il file</b></div>
-        <div id="isResult" style="margin-top:12px"></div>
-        <div id="isStoricoBox" style="margin-top:16px"></div>
+          • Un soggiorno a <b>cavallo di due mesi</b> viene contato tutto nel <b>mese di check-out</b> (sez. D.5): es. 28/09→02/10 = tutte le notti a ottobre. Per questo un arrivo del 30 giugno finisce nel trimestre dopo.</div>
+        <details style="margin-top:18px">
+          <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);padding:6px 0">🔍 Controllo con il CSV di Airbnb (facoltativo)</summary>
+          <div class="muted" style="font-size:12px;margin-top:6px">Serve solo per confrontare: carichi il CSV di Airbnb (<b>Prenotazioni → in alto a destra → Esporta CSV</b>) e vedi gli stessi conteggi calcolati dalle prenotazioni invece che dalle schedine.</div>
+          <input type="file" id="isFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="isCaricaFile(event)">
+          <button class="btn ghost" style="margin-top:10px" onclick="document.getElementById('isFile').click()">📎 Carica il file CSV di Airbnb</button>
+          <div class="muted" style="font-size:11px;margin:8px 0 0;text-align:center">…oppure <b>trascina qui il file</b></div>
+          <div id="isResult" style="margin-top:12px"></div>
+          <div id="isStoricoBox" style="margin-top:16px"></div>
+        </details>
         </div>
 </div>
 
@@ -634,6 +641,10 @@ function doGet() {
     <div class="card" id="oggiRossCard" style="display:none">
       <h2><span class="n">📅</span> Scadenza Ross1000</h2>
       <div id="oggiRoss"></div>
+    </div>
+    <div class="card" id="oggiGeisCard" style="display:none">
+      <h2><span class="n">🏛️</span> Imposta di soggiorno (GEIS)</h2>
+      <div id="oggiGeis"></div>
     </div>
     <div class="card" id="oggiAzioniCard">
       <h2><span class="n">⚡</span> Azioni rapide</h2>
@@ -14287,6 +14298,7 @@ function aggiornaOggi(){
       rw.innerHTML=`<div class="muted">Prossima scadenza: <b>5 ${meseIt(new Date(oggi.getFullYear(),oggi.getMonth()+1,1))}</b> per i flussi di ${meseIt(oggi)}. In più, ogni "Invia ufficialmente" trasmette già il soggiorno anche a Ross1000 (se le credenziali web service sono configurate).</div>`;
     }
   }
+  if(typeof geisAvvisoHome==='function')geisAvvisoHome();
 }
 
 /* ===== calendario arrivi/partenze (pagina Oggi) ===== */
@@ -14624,6 +14636,138 @@ function esportaStoricoCsv(){
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
   a.href=url;a.download='archivio_keyflow.csv';a.click();URL.revokeObjectURL(url);
   toast(storico.length+' voci esportate in CSV');
+}
+
+/* ===== GEIS · imposta di soggiorno di Bologna: comunicazione trimestrale automatica =====
+   I numeri li calcola il server (api/_geis.js) dalle schedine già registrate in KeyFlow:
+   qui si sceglie il trimestre, si copia la nota per il portale e si segna quando è stata
+   mandata. I trimestri sono quelli dell'anno solare (2° = aprile, maggio e giugno: luglio
+   sta già nel 3°) e si comunicano entro il 15 del mese successivo. */
+const GEIS_ETICHETTE={'in-corso':['in corso','wait'],'da-fare':['da mandare','wait'],'in-ritardo':['in ritardo','err'],'fatto':['inviata','ok'],'senza-dati':['senza dati','']};
+const GEIS_ICONE={'in-corso':'•','da-fare':'⏳','in-ritardo':'⚠️','fatto':'✓','senza-dati':'·'};
+let geisDati=null;     // ultima risposta del server
+let geisSel='';        // trimestre mostrato (es. '2026-2')
+let geisMesiOff={};    // mesi tolti a mano dalla nota, per trimestre
+let geisOccupato=false;
+
+function geisAttivo(){ return struttureList.some(s=>/bologna|falegnami/i.test(String(s.id||'')+' '+String(s.nome||''))); }
+function geisLista(){ return (geisDati&&geisDati.trimestri)||[]; }
+function geisTrim(k){ return geisLista().find(t=>t.chiave===k)||null; }
+// il più urgente è il più vecchio ancora da mandare (la lista arriva dal più recente)
+function geisDaFare(){ const p=geisLista().filter(t=>t.stato==='da-fare'||t.stato==='in-ritardo'); return p.length?p[p.length-1]:null; }
+function geisMesiNota(t){ const off=geisMesiOff[t.chiave]||new Set(); return t.mesi.map(m=>Object.assign({},m,{attivo:!off.has(m.key)})); }
+function geisNota(t){
+  const usati=geisMesiNota(t).filter(m=>m.attivo);
+  return usati.length?'AIRBNB: '+usati.map(m=>`${m.nome} ${m.sogg} soggetti/${m.notti} pernottamenti`).join(' - '):'AIRBNB:';
+}
+function geisGiornoIt(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso||'')); return m?new Date(+m[1],+m[2]-1,+m[3]).toLocaleDateString('it-IT',{day:'numeric',month:'long',year:'numeric'}):''; }
+function geisGiornoCorto(it){ const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(it||'')); return m?`${+m[1]}/${+m[2]}`:String(it||''); }
+
+function apriGeis(){ apriPagina('geisOverlay'); geisRender(); geisCarica(); }
+async function geisCarica(){
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'geisStato'})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Errore');
+    if(d&&d.trimestri){ geisDati=d; try{localStorage.setItem('geis_cache',JSON.stringify(d));}catch(e){} }
+  }catch(e){
+    if(!geisDati){ try{ geisDati=JSON.parse(localStorage.getItem('geis_cache')||'null'); }catch(_){} }
+    const box=$('#geisRisultato');
+    if(box&&!geisLista().length)box.innerHTML='<div style="color:var(--err);font-size:13px">Non riesco a leggere i dati: '+escText(e.message)+'</div>';
+  }
+  geisRender(); geisAvvisoHome();
+}
+async function geisPatch(corpo){
+  if(geisOccupato)return; geisOccupato=true;
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify(Object.assign({azione:'geisSet'},corpo))});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Errore');
+    geisDati=d; try{localStorage.setItem('geis_cache',JSON.stringify(d));}catch(e){}
+    geisRender(); geisAvvisoHome();
+  }catch(e){ toast('Non salvato: '+e.message); }
+  finally{ geisOccupato=false; }
+}
+function geisScegli(k){ geisSel=k; geisRender(); }
+function geisToggleMese(k){
+  const t=geisTrim(geisSel); if(!t)return;
+  const off=geisMesiOff[t.chiave]||(geisMesiOff[t.chiave]=new Set());
+  if(off.has(k))off.delete(k); else off.add(k);
+  geisRender();
+}
+function geisCopia(){ const t=geisTrim(geisSel); if(t)isCopiaTesto(geisNota(t)); }
+function geisSegna(fatto){
+  const t=geisTrim(geisSel); if(!t)return;
+  if(fatto&&t.stato==='in-corso'&&!confirm('Il trimestre non è ancora finito: sicuro di segnarlo come già comunicato?'))return;
+  geisPatch({trimestre:t.chiave,fatto:!!fatto});
+  toast(fatto?'Trimestre segnato come comunicato':'Trimestre di nuovo da mandare');
+}
+function geisEscludi(chiave,escluso){ geisPatch({soggiorno:chiave,escluso:!!escluso}); }
+
+function geisRender(){
+  const chips=$('#geisTrimestri'), box=$('#geisRisultato'); if(!chips||!box)return;
+  const lista=geisLista();
+  if(!lista.length){ chips.innerHTML=''; return; }
+  if(!geisSel||!geisTrim(geisSel)){ const d=geisDaFare(); geisSel=(d||lista[1]||lista[0]).chiave; }
+  chips.innerHTML=lista.map(t=>`<button class="stat-chip mese${t.chiave===geisSel?' on':''}" onclick="geisScegli('${t.chiave}')">${GEIS_ICONE[t.stato]||''} ${t.q}° ${t.anno}</button>`).join('');
+  const t=geisTrim(geisSel);
+  const et=GEIS_ETICHETTE[t.stato]||['',''];
+  const scadenza=
+    t.stato==='fatto'?`Segnato come comunicato${t.inviatoIl?' il '+new Date(t.inviatoIl).toLocaleDateString('it-IT'):''}. Scadenza: ${t.scadenzaIt}.`
+    :t.stato==='in-corso'?`Trimestre ancora in corso: finisce il ${geisGiornoIt(t.fine)}, si comunica <b>entro il ${t.scadenzaIt}</b>. I numeri possono ancora cambiare.`
+    :t.giorni>=0?`Da comunicare <b>entro il ${t.scadenzaIt}</b>: ${t.giorni===0?'<b>scade oggi</b>':'manca'+(t.giorni===1?' <b>1 giorno</b>':'no <b>'+t.giorni+' giorni</b>')}.`
+    :`Era da comunicare entro il ${t.scadenzaIt}: <b>${-t.giorni} giorn${t.giorni===-1?'o':'i'} di ritardo</b>.`;
+  const nota=geisNota(t);
+  const mesi=geisMesiNota(t).map(m=>`<label class="oggi-row" style="cursor:pointer"><span><input type="checkbox" ${m.attivo?'checked':''} onchange="geisToggleMese('${m.key}')" style="width:auto;margin-right:8px;vertical-align:-1px">${m.nome}</span><span class="muted">${m.sogg} soggetti · ${m.notti} pernottamenti</span></label>`).join('');
+  const sogg=t.soggiorni.slice().sort((a,b)=>a.mese<b.mese?-1:a.mese>b.mese?1:0);
+  const righeSogg=sogg.length?sogg.map(s=>`<label class="oggi-row" style="cursor:pointer;align-items:flex-start">
+      <span style="flex:1;min-width:0"><input type="checkbox" ${s.escluso?'':'checked'} onchange="geisEscludi(${statArg(s.chiave)},!this.checked)" style="width:auto;margin-right:8px;vertical-align:-1px">${escText(s.titolare||'ospite')}
+        <span class="muted" style="font-size:11.5px">· ${geisGiornoCorto(s.arrivo)}→${geisGiornoCorto(s.uscita)}</span></span>
+      <span class="muted" style="font-size:11.5px;text-align:right">${s.ospiti} osp · ${s.notti} notti<br>conta in ${escText((t.mesi.find(m=>m.key===s.mese)||{}).nome||s.mese)}</span></label>`).join('')
+    :'<div class="muted" style="font-size:12.5px;padding:6px 0">Nessun soggiorno registrato in questo trimestre: si comunica <b>zero</b> (la comunicazione va fatta lo stesso).</div>';
+
+  box.innerHTML=
+    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+       <b style="font-size:14.5px">${t.titolo}</b><span class="pill ${et[1]}">${GEIS_ICONE[t.stato]||''} ${et[0]}</span></div>
+     <div class="muted" style="font-size:12px;margin-top:2px">Mesi del trimestre: <b>${escText(t.mesiNomi)}</b></div>
+     <div class="${t.stato==='in-ritardo'||(t.stato==='da-fare'&&t.giorni<=7)?'hint':'muted'}" style="font-size:12px;margin-top:8px">${t.stato==='in-ritardo'?'⚠️ ':t.stato==='da-fare'?'⏰ ':''}${scadenza}</div>
+     <div class="stat-lab" style="margin-top:14px">NOTA DA INCOLLARE NEL GEIS</div>
+     <div style="background:var(--surface2);border-radius:10px;padding:11px 12px;font-size:13px;line-height:1.5;word-break:break-word">${escText(nota)}</div>
+     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+       <button class="btn primary sm" style="width:auto" onclick="geisCopia()">📋 Copia nota</button>
+       ${t.stato==='fatto'
+         ?`<button class="btn ghost sm" style="width:auto" onclick="geisSegna(false)">↺ Non l'ho ancora mandata</button>`
+         :`<button class="btn ghost sm" style="width:auto" onclick="geisSegna(true)">✓ L'ho mandata</button>`}
+     </div>
+     <div class="stat-lab">DETTAGLIO PER MESE</div>
+     ${mesi}
+     <div class="muted" style="font-size:11px;margin-top:6px">Totale trimestre: <b>${t.sogg} soggetti</b> · <b>${t.notti} pernottamenti</b>. Togli la spunta a un mese per non metterlo nella nota.</div>
+     <details style="margin-top:12px">
+       <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);padding:6px 0">👥 Soggiorni conteggiati (${sogg.filter(s=>!s.escluso).length})</summary>
+       <div class="muted" style="font-size:11.5px;margin:4px 0 6px">Togli la spunta a un soggiorno se <b>non</b> è arrivato da Airbnb: in quel caso l'imposta la versi tu e non va in questa nota.</div>
+       ${righeSogg}
+     </details>
+     ${geisDati.senzaDati?`<div class="muted" style="font-size:11px;margin-top:10px">⚠️ ${geisDati.senzaDati} registrazion${geisDati.senzaDati===1?'e':'i'} di Bologna senza date complete: non ${geisDati.senzaDati===1?'è stata conteggiata':'sono state conteggiate'}. Controlla con il CSV di Airbnb qui sotto.</div>`:''}`;
+}
+// avviso nella pagina Oggi + pallino nel menu delle impostazioni
+function geisAvvisoHome(){
+  const card=$('#oggiGeisCard'), w=$('#oggiGeis'), badge=$('#geisBadgeMenu');
+  const da=geisDaFare();
+  if(badge){ badge.style.display=da?'':'none'; if(da)badge.textContent=da.stato==='in-ritardo'?'in ritardo':'da mandare'; }
+  if(!card||!w)return;
+  if(!geisAttivo()||!geisLista().length){ card.style.display='none'; return; }
+  card.style.display='';
+  if(da){
+    w.innerHTML=`<div class="hint" style="margin-top:0">${da.stato==='in-ritardo'?'⚠️':'⏰'} <b>${da.titolo}</b> (${escText(da.mesiNomi)}) da comunicare sul portale GEIS`
+      +(da.giorni>=0?`: <b>entro il ${da.scadenzaIt}</b>, ${da.giorni===0?'<b>scade oggi</b>':'manca'+(da.giorni===1?' 1 giorno':'no <b>'+da.giorni+' giorni</b>')}.`
+        :`: era entro il ${da.scadenzaIt}, <b>${-da.giorni} giorn${da.giorni===-1?'o':'i'} di ritardo</b>.`)
+      +` <button class="btn ghost sm" style="width:auto;padding:5px 10px;margin-top:8px" onclick="apriGeis()">Apri e copia la nota</button></div>`;
+  }else{
+    const pross=geisLista().find(t=>t.stato==='in-corso')||geisLista()[0];
+    w.innerHTML=`<div class="muted">✅ Niente da comunicare adesso. Prossima scadenza: <b>${pross.scadenzaIt}</b> per il ${pross.titolo} (${escText(pross.mesiNomi)}).</div>`;
+  }
 }
 
 /* ===== Imposta di soggiorno: nota Airbnb da CSV (pagina Archivio) =====
@@ -14983,6 +15127,8 @@ function apriCard(id){
   caricaIstatConfig();
   isRenderStorico();
   isWireDrop();
+  try{ geisDati=JSON.parse(localStorage.getItem('geis_cache')||'null'); }catch(e){}
+  geisCarica();
   osservaBlobProtetti();
   loadCheckinLink();
   loadCheckinPending();
