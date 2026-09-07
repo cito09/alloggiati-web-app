@@ -41,7 +41,10 @@
   header h1{margin:8px 0 0; font-size:20px; font-weight:800; letter-spacing:-.02em}
   header .sub{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ok); margin-top:4px; font-weight:600}
   header .sub .dot{width:6px; height:6px; border-radius:50%; background:var(--ok); flex-shrink:0}
-  .wrap{max-width:680px; margin:0 auto; padding:16px}
+  /* in fondo lascio spazio per la tabbar flottante: senza, l'ultima scheda
+     (es. il dettaglio del giorno nel calendario) finiva sotto ai pulsanti */
+  .wrap{max-width:680px; margin:0 auto; padding:16px 16px calc(104px + env(safe-area-inset-bottom))}
+  #page-registra{padding-bottom:64px}   /* qui c'è anche la barra Invia, più in alto */
   body{visibility:hidden}
   body.ready{visibility:visible}
   .login-gate{visibility:visible; position:fixed; inset:0; z-index:9999; display:none;
@@ -197,6 +200,9 @@
   .hint{font-size:12px; color:var(--muted); background:var(--surface2); border:none; border-left:3px solid var(--amber); border-radius:12px; padding:10px 12px; margin-top:10px}
   .storico-item{padding:9px 0; border-bottom:1px solid var(--line)}
   .storico-item:last-child{border-bottom:none}
+  /* quando ci si arriva da un nome del calendario: si accende un attimo per farsi trovare */
+  .storico-item.evidenzia{animation:storicoFocus 2.2s ease-out}
+  @keyframes storicoFocus{ 0%,60%{background:rgba(132,227,211,.14); box-shadow:0 0 0 6px rgba(132,227,211,.14); border-radius:12px} 100%{background:transparent; box-shadow:none} }
   /* ===== Home come dashboard: riquadri di sintesi + calendario stile Google Calendar ===== */
   .dash-data{font-size:12.5px; color:var(--muted); font-weight:700; margin:0 2px 8px}
   .dash-kpi{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:16px}
@@ -233,21 +239,30 @@
      nel dettaglio del giorno e nei prossimi giorni. */
   @media (max-width:559px){
     .gcal-ev{font-size:0; height:6px; padding:0; border-radius:3px}
-    .gcal-day{gap:3px}
+    .gcal-day{gap:3px; min-height:62px}
   }
   .gcal-more{font-size:8.5px; color:var(--muted); font-weight:800; text-align:center; line-height:1.2}
   .gcal-legenda{font-size:10.5px; color:var(--muted); margin-top:7px; text-align:center}
-  .gcal-dett{margin-top:12px; background:var(--surface2); border-radius:16px; padding:12px 13px}
-  .gcal-dett .giorno{font-size:13.5px; font-weight:800; margin-bottom:2px}
-  .gcal-riga{display:flex; gap:9px; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.05)}
+  .gcal-dett{margin-top:12px; background:var(--surface2); border:1.5px solid rgba(132,227,211,.34); border-radius:16px; padding:11px 13px 6px}
+  .gcal-dett.lampeggia{animation:dettFocus 1.1s ease-out}
+  @keyframes dettFocus{ 0%{border-color:var(--amber); box-shadow:0 0 0 4px rgba(132,227,211,.18)} 100%{border-color:rgba(132,227,211,.34); box-shadow:none} }
+  .gcal-dett .testa{display:flex; align-items:center; gap:8px}
+  .gcal-dett .giorno{flex:1; min-width:0; font-size:13.5px; font-weight:800}
+  .gcal-dett .chiudi{background:var(--surface); border:none; color:var(--muted); width:28px; height:28px; border-radius:999px;
+    font-size:14px; line-height:1; cursor:pointer; font-family:inherit; flex:0 0 auto}
+  .gcal-riga{display:flex; gap:9px; align-items:center; padding:9px 7px; margin:0 -7px; border-radius:12px;
+    border-bottom:1px solid rgba(255,255,255,.05); cursor:pointer}
   .gcal-riga:last-child{border-bottom:none}
+  .gcal-riga:active{background:rgba(255,255,255,.06)}
   .gcal-riga .barra{width:4px; align-self:stretch; border-radius:3px; flex:0 0 auto}
+  .gcal-riga .vai,.agenda-ev .vai{color:var(--muted); font-size:17px; font-weight:700; flex:0 0 auto; line-height:1}
   .agenda-g{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
   .agenda-g:last-child{border-bottom:none}
   .agenda-g .quando{width:74px; flex:0 0 auto; font-size:11.5px; font-weight:800; color:var(--muted); text-transform:capitalize; padding-top:2px}
   .agenda-g .quando.oggi{color:var(--amber)}
   .agenda-g .cosa{flex:1; min-width:0}
-  .agenda-ev{display:flex; gap:7px; align-items:center; font-size:12.5px; padding:2px 0}
+  .agenda-ev{display:flex; gap:7px; align-items:center; font-size:12.5px; padding:4px 6px; margin:0 -6px; border-radius:10px; cursor:pointer}
+  .agenda-ev:active{background:rgba(255,255,255,.06)}
   .agenda-ev .pallo{width:8px; height:8px; border-radius:50%; flex:0 0 auto}
   .agenda-ev .nome{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .scad-riga{display:flex; align-items:center; gap:11px; padding:11px 0; border-bottom:1px solid var(--line); cursor:pointer}
@@ -330,8 +345,10 @@
   .invio-riga b{display:block}
   .invio-riga .det{color:var(--muted); font-size:12px}
   .invio-riga .azione{margin-top:7px}
-  .todo-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line)}
+  .todo-row{display:flex; align-items:center; gap:10px; padding:10px 6px; margin:0 -6px; border-radius:12px;
+    border-bottom:1px solid var(--line); cursor:pointer}
   .todo-row:last-child{border-bottom:none; padding-bottom:2px}
+  .todo-row:active{background:rgba(255,255,255,.06)}
   .gruppo-head{margin:22px 0 6px; padding:10px 14px; border-radius:12px; background:rgba(90,160,242,.12);
     border:1px solid rgba(90,160,242,.25); font-size:16px; font-weight:800; letter-spacing:.5px;
     display:flex; align-items:center; gap:10px; text-transform:uppercase}
@@ -12642,7 +12659,7 @@ function renderStorico(){
         <div class="thumbs" style="margin-top:6px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}</div>`:''}
       ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" ${fotoHref(u)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
     `;
-    return `<div class="storico-item"${sInfo?` style="border-left:3px solid ${sInfo.colore};padding-left:9px;margin-left:-1px"`:''}>
+    return `<div class="storico-item" id="storico-${e.ts}"${sInfo?` style="border-left:3px solid ${sInfo.colore};padding-left:9px;margin-left:-1px"`:''}>
       <div class="storico-head"><span>${escText(quando)}</span>
         <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rimuoviStorico(${e.ts})">🗑</button></span></div>
       <div class="storico-meta">${sInfo?`<span style="color:${sInfo.colore}">${sInfo.emoji}</span> `:''}${meta}</div>
@@ -12997,7 +13014,15 @@ function currentStruttura(){const s=$('#strutturaSel');return s&&s.value?s.value
 /* ===== azioni ===== */
 const getB=id=>bookings.find(x=>x.id===id);
 const getG=(bid,gid)=>getB(bid).guests.find(x=>x.id===gid);
-function addBooking(){bookings.push({id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]});render();window.scrollTo(0,document.body.scrollHeight);}
+// La prenotazione vuota si crea anche all'avvio: in quel caso NON si scende in fondo alla
+// pagina (si deve partire dalla Home, dall'alto). Si scende solo se si sta davvero
+// lavorando nella scheda Registra, dove la nuova prenotazione compare in fondo.
+function addBooking(){
+  bookings.push({id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]});
+  render();
+  const attiva=document.querySelector('.page.active');
+  if(attiva&&attiva.id==='page-registra')window.scrollTo(0,document.body.scrollHeight);
+}
 function rmBooking(id){
   const b=getB(id);
   if(b&&b.guests.length&&!confirm('Svuotare la prenotazione corrente e tutti i suoi ospiti? Non si può annullare.'))return;
@@ -14317,6 +14342,16 @@ let _ultimoBack=0;
 })();
 
 /* ===== scheda Oggi: riepilogo ===== */
+// Pulsante a tre stati di un check-in ancora in coda, uguale nella scheda "Da fare" e nel
+// calendario:  non preso -> ➕ Registra · preso e in lavorazione -> 📤 Da inviare ·
+// preso ma lavorazione persa (ricarico la pagina) -> ↺ Riaggiungi.
+function pendingAzione(v,stile){
+  const st=`style="flex:0 0 auto${stile?';'+stile:''}"`;
+  const inLavorazione=v.presa&&bookings.length&&((bookings[bookings.length-1]._pendingIds||[]).includes(v.id));
+  if(!v.presa)return `<button class="btn primary sm" ${st} onclick="event.stopPropagation();accettaCheckin('${v.id}')">➕ Registra</button>`;
+  if(inLavorazione)return `<button class="btn ghost sm" ${st} onclick="event.stopPropagation();mostraTab('registra')">📤 Da inviare</button>`;
+  return `<button class="btn ghost sm" ${st} onclick="event.stopPropagation();accettaCheckin('${v.id}')">↺ Riaggiungi</button>`;
+}
 function aggiornaOggi(){
   const w=$('#oggiStato'); if(!w)return;
   // "Da fare": i check-in arrivati, ordinati per data di arrivo (chi arriva prima in cima),
@@ -14336,20 +14371,10 @@ function aggiornaOggi(){
         :diff===1?'<b>arriva domani</b>'
         :diff!==null&&diff<0?('arrivato il '+escText(v.arrivo))
         :v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare';
-      // tre stati del pulsante:
-      //  - non presa                          -> ➕ Registra (aggiunge alla prenotazione)
-      //  - presa e ANCORA in lavorazione      -> 📤 Da inviare (vai a Registra)
-      //  - presa ma lavorazione persa (reload)-> ↺ Riaggiungi (la ricarica da capo; prima
-      //    restava "Da inviare" ma portava a una schermata vuota, senza via d'uscita)
-      const inLavorazione=v.presa&&bookings.length&&((bookings[bookings.length-1]._pendingIds||[]).includes(v.id));
-      const azione=!v.presa
-        ?`<button class="btn primary sm" style="flex:0 0 auto" onclick="accettaCheckin('${v.id}')">➕ Registra</button>`
-        :inLavorazione
-          ?`<button class="btn ghost sm" style="flex:0 0 auto" onclick="mostraTab('registra')">📤 Da inviare</button>`
-          :`<button class="btn ghost sm" style="flex:0 0 auto" onclick="accettaCheckin('${v.id}')">↺ Riaggiungi</button>`;
+      const azione=pendingAzione(v);   // Registra / Da inviare / Riaggiungi
       // stesso colore-struttura usato in Ospiti in attesa e Storico, per riconoscerla al volo
       const sIn=v.strutturaNome?strutturaInfo(v.strutturaNome):null;
-      return `<div class="todo-row"${sIn?` style="border-left:3px solid ${sIn.colore};padding-left:9px"`:''}>
+      return `<div class="todo-row" onclick="apriDettaglioCheckin('${v.id}')"${sIn?` style="border-left:3px solid ${sIn.colore};padding-left:9px"`:''}>
         <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(titolare)}</b> <span class="muted" style="white-space:nowrap">👤 ${(v.ospiti||[]).length}</span><br>
           <span class="muted">${quando}${v.strutturaNome?` · <span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span></div>
         ${azione}</div>`;
@@ -14419,7 +14444,8 @@ function soggiorniHome(){
     const notti=parseInt(rec.slice(12,14),10)||0;
     const casa=(typeof nomeStrutturaCanonico==='function')?nomeStrutturaCanonico(e.struttura):e.struttura;
     aggiungi({arrivo:arr, partenza:notti?piuGiorni(arr,notti):null, nome:(e.ospiti&&e.ospiti[0])||'ospite',
-      ospiti:(e.ospiti||[]).length||e.valide||1, struttura:casa||'', colore:strutturaInfo(casa||'').colore, registrato:true});
+      ospiti:(e.ospiti||[]).length||e.valide||1, struttura:casa||'', colore:strutturaInfo(casa||'').colore,
+      registrato:true, ts:e.ts});
   });
   checkinPending.forEach(v=>{
     const arr=parseIt(v.arrivo); if(!arr)return;
@@ -14477,14 +14503,44 @@ function calVaiOggi(){
   renderCalendario();
   const c=document.getElementById('oggiCalendarioCard');
   if(c)c.scrollIntoView({behavior:'smooth',block:'start'});
+  calMostraDettaglio(450);
 }
 function calNomeCorto(n){ const p=String(n||'').trim().split(/\s+/)[0]||'ospite'; return p.charAt(0).toUpperCase()+p.slice(1).toLowerCase(); }
+// dove porta il tocco su un nome: già registrato -> la sua voce nell'Archivio,
+// ancora in attesa -> la scheda del check-in, da cui si registra
+const calApriAttr=e=>e.registrato?`onclick="calApriRegistrato(${e.ts||0})"`:`onclick="calApriInAttesa('${e.id||''}')"`;
 function calRigaEvento(e){
-  return `<div class="gcal-riga"><span class="barra" style="background:${e.colore}"></span>
+  const pend=(!e.registrato&&e.id)?checkinPending.find(v=>v.id===e.id):null;
+  return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore}"></span>
     <span style="flex:1;min-width:0">
       <b style="font-size:13px">${e.tipo==='a'?'🟢 Arrivo':'🔴 Partenza'} · ${escText(e.nome)}</b>
       <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${e.struttura?' · '+escText(e.struttura):''}</span></span>
-    ${e.registrato?'':'<span class="pill err" style="flex:0 0 auto">da registrare</span>'}</div>`;
+    ${pend?pendingAzione(pend,'padding:8px 12px;font-size:12.5px')
+          :'<span class="vai">›</span>'}</div>`;
+}
+// tocco sul nome di chi è GIÀ REGISTRATO: apre la sua voce nell'Archivio, con il dettaglio
+// delle schedine già aperto, e la fa lampeggiare un attimo per farla trovare a colpo d'occhio
+function calApriRegistrato(ts){
+  ts=Number(ts)||0;
+  if(!storico.some(e=>e.ts===ts)){ toast('Questa prenotazione non è più nell\'archivio'); return; }
+  storicoF=null;
+  const cerca=$('#storicoSearch'); if(cerca)cerca.value='';
+  storicoAperto.add(ts);
+  if(typeof apriCard==='function')apriCard('storicoCard');
+  mostraTab('archivio');
+  renderStorico();
+  setTimeout(()=>{
+    const el=document.getElementById('storico-'+ts); if(!el)return;
+    el.scrollIntoView({behavior:'smooth',block:'center'});
+    el.classList.add('evidenzia'); setTimeout(()=>el.classList.remove('evidenzia'),2300);
+  },80);
+}
+// tocco sul nome di chi NON è ancora registrato: apre la scheda del check-in in attesa
+// (foto, documenti, dati) con dentro il pulsante per aggiungerlo alla prenotazione
+function calApriInAttesa(id){
+  if(id&&checkinPending.some(v=>v.id===id)){ apriDettaglioCheckin(id); return; }
+  toast('Questo check-in non è più in attesa');
+  mostraTab('ospiti');
 }
 // sotto al calendario: il giorno scelto, oppure l'agenda dei prossimi giorni
 function calDettaglio(ev){
@@ -14492,9 +14548,10 @@ function calDettaglio(ev){
     const lista=ev[calSelDay]||[];
     const d=new Date(calSelDay+'T12:00');
     const tit=maiuscola(d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
-    return `<div class="gcal-dett"><div class="giorno">${escText(tit)}</div>
+    return `<div class="gcal-dett"><div class="testa"><span class="giorno">${escText(tit)}</span>
+        <button class="chiudi" onclick="calSeleziona('${calSelDay}')" title="Torna ai prossimi giorni">✕</button></div>
       ${lista.length?lista.map(calRigaEvento).join('')
-        :'<div class="muted" style="font-size:12.5px;padding-top:4px">Nessun arrivo o partenza. Tocca di nuovo il giorno per tornare ai prossimi giorni.</div>'}</div>`;
+        :'<div class="muted" style="font-size:12.5px;padding:4px 0 8px">Nessun arrivo o partenza in questo giorno.</div>'}</div>`;
   }
   const oggi=new Date(); const oggi0=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate());
   const righe=[];
@@ -14503,9 +14560,9 @@ function calDettaglio(ev){
     if(!lista.length)continue;
     const quando=i===0?'Oggi':i===1?'Domani':d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
     righe.push(`<div class="agenda-g"><span class="quando${i===0?' oggi':''}">${escText(quando)}</span>
-      <span class="cosa">${lista.map(e=>`<span class="agenda-ev"><span class="pallo" style="background:${e.colore}"></span>
+      <span class="cosa">${lista.map(e=>`<span class="agenda-ev" ${calApriAttr(e)}><span class="pallo" style="background:${e.colore}"></span>
         <span class="nome">${e.tipo==='a'?'→':'←'} ${escText(e.nome)}${e.ospiti>1?' <span class="muted">👤'+e.ospiti+'</span>':''}</span>
-        ${e.registrato?'':'<span class="pill err">da fare</span>'}</span>`).join('')}</span></div>`);
+        ${e.registrato?'<span class="vai muted">›</span>':'<span class="pill err">da fare</span>'}</span>`).join('')}</span></div>`);
   }
   return `<div class="stat-lab" style="margin-top:14px">PROSSIMI GIORNI</div>
     ${righe.length?righe.join(''):'<div class="muted" style="font-size:12.5px">Nessun arrivo o partenza in programma.</div>'}`;
@@ -14520,11 +14577,13 @@ function renderCalendario(){
   const settimane=Math.ceil((offset+giorniMese)/7);
   const inizio=new Date(anno,mese,1-offset);
   const oggiK=dataKey(new Date());
+  // sul telefono le pastiglie diventano barrette sottili: ce ne stanno tre invece di due
+  const maxEv=(window.matchMedia&&window.matchMedia('(max-width:559px)').matches)?3:2;
   let celle='';
   for(let i=0;i<settimane*7;i++){
     const d=piuGiorni(inizio,i); const k=dataKey(d); const lista=ev[k]||[];
-    const chips=lista.slice(0,2).map(e=>`<span class="gcal-ev ${e.tipo==='a'?'arr':'par'}" style="${e.tipo==='a'?'background:'+e.colore:'color:'+e.colore+';border-color:'+e.colore}">${e.tipo==='a'?'→':'←'} ${escText(calNomeCorto(e.nome))}</span>`).join('');
-    const altri=lista.length>2?`<span class="gcal-more">+${lista.length-2}</span>`:'';
+    const chips=lista.slice(0,maxEv).map(e=>`<span class="gcal-ev ${e.tipo==='a'?'arr':'par'}" style="${e.tipo==='a'?'background:'+e.colore:'color:'+e.colore+';border-color:'+e.colore}">${e.tipo==='a'?'→':'←'} ${escText(calNomeCorto(e.nome))}</span>`).join('');
+    const altri=lista.length>maxEv?`<span class="gcal-more">+${lista.length-maxEv}</span>`:'';
     celle+=`<div class="gcal-day${d.getMonth()!==mese?' fuori':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')">
       <span class="num">${d.getDate()}</span>${chips}${altri}</div>`;
   }
@@ -14537,11 +14596,23 @@ function renderCalendario(){
     </div>
     <div class="gcal-dow">${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<span>${g}</span>`).join('')}</div>
     <div class="gcal-grid">${celle}</div>
-    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa. Tocca un giorno per i nomi.</div>
+    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa.<br>Tocca un giorno per i nomi, poi un nome per aprirlo.</div>
     ${calDettaglio(ev)}`;
 }
 function calSposta(n){ calMese=new Date(calMese.getFullYear(),calMese.getMonth()+n,1); calSelDay=''; renderCalendario(); }
-function calSeleziona(k){ calSelDay=(calSelDay===k?'':k); renderCalendario(); }
+function calSeleziona(k){ calSelDay=(calSelDay===k?'':k); renderCalendario(); if(calSelDay)calMostraDettaglio(); }
+// Il dettaglio del giorno sta sotto alla griglia: su telefono finiva fuori dallo schermo e
+// sembrava che toccare un giorno non facesse niente. Lo porto a vista (e lo faccio
+// lampeggiare un attimo) ogni volta che si sceglie un giorno.
+function calMostraDettaglio(ritardo){
+  const d=document.querySelector('#oggiCalendario .gcal-dett'); if(!d)return;
+  d.classList.remove('lampeggia'); void d.offsetWidth; d.classList.add('lampeggia');
+  setTimeout(()=>{
+    const r=d.getBoundingClientRect();
+    const fondo=(window.innerHeight||document.documentElement.clientHeight||0)-96;   // sopra la tabbar
+    if(r.top<8||r.bottom>fondo)d.scrollIntoView({behavior:'smooth',block:'center'});
+  },ritardo||0);
+}
 
 /* ===== statistiche (pagina Archivio) ===== */
 // una struttura può cambiare nome nel tempo (es. "Canazei" → "Alba Loft House"):
