@@ -12,7 +12,7 @@ Produzione: **https://keyflowcheckin.vercel.app** (Vercel, piano Hobby). Repo: `
 
 ## Regole di lavoro consolidate
 
-- **Si lavora e si pusha su `main`** (richiesta esplicita dell'utente); il branch `claude/airbnb-csv-parser-30dd1c` va tenuto allineato a main.
+- **Si lavora e si pusha su `main`** (richiesta esplicita dell'utente); il branch `claude/airbnb-csv-parser-30dd1c` va tenuto allineato a main. ⚠️ Se la sessione assegna d'ufficio un branch `claude/...`, il lavoro va comunque portato su `main` alla fine: è lì che Vercel pubblica.
 - **Limite critico: max 12 serverless functions** su Vercel Hobby (siamo esattamente a 12). MAI aggiungere file nuovi in `api/` che non inizino con `_` — nuove funzionalità si aggiungono come `azione` dentro endpoint esistenti. I file `api/_*.js` sono helper, non contano.
 - Prima di ogni commit: sintassi dello script inline di `index.html` verificata con `new Function(...)`, logica testata con Node (estrazione funzioni via brace-matching), grafica verificata con screenshot Chromium (`playwright-core`, browser in `/opt/pw-browsers/chromium`).
 - Commit in italiano, descrittivi.
