@@ -249,6 +249,7 @@
   <h2 id="okTitle"></h2>
   <div class="muted" id="okText"></div>
   <div id="okDownload" style="margin-top:20px"></div>
+  <div id="okAddMore" style="margin-top:26px"></div>
 </div>
 
 <div class="wrap ok-screen" id="blockWrap" style="display:none">
@@ -858,21 +859,29 @@ function t(key){ return (T[lang]||T.it)[key]; }
 // per non intervenire sui grandi oggetti T (una riga per lingua, delicati da editare).
 const T2={
   it:{ titolare_title:'Chi è il titolare della prenotazione?', titolare_spoiler:'Sul titolare scelto verrà fatta la verifica d\'identità con selfie e sarà l\'intestatario del contratto. Assicurati di scegliere la persona giusta.', titolare_hint:'Tocca il nome di chi ha effettuato la prenotazione.', titolare_for:'Verifica identità per',
-    verif_title:'Verifica dell\'identità', verif_prep:'Preparo la verifica…', verif_selfie:'Analizzo il selfie…', verif_doc:'Leggo il volto sul documento…', verif_compare:'Confronto i volti…', verif_done_bar:'Completata', verif_done_title:'Verifica terminata', verif_done_sub:'Grazie, puoi continuare.', cam_selfie_hint:'Inquadra il tuo viso nell\'ovale, ben illuminato', verif_skip:'Continua senza verifica', verif_failed:'La verifica non è riuscita su questo telefono: puoi proseguire lo stesso.' },
+    verif_title:'Verifica dell\'identità', verif_prep:'Preparo la verifica…', verif_selfie:'Analizzo il selfie…', verif_doc:'Leggo il volto sul documento…', verif_compare:'Confronto i volti…', verif_done_bar:'Completata', verif_done_title:'Verifica terminata', verif_done_sub:'Grazie, puoi continuare.', cam_selfie_hint:'Inquadra il tuo viso nell\'ovale, ben illuminato', verif_skip:'Continua senza verifica', verif_failed:'La verifica non è riuscita su questo telefono: puoi proseguire lo stesso.',
+    lettura_ko:'Non sono riuscito a leggere i documenti in queste foto.', lettura_ko_hint:'Riprova con foto nitide e ben illuminate (una per documento) oppure scrivi i dati a mano: ci vuole un minuto.', btn_manuale:'✍️ Scrivi i dati a mano', ok_add_more:'➕ Aggiungi altri ospiti', ok_add_more_hint:'Mancano delle persone? Aggiungile adesso: non serve rifare contratto e selfie.', aggiunta_banner:'Stai aggiungendo altri ospiti al check-in già inviato: carica i loro documenti, anche tutti insieme.', foto_non_leggibile:'Questa foto non si apre su questo telefono (formato non supportato): rimandala come JPG o fai uno screenshot.', date_passate:'Controlla le date del soggiorno: risultano già passate.' },
   en:{ titolare_title:'Who is the booking holder?', titolare_spoiler:'The selected holder will do the selfie identity check and will be named on the rental contract. Make sure you pick the right person.', titolare_hint:'Tap the name of the person who made the booking.', titolare_for:'Identity check for',
-    verif_title:'Identity check', verif_prep:'Preparing the check…', verif_selfie:'Analysing the selfie…', verif_doc:'Reading the face on the document…', verif_compare:'Comparing the faces…', verif_done_bar:'Done', verif_done_title:'Check complete', verif_done_sub:'Thank you, you can continue.', cam_selfie_hint:'Fit your face in the oval, well lit', verif_skip:'Continue without the check', verif_failed:'The check didn\'t work on this phone: you can carry on anyway.' },
+    verif_title:'Identity check', verif_prep:'Preparing the check…', verif_selfie:'Analysing the selfie…', verif_doc:'Reading the face on the document…', verif_compare:'Comparing the faces…', verif_done_bar:'Done', verif_done_title:'Check complete', verif_done_sub:'Thank you, you can continue.', cam_selfie_hint:'Fit your face in the oval, well lit', verif_skip:'Continue without the check', verif_failed:'The check didn\'t work on this phone: you can carry on anyway.',
+    lettura_ko:'We couldn\'t read any document in these photos.', lettura_ko_hint:'Try again with sharp, well-lit photos (one per document) or just type the details in: it only takes a minute.', btn_manuale:'✍️ Type the details in', ok_add_more:'➕ Add more guests', ok_add_more_hint:'Someone missing? Add them now: no need to sign the agreement or take the selfie again.', aggiunta_banner:'You are adding more guests to the check-in you already sent: upload their documents, all together if you like.', foto_non_leggibile:'This photo won\'t open on this phone (unsupported format): send it as JPG or take a screenshot.', date_passate:'Please check the dates of your stay: they appear to be in the past.' },
   fr:{ titolare_title:'Qui est le titulaire de la réservation ?', titolare_spoiler:'Le titulaire choisi effectuera la vérification d\'identité par selfie et figurera sur le contrat de location. Assurez-vous de choisir la bonne personne.', titolare_hint:'Touchez le nom de la personne qui a réservé.', titolare_for:'Vérification d\'identité pour',
-    verif_title:'Vérification d\'identité', verif_prep:'Préparation de la vérification…', verif_selfie:'Analyse du selfie…', verif_doc:'Lecture du visage sur le document…', verif_compare:'Comparaison des visages…', verif_done_bar:'Terminé', verif_done_title:'Vérification terminée', verif_done_sub:'Merci, vous pouvez continuer.', cam_selfie_hint:'Placez votre visage dans l\'ovale, bien éclairé', verif_skip:'Continuer sans la vérification', verif_failed:'La vérification n\'a pas fonctionné sur ce téléphone : vous pouvez continuer.' },
+    verif_title:'Vérification d\'identité', verif_prep:'Préparation de la vérification…', verif_selfie:'Analyse du selfie…', verif_doc:'Lecture du visage sur le document…', verif_compare:'Comparaison des visages…', verif_done_bar:'Terminé', verif_done_title:'Vérification terminée', verif_done_sub:'Merci, vous pouvez continuer.', cam_selfie_hint:'Placez votre visage dans l\'ovale, bien éclairé', verif_skip:'Continuer sans la vérification', verif_failed:'La vérification n\'a pas fonctionné sur ce téléphone : vous pouvez continuer.',
+    lettura_ko:'Nous n\'avons lu aucun document sur ces photos.', lettura_ko_hint:'Réessayez avec des photos nettes et bien éclairées (une par document) ou saisissez les données à la main : c\'est l\'affaire d\'une minute.', btn_manuale:'✍️ Saisir les données à la main', ok_add_more:'➕ Ajouter d\'autres voyageurs', ok_add_more_hint:'Il manque quelqu\'un ? Ajoutez-le maintenant : inutile de refaire le contrat et le selfie.', aggiunta_banner:'Vous ajoutez d\'autres voyageurs au check-in déjà envoyé : chargez leurs documents, même tous ensemble.', foto_non_leggibile:'Cette photo ne s\'ouvre pas sur ce téléphone (format non pris en charge) : renvoyez-la en JPG ou faites une capture d\'écran.', date_passate:'Vérifiez les dates de votre séjour : elles semblent déjà passées.' },
   es:{ titolare_title:'¿Quién es el titular de la reserva?', titolare_spoiler:'El titular elegido hará la verificación de identidad con selfie y figurará en el contrato de alquiler. Asegúrate de elegir a la persona correcta.', titolare_hint:'Toca el nombre de quien hizo la reserva.', titolare_for:'Verificación de identidad para',
-    verif_title:'Verificación de identidad', verif_prep:'Preparando la verificación…', verif_selfie:'Analizando el selfie…', verif_doc:'Leyendo el rostro del documento…', verif_compare:'Comparando los rostros…', verif_done_bar:'Completada', verif_done_title:'Verificación terminada', verif_done_sub:'Gracias, puedes continuar.', cam_selfie_hint:'Encaja tu cara en el óvalo, bien iluminada', verif_skip:'Continuar sin la verificación', verif_failed:'La verificación no ha funcionado en este teléfono: puedes continuar igualmente.' },
+    verif_title:'Verificación de identidad', verif_prep:'Preparando la verificación…', verif_selfie:'Analizando el selfie…', verif_doc:'Leyendo el rostro del documento…', verif_compare:'Comparando los rostros…', verif_done_bar:'Completada', verif_done_title:'Verificación terminada', verif_done_sub:'Gracias, puedes continuar.', cam_selfie_hint:'Encaja tu cara en el óvalo, bien iluminada', verif_skip:'Continuar sin la verificación', verif_failed:'La verificación no ha funcionado en este teléfono: puedes continuar igualmente.',
+    lettura_ko:'No hemos podido leer ningún documento en estas fotos.', lettura_ko_hint:'Inténtalo con fotos nítidas y bien iluminadas (una por documento) o escribe los datos a mano: es cosa de un minuto.', btn_manuale:'✍️ Escribir los datos a mano', ok_add_more:'➕ Añadir más huéspedes', ok_add_more_hint:'¿Falta alguien? Añádelo ahora: no hace falta repetir el contrato ni el selfie.', aggiunta_banner:'Estás añadiendo más huéspedes al check-in ya enviado: sube sus documentos, incluso todos juntos.', foto_non_leggibile:'Esta foto no se abre en este teléfono (formato no compatible): envíala como JPG o haz una captura de pantalla.', date_passate:'Revisa las fechas de la estancia: parecen ya pasadas.' },
   de:{ titolare_title:'Wer ist der Buchungsinhaber?', titolare_spoiler:'Der ausgewählte Inhaber macht die Selfie-Identitätsprüfung und steht im Mietvertrag. Bitte die richtige Person auswählen.', titolare_hint:'Tippen Sie auf den Namen der Person, die gebucht hat.', titolare_for:'Identitätsprüfung für',
-    verif_title:'Identitätsprüfung', verif_prep:'Prüfung wird vorbereitet…', verif_selfie:'Selfie wird analysiert…', verif_doc:'Gesicht auf dem Dokument wird gelesen…', verif_compare:'Gesichter werden verglichen…', verif_done_bar:'Fertig', verif_done_title:'Prüfung abgeschlossen', verif_done_sub:'Danke, Sie können fortfahren.', cam_selfie_hint:'Halten Sie Ihr Gesicht ins Oval, gut beleuchtet', verif_skip:'Ohne Prüfung fortfahren', verif_failed:'Die Prüfung hat auf diesem Handy nicht funktioniert: Sie können trotzdem fortfahren.' },
+    verif_title:'Identitätsprüfung', verif_prep:'Prüfung wird vorbereitet…', verif_selfie:'Selfie wird analysiert…', verif_doc:'Gesicht auf dem Dokument wird gelesen…', verif_compare:'Gesichter werden verglichen…', verif_done_bar:'Fertig', verif_done_title:'Prüfung abgeschlossen', verif_done_sub:'Danke, Sie können fortfahren.', cam_selfie_hint:'Halten Sie Ihr Gesicht ins Oval, gut beleuchtet', verif_skip:'Ohne Prüfung fortfahren', verif_failed:'Die Prüfung hat auf diesem Handy nicht funktioniert: Sie können trotzdem fortfahren.',
+    lettura_ko:'In diesen Fotos konnten wir kein Dokument lesen.', lettura_ko_hint:'Versuchen Sie es mit scharfen, gut beleuchteten Fotos (eines pro Dokument) oder geben Sie die Daten von Hand ein: das dauert nur eine Minute.', btn_manuale:'✍️ Daten von Hand eingeben', ok_add_more:'➕ Weitere Gäste hinzufügen', ok_add_more_hint:'Fehlt jemand? Jetzt hinzufügen: Vertrag und Selfie müssen nicht wiederholt werden.', aggiunta_banner:'Sie fügen dem bereits gesendeten Check-in weitere Gäste hinzu: Laden Sie ihre Dokumente hoch, gerne alle zusammen.', foto_non_leggibile:'Dieses Foto lässt sich auf diesem Handy nicht öffnen (Format nicht unterstützt): Senden Sie es als JPG oder machen Sie einen Screenshot.', date_passate:'Bitte prüfen Sie die Daten Ihres Aufenthalts: sie liegen in der Vergangenheit.' },
   ro:{ titolare_title:'Cine este titularul rezervării?', titolare_spoiler:'Titularul ales va face verificarea de identitate cu selfie și va figura în contractul de închiriere. Asigurați-vă că alegeți persoana corectă.', titolare_hint:'Atingeți numele persoanei care a făcut rezervarea.', titolare_for:'Verificare identitate pentru',
-    verif_title:'Verificarea identității', verif_prep:'Se pregătește verificarea…', verif_selfie:'Se analizează selfie-ul…', verif_doc:'Se citește chipul de pe document…', verif_compare:'Se compară chipurile…', verif_done_bar:'Gata', verif_done_title:'Verificare finalizată', verif_done_sub:'Mulțumim, puteți continua.', cam_selfie_hint:'Încadrează-ți fața în oval, bine luminată', verif_skip:'Continuă fără verificare', verif_failed:'Verificarea nu a funcționat pe acest telefon: poți continua oricum.' },
+    verif_title:'Verificarea identității', verif_prep:'Se pregătește verificarea…', verif_selfie:'Se analizează selfie-ul…', verif_doc:'Se citește chipul de pe document…', verif_compare:'Se compară chipurile…', verif_done_bar:'Gata', verif_done_title:'Verificare finalizată', verif_done_sub:'Mulțumim, puteți continua.', cam_selfie_hint:'Încadrează-ți fața în oval, bine luminată', verif_skip:'Continuă fără verificare', verif_failed:'Verificarea nu a funcționat pe acest telefon: poți continua oricum.',
+    lettura_ko:'Nu am reușit să citim niciun document în aceste fotografii.', lettura_ko_hint:'Încercați cu fotografii clare și bine luminate (una pentru fiecare document) sau scrieți datele manual: durează un minut.', btn_manuale:'✍️ Scrie datele manual', ok_add_more:'➕ Adaugă alți oaspeți', ok_add_more_hint:'Lipsește cineva? Adăugați-l acum: nu trebuie refăcute contractul și selfie-ul.', aggiunta_banner:'Adăugați alți oaspeți la check-in-ul deja trimis: încărcați documentele lor, chiar toate odată.', foto_non_leggibile:'Această fotografie nu se deschide pe acest telefon (format neacceptat): trimiteți-o ca JPG sau faceți o captură de ecran.', date_passate:'Verificați datele sejurului: par să fie deja trecute.' },
   pt:{ titolare_title:'Quem é o titular da reserva?', titolare_spoiler:'O titular escolhido fará a verificação de identidade com selfie e constará no contrato de locação. Certifique-se de escolher a pessoa certa.', titolare_hint:'Toque no nome de quem fez a reserva.', titolare_for:'Verificação de identidade para',
-    verif_title:'Verificação de identidade', verif_prep:'A preparar a verificação…', verif_selfie:'A analisar a selfie…', verif_doc:'A ler o rosto no documento…', verif_compare:'A comparar os rostos…', verif_done_bar:'Concluída', verif_done_title:'Verificação terminada', verif_done_sub:'Obrigado, pode continuar.', cam_selfie_hint:'Enquadre o seu rosto no oval, bem iluminado', verif_skip:'Continuar sem a verificação', verif_failed:'A verificação não funcionou neste telemóvel: pode continuar à mesma.' },
+    verif_title:'Verificação de identidade', verif_prep:'A preparar a verificação…', verif_selfie:'A analisar a selfie…', verif_doc:'A ler o rosto no documento…', verif_compare:'A comparar os rostos…', verif_done_bar:'Concluída', verif_done_title:'Verificação terminada', verif_done_sub:'Obrigado, pode continuar.', cam_selfie_hint:'Enquadre o seu rosto no oval, bem iluminado', verif_skip:'Continuar sem a verificação', verif_failed:'A verificação não funcionou neste telemóvel: pode continuar à mesma.',
+    lettura_ko:'Não conseguimos ler nenhum documento nestas fotos.', lettura_ko_hint:'Tente com fotos nítidas e bem iluminadas (uma por documento) ou escreva os dados à mão: demora um minuto.', btn_manuale:'✍️ Escrever os dados à mão', ok_add_more:'➕ Adicionar mais hóspedes', ok_add_more_hint:'Falta alguém? Adicione agora: não é preciso repetir o contrato nem a selfie.', aggiunta_banner:'Está a adicionar mais hóspedes ao check-in já enviado: carregue os documentos deles, mesmo todos juntos.', foto_non_leggibile:'Esta foto não abre neste telemóvel (formato não suportado): envie-a como JPG ou faça uma captura de ecrã.', date_passate:'Verifique as datas da estadia: parecem já ter passado.' },
   pl:{ titolare_title:'Kto jest osobą rezerwującą?', titolare_spoiler:'Wybrana osoba przejdzie weryfikację tożsamości selfie i zostanie wpisana w umowie najmu. Upewnij się, że wybierasz właściwą osobę.', titolare_hint:'Dotknij imienia osoby, która dokonała rezerwacji.', titolare_for:'Weryfikacja tożsamości dla',
-    verif_title:'Weryfikacja tożsamości', verif_prep:'Przygotowuję weryfikację…', verif_selfie:'Analizuję selfie…', verif_doc:'Odczytuję twarz z dokumentu…', verif_compare:'Porównuję twarze…', verif_done_bar:'Gotowe', verif_done_title:'Weryfikacja zakończona', verif_done_sub:'Dziękujemy, możesz kontynuować.', cam_selfie_hint:'Umieść twarz w owalu, dobrze oświetloną', verif_skip:'Kontynuuj bez weryfikacji', verif_failed:'Weryfikacja nie zadziałała na tym telefonie: możesz kontynuować.' },
+    verif_title:'Weryfikacja tożsamości', verif_prep:'Przygotowuję weryfikację…', verif_selfie:'Analizuję selfie…', verif_doc:'Odczytuję twarz z dokumentu…', verif_compare:'Porównuję twarze…', verif_done_bar:'Gotowe', verif_done_title:'Weryfikacja zakończona', verif_done_sub:'Dziękujemy, możesz kontynuować.', cam_selfie_hint:'Umieść twarz w owalu, dobrze oświetloną', verif_skip:'Kontynuuj bez weryfikacji', verif_failed:'Weryfikacja nie zadziałała na tym telefonie: możesz kontynuować.',
+    lettura_ko:'Nie udało się odczytać żadnego dokumentu na tych zdjęciach.', lettura_ko_hint:'Spróbuj ponownie z ostrymi, dobrze oświetlonymi zdjęciami (po jednym na dokument) albo wpisz dane ręcznie: to chwila.', btn_manuale:'✍️ Wpisz dane ręcznie', ok_add_more:'➕ Dodaj kolejnych gości', ok_add_more_hint:'Kogoś brakuje? Dodaj teraz: nie trzeba powtarzać umowy ani selfie.', aggiunta_banner:'Dodajesz kolejnych gości do już wysłanego zameldowania: wgraj ich dokumenty, może być wszystkie naraz.', foto_non_leggibile:'Tego zdjęcia nie da się otworzyć na tym telefonie (nieobsługiwany format): wyślij je jako JPG lub zrób zrzut ekranu.', date_passate:'Sprawdź daty pobytu: wygląda na to, że już minęły.' },
 };
 function t2(key){ return (T2[lang]||T2.it)[key]; }
 // bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
@@ -937,6 +946,10 @@ function applicaTraduzioniStatiche(){
   $('#trustReviewed').textContent=t('trust_reviewed');
   $('#okTitle').textContent=t('ok_title');
   $('#okText').textContent=t('ok_text');
+  // "mancano delle persone?": da qui si aggiunge il resto del gruppo senza rifare tutto
+  const add=$('#okAddMore');
+  if(add) add.innerHTML=`<div class="muted" style="margin-bottom:10px">${t2('ok_add_more_hint')}</div>
+    <button class="btn ghost" style="max-width:340px;margin:0 auto" onclick="aggiungiAltriOspitiDopo()">${t2('ok_add_more')}</button>`;
   $('#blockTitle').textContent=t('block_title');
   $('#blockText').textContent=t('block_text');
   aggiornaNotti();
@@ -966,6 +979,9 @@ let guests=[];
 let passo='date';        // 'date' | 'foto' | 'verifica' | 'altro' | 'invio'
 let gIdx=0;              // ospite su cui si sta lavorando nei passi foto/verifica
 let consensoOk=false;
+// "aggiunta": l'ospite ha già inviato il check-in e sta aggiungendo il resto del gruppo.
+// Contratto e selfie li ha già fatti il titolare col primo invio: qui non si richiedono di nuovo.
+let aggiunta=false;
 function mostraPasso(p){ passo=p; render(); window.scrollTo(0,0); }
 
 /* ===== tasto Indietro di Android/browser: naviga DENTRO il check-in invece di uscire =====
@@ -1023,10 +1039,13 @@ function campoData(idTxt, isoVal, txtVal, onIso, onTxt, minIso){
     <span class="datepick2"><span class="db"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span><input class="datepick2-input" type="date" ${minIso?`min="${minIso}"`:''} value="${isoVal||''}" onchange="${onIso}"></span>
   </div>`;
 }
-// il check-in si può fare solo il giorno di arrivo o al massimo il giorno dopo
-// (la registrazione in Questura va fatta entro 24 ore dall'arrivo): la data
-// minima consentita per l'arrivo è quindi IERI, sia da calendario sia scritta a mano.
-function dataMinimaArrivo(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-1); return d; }
+// Quando si può fare il check-in. Prima solo il giorno dell'arrivo o quello dopo: chi doveva
+// registrare un ospite arrivato più tardi (o aggiungere il resto del gruppo il giorno dopo)
+// restava fuori senza capire perché. Ora vale tutto il soggiorno in corso — l'arrivo può
+// essere fino a un mese fa — purché la partenza non sia già passata. La registrazione in
+// Questura resta comunque da fare entro 24 ore dall'arrivo: la fa l'host dal gestionale.
+function dataMinimaArrivo(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-31); return d; }
+function oggiMezzanotte(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
 function isoMinimaArrivo(){ const d=dataMinimaArrivo(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function setDateTxt(kind,txt){ if(kind==='arrivo')arrivo=txt; else partenza=txt; aggiornaNotti(); }
 
@@ -1360,6 +1379,15 @@ function wireThumbsDrop(el,onFiles){
   ['dragleave','drop'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();el.classList.remove('drag');}));
   el.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files)onFiles(e.dataTransfer.files);});
 }
+// true se il browser riesce davvero ad aprire questa immagine (i PDF li legge il server)
+function immagineApribile(dataURL){
+  const d=String(dataURL||'');
+  if(d.startsWith('data:application/pdf'))return Promise.resolve(true);
+  return new Promise(res=>{ const im=new Image();
+    im.onload=()=>res(im.naturalWidth>0&&im.naturalHeight>0);
+    im.onerror=()=>res(false);
+    im.src=d; });
+}
 async function handleImgs(id,files){
   const list=onlyImages(files);
   // file di tipo non supportato (documenti Word, zip, ecc.): dirlo subito invece di ignorarli
@@ -1368,12 +1396,21 @@ async function handleImgs(id,files){
   const g=getG(id); g.imgs=g.imgs||[];
   const haPdf=list.some(f=>f.type==='application/pdf');
   if(haPdf) toast(t('toast_pdf_convert'));
+  let scartate=0;
   for(const f of list){
     // PDF troppo pesante da aprire sul telefono (raro): meglio avvisare che bloccare il browser
     if(f.type==='application/pdf'&&f.size>25*1024*1024){ toast(t('toast_pdf_big')); continue; }
     // i PDF vengono convertiti in foto (una per pagina): da lì in poi sono immagini normali
-    for(const im of await fileAImmagini(f)) g.imgs.push(im);
+    for(const im of await fileAImmagini(f)){
+      // Formati che questo browser non sa aprire (tipicamente HEIC/HEIF di iPhone visti da
+      // Android o da un PC): non si possono né rimpicciolire né far leggere all'AI, e prima
+      // finivano in una lettura fallita senza spiegazioni. Meglio dirlo subito.
+      if(!(await immagineApribile(im))){ scartate++; continue; }
+      g.imgs.push(im);
+    }
   }
+  if(scartate) toast(t2('foto_non_leggibile'));
+  g._letturaKo=false;   // con foto nuove si riprova: via l'avviso della lettura precedente
   _descDocCache=null; // il volto del documento va ricalcolato se cambiano le foto
   render();
 }
@@ -1398,58 +1435,72 @@ function unisciOspite(dst,src){ CAMPI_AI.forEach(k=>{ if(!dst[k]&&src[k])dst[k]=
 
 async function estraiDati(id){
   const g=getG(id); if(!g.imgs.length){toast(t('toast_add_photo_first'));return;}
-  g._busy=true; render();
+  g._busy=true; g._letturaKo=false; render();
+  // Le foto possono contenere i documenti di PIÙ persone, e questo vale per OGNI ospite, non
+  // solo per il primo: chi aggiunge il resto del gruppo dopo carica i documenti tutti insieme
+  // (prima, dal secondo ospite in poi, si leggeva una persona sola e gli altri sparivano).
+  // Le leggiamo UNA ALLA VOLTA — richieste piccole e affidabili, niente timeout — mostrando
+  // l'avanzamento; poi uniamo fronte/retro dello stesso ospite.
   try{
-    if(guests.indexOf(g)===0){
-      // primo ospite: le foto possono contenere i documenti di TUTTO il gruppo.
-      // Le leggiamo UNA ALLA VOLTA (richieste piccole e affidabili, niente timeout con tanti
-      // documenti) mostrando l'avanzamento; poi uniamo fronte/retro dello stesso ospite.
-      const imgs=g.imgs.slice();
-      mostraProgresso();
-      const raccolti=[]; const perChiave={}; const imgAssegnate=new Set();
-      const norm=s=>String(s||'').trim().toUpperCase().replace(/\s+/g,' ');
-      for(let i=0;i<imgs.length;i++){
-        aggiornaProgresso(i/imgs.length*100, `${t('progress_reading_doc')} ${i+1} ${t('progress_of')} ${imgs.length}`);
-        try{
-          const j=await apiExtract([imgs[i]],'auto');
-          (j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome)).forEach(o=>{
-            const key=norm(o.cognome)+'|'+norm(o.nome);
-            if(perChiave[key]){ unisciOspite(perChiave[key],o); if(!perChiave[key]._imgs.includes(imgs[i]))perChiave[key]._imgs.push(imgs[i]); }
-            else { o._imgs=[imgs[i]]; perChiave[key]=o; raccolti.push(o); }
-            imgAssegnate.add(imgs[i]);
-          });
-        }catch(e){/* un documento illeggibile non blocca gli altri */}
-      }
-      aggiornaProgresso(100,t('progress_done'));
-      await new Promise(r=>setTimeout(r,350));
-      nascondiProgresso();
-      if(!raccolti.length){ g._busy=false; toast(t('toast_no_doc')); render(); return; }
-      // ogni ospite riconosciuto tiene la/e propria/e foto documento; così poi la verifica
-      // selfie e il contratto seguono davvero la persona giusta (il titolare della prenotazione).
-      // Le immagini non attribuite a nessuno (illeggibili) restano sul primo ospite, per non perderle.
-      const orfane=imgs.filter(im=>!imgAssegnate.has(im));
-      applicaEstratto(g,raccolti[0]);
-      // _docImg = SOLO il documento di questo ospite (per la verifica selfie). imgs = tutte le foto
-      // per l'invio, comprese le orfane (illeggibili), che però NON entrano nel confronto biometrico.
-      g._docImg=(raccolti[0]._imgs||[]).slice();
-      g.imgs=[...(raccolti[0]._imgs||[]), ...orfane];
-      guests=guests.filter((x,i)=>i===0||x.cognome||x.nome||(x.imgs||[]).length);
-      for(let k=1;k<raccolti.length;k++){ const ng=nuovoOspite(); applicaEstratto(ng,raccolti[k]); ng._docImg=(raccolti[k]._imgs||[]).slice(); ng.imgs=(raccolti[k]._imgs||[]).slice(); guests.push(ng); }
-      _descDocCache=null;
-      g._busy=false;
-      toast(raccolti.length>1 ? raccolti.length+' '+t('toast_multi_read') : t('toast_data_read'));
-      gIdx=0; mostraPasso('verifica');
-      return;
+    const imgs=g.imgs.slice();
+    mostraProgresso();
+    const raccolti=[]; const perChiave={}; const imgAssegnate=new Set();
+    let errori=0, ultimoErrore=null;
+    const norm=s=>String(s||'').trim().toUpperCase().replace(/\s+/g,' ');
+    for(let i=0;i<imgs.length;i++){
+      aggiornaProgresso(i/imgs.length*100, `${t('progress_reading_doc')} ${i+1} ${t('progress_of')} ${imgs.length}`);
+      try{
+        const j=await apiExtract([imgs[i]],'auto');
+        (j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome)).forEach(o=>{
+          const key=norm(o.cognome)+'|'+norm(o.nome);
+          if(perChiave[key]){ unisciOspite(perChiave[key],o); if(!perChiave[key]._imgs.includes(imgs[i]))perChiave[key]._imgs.push(imgs[i]); }
+          else { o._imgs=[imgs[i]]; perChiave[key]=o; raccolti.push(o); }
+          imgAssegnate.add(imgs[i]);
+        });
+      }catch(e){ errori++; ultimoErrore=e; }   // un documento illeggibile non blocca gli altri
     }
-    const j=await apiExtract(g.imgs,'documento');
-    applicaEstratto(g,j);
-    g._docImg=(g.imgs||[]).slice();   // documento di questo ospite (per la verifica selfie)
+    aggiornaProgresso(100,t('progress_done'));
+    await new Promise(r=>setTimeout(r,350));
+    nascondiProgresso();
     g._busy=false;
-    toast(t('toast_data_read'));
-    mostraPasso('verifica');
-    return;
-  }catch(e){ nascondiProgresso(); toast(e&&e._fotoGrandi ? t('errore_foto_grandi') : t('toast_extract_failed')+e.message); }
-  g._busy=false; render();
+    if(!raccolti.length){
+      // Niente riconosciuto. Se TUTTE le letture sono andate in errore il problema non è il
+      // documento (foto troppo pesanti, connessione caduta): diciamo quello, invece del
+      // generico "nessun documento riconosciuto" che lasciava l'ospite senza via d'uscita.
+      // In ogni caso nel passo foto compare il pulsante per scrivere i dati a mano.
+      g._letturaKo=true;
+      if(errori===imgs.length&&ultimoErrore) toast(ultimoErrore._fotoGrandi?t('errore_foto_grandi'):t('toast_extract_failed')+(ultimoErrore.message||''));
+      else toast(t('toast_no_doc'));
+      render(); return;
+    }
+    // ogni ospite riconosciuto tiene la/e propria/e foto documento; così la verifica selfie e il
+    // contratto seguono davvero la persona giusta (il titolare della prenotazione). Le immagini
+    // non attribuite a nessuno (illeggibili) restano su questo ospite, per non perderle.
+    const orfane=imgs.filter(im=>!imgAssegnate.has(im));
+    applicaEstratto(g,raccolti[0]);
+    // _docImg = SOLO il documento di questo ospite (per la verifica selfie). imgs = tutte le foto
+    // per l'invio, comprese le orfane (illeggibili), che però NON entrano nel confronto biometrico.
+    g._docImg=(raccolti[0]._imgs||[]).slice();
+    g.imgs=[...(raccolti[0]._imgs||[]), ...orfane];
+    const nuovi=[];
+    for(let k=1;k<raccolti.length;k++){
+      const ng=nuovoOspite(); applicaEstratto(ng,raccolti[k]);
+      ng._docImg=(raccolti[k]._imgs||[]).slice(); ng.imgs=(raccolti[k]._imgs||[]).slice();
+      nuovi.push(ng);
+    }
+    // via gli ospiti rimasti vuoti, tranne quello su cui stiamo lavorando
+    guests=guests.filter(x=>x===g||x.cognome||x.nome||(x.imgs||[]).length);
+    // gli altri riconosciuti entrano SUBITO DOPO questo ospite, così il controllo a catena
+    // in confermaDati() li passa in rassegna uno dopo l'altro
+    if(nuovi.length) guests.splice(guests.indexOf(g)+1,0,...nuovi);
+    _descDocCache=null;
+    toast(raccolti.length>1 ? raccolti.length+' '+t('toast_multi_read') : t('toast_data_read'));
+    gIdx=guests.indexOf(g); mostraPasso('verifica');
+  }catch(e){
+    nascondiProgresso(); g._busy=false; g._letturaKo=true;
+    toast(e&&e._fotoGrandi ? t('errore_foto_grandi') : t('toast_extract_failed')+(e&&e.message||e));
+    render();
+  }
 }
 
 function warnBadge(g,k){
@@ -1473,8 +1524,9 @@ function render(){
   const selEnd=active&&typeof active.selectionEnd==='number'?active.selectionEnd:null;
   const scrollY=window.scrollY;
 
-  const labels=[t('prog_date'),t('prog_doc'),t('prog_check'),t('prog_selfie'),t('prog_send')];
-  const cur=stepIndex();
+  const labels=aggiunta?[t('prog_doc'),t('prog_check'),t('prog_send')]
+                      :[t('prog_date'),t('prog_doc'),t('prog_check'),t('prog_selfie'),t('prog_send')];
+  const cur=aggiunta?(passo==='foto'?0:(passo==='verifica'||passo==='altro')?1:2):stepIndex();
   $('#stepsBar').innerHTML=labels.map((l,i)=>
     `<div class="step-item ${i===cur?'active':''} ${i<cur?'done':''}"><div class="dot">${i<cur?'✓':i+1}</div>${l}</div>`).join('');
 
@@ -1514,7 +1566,7 @@ function renderDate(root){
 function avantiDate(){
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo)){toast(t('toast_indica_arrivo'));return;}
   if(!/^\d{2}\/\d{2}\/\d{4}$/.test(partenza)){toast(t('toast_indica_partenza'));return;}
-  if(italianToDate(arrivo)<dataMinimaArrivo()){toast(t('arrivo_min_error'));return;}
+  if(italianToDate(arrivo)<dataMinimaArrivo()||italianToDate(partenza)<oggiMezzanotte()){toast(t2('date_passate'));return;}
   if(!(notti>0)){toast(t('notti_error'));return;}
   if(!guests.length)guests.push(nuovoOspite());
   gIdx=0; mostraPasso('foto');
@@ -1529,14 +1581,17 @@ function renderFoto(root){
     <div class="card">
       ${primo?'':`<div class="gname" style="font-size:16px">👤 ${t('guest_default_name')} ${gIdx+1}</div>`}
       <div class="steplbl" ${primo?'':'style="margin-top:10px"'}>${primo?t('step1_label_first'):t('step1_label')}</div>
-      ${primo?`<div class="hint">${t('first_multi_hint')}</div>`:''}
+      <div class="hint">${(aggiunta&&primo)?t2('aggiunta_banner'):t('first_multi_hint')}</div>
       ${primo&&inAppBrowserAndroid()?`<div class="hint">${t('inapp_hint')}</div>`:''}
+      ${g._letturaKo?`<div class="warn-box">⚠️ ${t2('lettura_ko')}<br><span style="font-weight:600">${t2('lettura_ko_hint')}</span></div>`:''}
       <div class="thumbs" id="gimg-${g.id}"></div>
       <div id="dz-${g.id}"></div>
-      <button class="btn accent big" style="margin-top:14px" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> '+t('btn_extract_loading'):(primo?t('btn_extract_all'):t('btn_extract'))}</button>
-      ${haFoto&&!g._busy?`<div style="text-align:center; margin-top:12px"><a href="#" class="muted" style="text-decoration:underline" onclick="mostraPasso('verifica');return false">${t('manual_link')}</a></div>`:''}
+      <button class="btn accent big" style="margin-top:14px" onclick="estraiDati('${g.id}')" ${(!haFoto||g._busy)?'disabled':''}>${g._busy?'<span class="spin"></span> '+t('btn_extract_loading'):t('btn_extract_all')}</button>
+      ${g._letturaKo&&!g._busy
+        ?`<button class="btn ghost big" style="margin-top:10px" onclick="mostraPasso('verifica')">${t2('btn_manuale')}</button>`
+        :(haFoto&&!g._busy?`<div style="text-align:center; margin-top:12px"><a href="#" class="muted" style="text-decoration:underline" onclick="mostraPasso('verifica');return false">${t('manual_link')}</a></div>`:'')}
     </div>
-    <button class="btn ghost" onclick="indietroDaFoto()">${t('btn_back')}</button>`;
+    ${(aggiunta&&gIdx===0)?'':`<button class="btn ghost" onclick="indietroDaFoto()">${t('btn_back')}</button>`}`;
   const gi=root.querySelector('#gimg-'+g.id);
   (g.imgs||[]).forEach((im,i)=>gi.appendChild(thumb(im,()=>{g.imgs.splice(i,1);render();})));
   const dzHost=root.querySelector('#dz-'+g.id);
@@ -1608,8 +1663,25 @@ function renderAltro(root){
     </div>`;
 }
 function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1; mostraPasso('foto'); }
+/* Dopo l'invio: "Aggiungi altri ospiti". Prima l'ospite che aveva finito il check-in non
+   poteva più aggiungere nessuno (doveva riaprire il link e rifare tutto, contratto e selfie
+   compresi, e spesso non ci riusciva). Qui si riapre il modulo tenendo le date, si caricano
+   solo i documenti mancanti e si invia: l'host riceve una seconda scheda collegata alla
+   stessa prenotazione, segnata come aggiunta. */
+function aggiungiAltriOspitiDopo(){
+  aggiunta=true;
+  guests=[nuovoOspite()]; gIdx=0;
+  deVisu={selfie:null, esito:'', distanza:null, tentativi:0, ts:0};
+  firmaDataUrl=null; firmaTracciata=false; contrattoLetto=false; consensoOk=false;
+  contrattoPdfBase64=null; emailOspiteVal=''; _descDocCache=null;
+  mostraSolo('formWrap');
+  mostraPasso('foto');
+}
 // con più ospiti chiedo chi è il titolare; con uno solo si salta e si va al selfie
-function avantiAltro(){ mostraPasso(guests.filter(g=>g.cognome||g.nome).length>1?'titolare':'selfie'); }
+function avantiAltro(){
+  if(aggiunta){ mostraPasso('invio'); return; }   // titolare, contratto e selfie già fatti col primo invio
+  mostraPasso(guests.filter(g=>g.cognome||g.nome).length>1?'titolare':'selfie');
+}
 
 /* ---- passo 3c: chi è il titolare della prenotazione? (solo con più ospiti) ----
    Il titolare scelto viene portato in prima posizione: contratto, capogruppo delle
@@ -1760,7 +1832,7 @@ function cancellaFirma(){
   firmaTracciata=false; firmaDataUrl=null;
 }
 function renderInvio(root){
-  const contrattoHtml = contrattoCfg ? (()=>{
+  const contrattoHtml = (contrattoCfg&&!aggiunta) ? (()=>{
     const d=datiContratto();
     const testo=paragrafoContratto(contrattoCfg,d,lang);
     return `
@@ -1800,14 +1872,23 @@ function renderInvio(root){
       <button class="btn primary big" id="submitBtn" style="margin-top:14px" onclick="inviaCheckin()">${t('btn_submit')}</button>
       <div class="muted" id="submitStatus" style="margin-top:8px"></div>
     </div>
-    <button class="btn ghost" onclick="mostraPasso('selfie')">${t('btn_back')}</button>`;
-  if(contrattoCfg){ firmaTracciata=false; firmaDataUrl=null; wireFirmaCanvas(); }
+    <button class="btn ghost" onclick="mostraPasso('${aggiunta?'altro':'selfie'}')">${t('btn_back')}</button>`;
+  if(contrattoCfg&&!aggiunta){ firmaTracciata=false; firmaDataUrl=null; wireFirmaCanvas(); }
 }
 function rimuoviOspite(i){
   guests.splice(i,1);
   if(gIdx>=guests.length)gIdx=Math.max(0,guests.length-1);
   render();
 }
+
+// Ricaricare o chiudere la pagina a metà check-in cancella tutto (foto e dati non sono
+// ancora sul server): chiediamo conferma, è successo davvero a un'ospite.
+window.addEventListener('beforeunload',e=>{
+  const form=document.getElementById('formWrap');
+  if(!form||form.style.display==='none')return;                 // non ha ancora iniziato, o ha già finito
+  if(!guests.some(g=>(g.imgs||[]).length||g.cognome||g.nome))return;
+  e.preventDefault(); e.returnValue='';
+});
 
 // incolla (Ctrl+V): vale solo nel passo foto, sull'ospite corrente
 document.addEventListener('paste',e=>{
@@ -1847,18 +1928,21 @@ async function inviaCheckin(){
   if(!validi.length){toast(t('toast_add_guest'));return;}
   // se il tratto c'è ma il salvataggio automatico non è avvenuto (gesto interrotto,
   // browser particolare), recuperiamo la firma direttamente dal riquadro adesso
-  if(contrattoCfg&&!firmaDataUrl&&firmaTracciata){
+  // con "aggiungi altri ospiti" il contratto è già firmato e il selfie già fatto dal titolare
+  // nel primo invio: non li chiediamo una seconda volta
+  const serveContratto=contrattoCfg&&!aggiunta;
+  if(serveContratto&&!firmaDataUrl&&firmaTracciata){
     const cvF=$('#firmaCanvas');
     if(cvF){ try{ firmaDataUrl=cvF.toDataURL('image/png'); }catch(e){/* niente: resta il messaggio di firma richiesta */} }
   }
-  if(contrattoCfg&&!contrattoLetto){
+  if(serveContratto&&!contrattoLetto){
     toast(t('contratto_leggi_required'));
     const b=$('#contrattoApriBtn'); if(b)b.scrollIntoView({behavior:'smooth',block:'center'});
     return;
   }
-  if(contrattoCfg&&!firmaDataUrl){toast(t('toast_sig_required'));return;}
+  if(serveContratto&&!firmaDataUrl){toast(t('toast_sig_required'));return;}
   // selfie del capogruppo richiesto (la verifica può anche non essere riuscita: fa fede la foto)
-  if(!deVisu.selfie){ toast(t('devisu_required')); mostraPasso('selfie'); return; }
+  if(!aggiunta&&!deVisu.selfie){ toast(t('devisu_required')); mostraPasso('selfie'); return; }
   if(!consensoOk){toast(t('toast_accept_privacy'));return;}
 
   const btn=$('#submitBtn'); btn.disabled=true;
@@ -1885,11 +1969,11 @@ async function inviaCheckin(){
       throw new Error('caricamento foto: '+(e&&e.message||e));
     }
 
-    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, lang, ospiti: validi.map((g,i)=>({
+    const payload={codice, struttura:strutturaId, arrivo, partenza, notti, lang, aggiunta, ospiti: validi.map((g,i)=>({
       cognome:g.cognome,nome:g.nome,sesso:g.sesso,dataNascita:g.dataNascita,comuneNascita:g.comuneNascita,
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
       incertezze:(g._warn||[]), immagini:urlsPerOspite[i]
-    })), firma:(contrattoCfg?firmaDataUrl:undefined), emailOspite:(contrattoCfg?(emailOspiteVal||'').trim():undefined),
+    })), firma:(serveContratto?firmaDataUrl:undefined), emailOspite:(serveContratto?(emailOspiteVal||'').trim():undefined),
     deVisu: selfieUrl?{esito:deVisu.esito||'non_disponibile', distanza:deVisu.distanza, tentativi:deVisu.tentativi, ts:deVisu.ts, selfieUrl}:undefined};
 
     let r;
@@ -1911,6 +1995,7 @@ async function inviaCheckin(){
     // da qui in poi il check-in è GIA' SALVATO sul server: qualunque problema nel resto
     // (nome file, pulsante download) non deve più far sembrare fallito l'invio.
     mostraSolo('okWrap');
+    aggiunta=false;   // eventuali altri ospiti ripartono da una nuova aggiunta pulita
     try{
       contrattoPdfBase64=data.contrattoPdfBase64||null;
       contrattoNomeFile=nomeFileContratto();

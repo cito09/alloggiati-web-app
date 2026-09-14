@@ -13245,6 +13245,7 @@ function renderCheckinPending(soloLista){
         const nomi=nomeVoce(v)||'(senza nome)';
         const doppio=conteggiDoppioni[checkinChiaveDoppione(v)]>1;
         const icone=[
+          v.aggiunta?'➕':'',      // ospiti aggiunti dopo un check-in già inviato
           v.presa?'🕓':'',
           v.contrattoRichiesto?(v.contrattoInviato?'📝':'📝⚠️'):'',
           v.deVisu?(v.deVisu.esito==='verificata'?'🪪':v.deVisu.esito==='non_corrispondente'?'🪪⚠️':'🪪'):'',
@@ -13276,6 +13277,7 @@ function apriDettaglioCheckin(id){
       <div style="font-weight:800;font-size:15.5px;display:flex;align-items:center;gap:8px">${info.emoji} ${escText(v.strutturaNome||'struttura da verificare')}</div>
       <div class="storico-head" style="margin-top:10px"><span>check-in ${escText(quando)}</span></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        ${v.aggiunta?'<span class="pill wait">➕ ospiti aggiunti dopo il primo check-in</span>':''}
         ${v.presa?'<span class="pill wait">🕓 in prenotazione, da inviare</span>':''}
         ${v.contrattoRichiesto?(v.contrattoInviato?'<span class="pill ok">📝 contratto inviato</span>':'<span class="pill err">📝 contratto non inviato</span>'):''}
         ${v.deVisu?(v.deVisu.esito==='verificata'?'<span class="pill ok">🪪 identità verificata</span>':v.deVisu.esito==='non_corrispondente'?'<span class="pill err">🪪 selfie da ricontrollare</span>':'<span class="pill wait">🪪 selfie allegato</span>'):''}

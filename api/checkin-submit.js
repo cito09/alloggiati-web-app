@@ -114,7 +114,7 @@ module.exports = async (req, res) => {
   if (!process.env.BLOB_READ_WRITE_TOKEN && !HA_STORE_PRIVATO) return res.status(500).json({ error: "Archivio foto non configurato (Vercel Blob)" });
 
   try {
-    const { arrivo, partenza, notti, struttura, lang = "it", ospiti = [] } = req.body || {};
+    const { arrivo, partenza, notti, struttura, lang = "it", ospiti = [], aggiunta = false } = req.body || {};
     const validi = ospiti.filter((o) => o && (o.cognome || o.nome));
     if (!validi.length) return res.status(400).json({ error: "Nessun ospite compilato" });
 
@@ -173,7 +173,11 @@ module.exports = async (req, res) => {
     // contratto di locazione turistica: solo se la struttura ha una config (CONTRATTI_STRUTTURE)
     // e l'ospite ha effettivamente firmato. Il PDF viene generato, mandato via email e
     // salvato su Blob insieme alle foto, così resta consultabile nell'archivio della prenotazione.
-    const cfgContratto = getContrattoStruttura(struttura);
+    // "aggiunta": ospiti aggiunti DOPO un check-in già inviato (stessa prenotazione). Il
+    // contratto l'ha già firmato il titolare e la verifica selfie è già stata fatta col primo
+    // invio: non si richiedono di nuovo, altrimenti all'host arriverebbe un falso allarme
+    // "contratto non firmato".
+    const cfgContratto = aggiunta ? null : getContrattoStruttura(struttura);
     const firma = (req.body || {}).firma;
     const emailOspite = String((req.body || {}).emailOspite || "").trim();
     let contrattoInviato = false;
@@ -260,6 +264,7 @@ module.exports = async (req, res) => {
       contrattoErrore,
       contrattoUrl,
       deVisu: deVisuSalvata,
+      aggiunta: aggiunta ? true : undefined,
       uploadErrori: uploadErrori.length ? uploadErrori.slice(0, 10) : undefined,
     };
 
@@ -279,7 +284,10 @@ module.exports = async (req, res) => {
     }
 
     const nomi = ospitiSalvati.map((o) => [o.cognome, o.nome].filter(Boolean).join(" ")).filter(Boolean).join(", ");
-    await notificaHost(`${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ha completato il check-in`);
+    const cosaHaFatto = aggiunta ? "· aggiunti a un check-in già fatto" : "ha completato il check-in";
+    await notificaHost(
+      `${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ${cosaHaFatto}`
+    );
 
     return res.status(200).json({ ok: true, contrattoPdfBase64 });
   } catch (e) {
