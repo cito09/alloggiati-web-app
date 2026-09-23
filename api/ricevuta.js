@@ -1,5 +1,6 @@
 // api/ricevuta.js — scarica la ricevuta PDF (base64) più recente disponibile
 // POST { data?: 'YYYY-MM-DD' (se omessa cerca a ritroso da oggi, come fa il portale), struttura?: id }
+// POST { dopoInvio: true, struttura } — chiamata da sola subito dopo un invio: vedi più sotto.
 // POST { azione:'driveGet' } / { azione:'driveSet', url, secret, cartella } — configura il
 //   salvataggio automatico su Google Drive (tramite Apps Script dell'utente, vedi Impostazioni).
 const { generateToken, ricevuta, getStruttura, dataItalia } = require("./_alloggiati");
@@ -41,16 +42,20 @@ async function leggiRicevute() {
 // giorno (ora italiana, YYYY-MM-DD) dell'ultimo invio ufficiale registrato nell'Archivio
 // per questa struttura: il portale emette la ricevuta solo per i giorni con un invio,
 // quindi se l'ultimo invio è più vecchio di una settimana è QUESTO il giorno da chiedere.
-async function giornoUltimoInvio(nomeStruttura) {
+// primaDi (YYYY-MM-DD, facoltativo): considera solo gli invii di giorni PRECEDENTI a quello
+// (dopo un invio, l'ultimo invio in Archivio è proprio quello appena fatto: va saltato).
+async function giornoUltimoInvio(nomeStruttura, primaDi) {
   const conn = upstash();
   if (!conn) return null;
   try {
     const raw = await redisCmd(conn, ["GET", KEY_STORICO]);
     const storico = raw ? JSON.parse(raw) : [];
+    const giornoDi = (ts) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ts));
     // le voci sono in ordine dal più recente: la prima 'inviata' della struttura è l'ultimo invio
-    const voce = storico.find((v) => v && v.tipo === "inviata" && v.ts && (!nomeStruttura || v.struttura === nomeStruttura));
+    const voce = storico.find((v) => v && v.tipo === "inviata" && v.ts && (!nomeStruttura || v.struttura === nomeStruttura)
+      && (!primaDi || giornoDi(v.ts) < primaDi));
     if (!voce) return null;
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(voce.ts));
+    return giornoDi(voce.ts);
   } catch { return null; }
 }
 
@@ -91,7 +96,7 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
   try {
-    const { data, struttura, azione, url, secret, cartelle } = req.body || {};
+    const { data, struttura, azione, url, secret, cartelle, dopoInvio } = req.body || {};
 
     // --- elenco delle ricevute già scaricate/salvate (per il riepilogo "l'ho fatta?") ---
     if (azione === "ricevuteFatte") {
@@ -132,11 +137,16 @@ module.exports = async (req, res) => {
     if (giorno) {
       ({ pdfBase64 } = await ricevuta({ utente: s.utente, token, data: giorno }));
     } else {
-      // nessuna data indicata: come fa il portale, propone l'ultima disponibile.
-      // prova oggi (ora italiana) e risale fino a una settimana indietro.
+      // nessuna data indicata: come fa il portale ("ultima ricevuta"), propone l'ultima
+      // disponibile, risalendo fino a una settimana indietro.
+      // dopoInvio: il portale genera la ricevuta di un giorno solo il giorno DOPO, quindi
+      // appena fatto un invio quella di oggi non c'è ancora — e se ce ne fosse una parziale
+      // non andrebbe salvata, sarebbe incompleta. Si parte da IERI: è la ricevuta dell'invio
+      // precedente. Quella di oggi verrà salvata al prossimo invio.
+      const primo = dopoInvio ? 1 : 0;
       let ultimoErrore;
       const giaProvati = [];
-      for (let giorniIndietro = 0; giorniIndietro < 7; giorniIndietro++) {
+      for (let giorniIndietro = primo; giorniIndietro < primo + 7; giorniIndietro++) {
         const g = dataItalia(giorniIndietro);
         giaProvati.push(g);
         try {
@@ -146,14 +156,30 @@ module.exports = async (req, res) => {
       }
       if (!pdfBase64) {
         // ultima spiaggia: il giorno dell'ultimo invio registrato in Archivio (può essere
-        // anche molto più vecchio di 7 giorni — es. ricevuta dimenticata da settimane)
-        const g = await giornoUltimoInvio(s.nome);
+        // anche molto più vecchio di 7 giorni — es. ricevuta dimenticata da settimane).
+        // Dopo un invio si salta quello appena fatto (è di oggi).
+        const g = await giornoUltimoInvio(s.nome, dopoInvio ? dataItalia(0) : null);
         if (g && !giaProvati.includes(g)) {
           try { ({ pdfBase64 } = await ricevuta({ utente: s.utente, token, data: g })); giorno = g; }
           catch (e) { ultimoErrore = e; }
         }
       }
-      if (!pdfBase64) throw new Error(`Nessuna ricevuta trovata: il portale la emette solo per i giorni in cui hai fatto un invio. Ho provato gli ultimi 7 giorni e il giorno dell'ultimo invio in Archivio. Se conosci il giorno dell'invio, indicalo nel campo data. (${ultimoErrore && ultimoErrore.message})`);
+      if (!pdfBase64) {
+        // dopo un invio non è un errore: semplicemente non c'è una ricevuta precedente (es. primo invio)
+        if (dopoInvio) return res.status(200).json({ nessuna: true });
+        throw new Error(`Nessuna ricevuta trovata: il portale la emette solo per i giorni in cui hai fatto un invio. Ho provato gli ultimi 7 giorni e il giorno dell'ultimo invio in Archivio. Se conosci il giorno dell'invio, indicalo nel campo data. (${ultimoErrore && ultimoErrore.message})`);
+      }
+    }
+
+    // dopo un invio: se l'ultima ricevuta è GIÀ stata salvata (es. secondo invio nello stesso
+    // giorno, o scaricata a mano) non la si salva di nuovo, altrimenti su Drive si
+    // accumulano copie identiche. Una ricevuta, una volta generata, non cambia più.
+    if (dopoInvio) {
+      const cfgD = await leggiConfigDrive();
+      const conDrive = !!(cfgD && cfgD.url);
+      const gia = (await leggiRicevute()).find((v) => v && v.giorno === giorno && v.strutturaId === (s.id || "")
+        && (conDrive ? v.modo === "drive" : true));   // con Drive attivo conta solo se è davvero su Drive
+      if (gia) return res.status(200).json({ data: giorno, giaFatta: true, registrata: gia });
     }
 
     // salvataggio automatico su Drive, se configurato (non blocca mai il download)

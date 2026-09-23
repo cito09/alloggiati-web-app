@@ -12636,7 +12636,11 @@ function renderStorico(){
     // recenti (sulle voci vecchie non lo sappiamo, non ha senso allarmare)
     const ric=ricevutaDiVoce(e);
     const recente=(Date.now()-e.ts)<8*24*3600*1000;
+    // la ricevuta di un giorno il portale la genera il giorno dopo: per gli invii di oggi
+    // non c'è niente da fare adesso (si salverà da sola al prossimo invio)
+    const diOggi=e.tipo==='inviata'&&giornoItalia(e.ts)===oggiItalia();
     const pillRic=ric?` <span class="pill ok" title="${escText(etichettaRicevuta(ric))}">🧾 ${ric.modo==='drive'?'su Drive':'scaricata'}</span>`
+      :diOggi?' <span class="pill wait" title="Il portale Alloggiati Web prepara la ricevuta di oggi domani: si salverà da sola al prossimo invio">🧾 ricevuta pronta da domani</span>'
       :((e.tipo==='inviata'&&recente)?' <span class="pill wait">🧾 ricevuta da fare</span>':'');
     const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>':'')+pillRic;
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
@@ -13001,7 +13005,7 @@ function aggiornaElencoInvio(nValide){
       ${d?`<div class="azione"><button class="btn ghost sm" onclick="anteprimaIstatOra()">👁 Vedi il modulo prima di inviare</button></div>`:''}</span></div>`);
   }
   righe.push(`<div class="invio-riga"><span class="ck">${nValide?'✅':'⬜'}</span><span><b>Ricevuta PDF della Questura</b>
-      <span class="det">si salva da sola subito dopo l'invio, non serve altro tocco</span></span></div>`);
+      <span class="det">si salva da sola l'ultima disponibile, quella dell'invio precedente (la ricevuta di oggi il portale la prepara domani)</span></span></div>`);
   w.innerHTML=righe.join('');
   // etichette dei pulsanti coerenti con quello che fanno davvero
   const conIstat=typeof istatAttivo==='function'&&istatAttivo();
@@ -13622,12 +13626,10 @@ async function invia(){apriCard('invioCard');
     +(conIstat?`\n• Modulo ISTAT via email a ${(istatConfig&&istatConfig.email)||'ufficio del turismo'}`
         +(dIstat?`: ${dIstat.persone} person${dIstat.persone===1?'a':'e'}, ${dIstat.residenza}, ${dIstat.arrivo}${dIstat.partenza?' → '+dIstat.partenza:''}`:'')
       :'')
-    +'\n• Ricevuta PDF della Questura: salvata in automatico subito dopo'
+    +"\n• Ricevuta PDF: salvata in automatico l'ultima disponibile (quella dell'invio precedente)"
     +`\n\nL'operazione è irreversibile. Procedere?`))return;
-  // struttura e giorno dell'invio fissati ADESSO: la ricevuta va chiesta per questi, anche se
-  // nel frattempo si cambia struttura o si passa la mezzanotte mentre si aspetta il portale
+  // struttura fissata ADESSO: la ricevuta va chiesta per questa anche se nel frattempo la si cambia
   const strutturaInviata=currentStruttura();
-  const giornoInvio=oggiItalia();
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
     const errs=data.righe.filter(x=>!x.ok);
@@ -13640,7 +13642,7 @@ async function invia(){apriCard('invioCard');
                          : {stato:'na', det:'non previsto per questa struttura'},
       istat: istatAttivo() ? {stato:'corso', det:'preparo il modulo e lo mando via email…'}
                            : {stato:'na', det:'non previsto per questa struttura'},
-      ricevuta: data.valide ? {stato:'corso', det:'la salvo da sola fra qualche secondo…'}
+      ricevuta: data.valide ? {stato:'corso', det:'salvo l\'ultima ricevuta disponibile (quella dell\'invio precedente)…'}
                             : {stato:'na', det:'nessuna schedina inviata'},
       errori: errs.length?righeErrore(data):[],
     };
@@ -13659,30 +13661,29 @@ async function invia(){apriCard('invioCard');
     if(istatAttivo()) inviaIstat(recordsInviati); // per Canazei: modulo ISTAT via email all'ufficio del turismo
     // la ricevuta PDF si salva da sola (Drive o telefono): prima serviva un secondo tocco su
     // "Scarica ricevuta PDF" e ce se ne dimenticava. Non blocca Ross1000 e ISTAT.
-    if(data.valide) salvaRicevutaDopoInvio(strutturaInviata,giornoInvio);
+    if(data.valide) salvaRicevutaDopoInvio(strutturaInviata);
   }
 }
-// giorno di oggi in Italia (YYYY-MM-DD): la ricevuta della Questura è per giorno di invio
-function oggiItalia(){
-  return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Rome',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+// giorno in Italia (YYYY-MM-DD) di un istante / di oggi: la ricevuta della Questura è per giorno di invio
+function giornoItalia(ts){
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Rome',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(ts));
 }
+function oggiItalia(){ return giornoItalia(Date.now()); }
 // pulsante per rifare a mano il salvataggio della ricevuta (se quello automatico non riesce)
-function bottoneRicevuta(strutturaId,giorno,testo){
+function bottoneRicevuta(strutturaId,opz,testo){
   const sid=strutturaId?`'${strutturaId}'`:'undefined';
-  const opz=giorno?`{giorno:'${giorno}'}`:'undefined';
-  return `<div class="azione"><button class="btn ghost sm" onclick="scaricaRicevuta(${sid},${opz})">🧾 ${testo}</button></div>`;
+  const o={}; if(opz&&opz.giorno)o.giorno=opz.giorno; if(opz&&opz.dopoInvio)o.dopoInvio=true;
+  return `<div class="azione"><button class="btn ghost sm" onclick="scaricaRicevuta(${sid},${JSON.stringify(o).replace(/"/g,'&quot;')})">🧾 ${testo}</button></div>`;
 }
-/* Ricevuta subito dopo l'invio, senza toccare niente. Si chiede esplicitamente quella del
-   GIORNO DELL'INVIO: senza data il server risale ai giorni precedenti e, se il portale non
-   ha ancora registrato l'invio di adesso, avrebbe salvato la ricevuta di un altro giorno
-   spacciandola per questa. Il portale può metterci qualche secondo: si aspetta un attimo e
-   si riprova un paio di volte prima di arrendersi (e allora resta il pulsante per riprovare). */
-async function salvaRicevutaDopoInvio(strutturaId,giorno){
-  const attese=[4000,8000,15000];   // ~27 secondi in tutto
-  for(let i=0;i<attese.length;i++){
-    if(i) segnaPasso('ricevuta','corso',`il portale non l'ha ancora pronta, riprovo… (${i+1}/${attese.length})`);
-    await new Promise(r=>setTimeout(r,attese[i]));
-    const ok=await scaricaRicevuta(strutturaId,{giorno, auto:true, ultimoTentativo:i===attese.length-1});
+/* Ricevuta subito dopo l'invio, senza toccare niente. Il portale genera la ricevuta di un
+   giorno solo il giorno DOPO: appena inviato, quella di oggi non c'è ancora. Si salva quindi
+   l'"ultima ricevuta" (come la chiama il portale), cioè quella dell'invio precedente; quella
+   di oggi verrà salvata al prossimo invio. Se è già stata salvata non la si rifà (niente
+   doppioni su Drive). Un secondo tentativo solo se qualcosa va storto (rete, portale). */
+async function salvaRicevutaDopoInvio(strutturaId){
+  for(let t=0;t<2;t++){
+    if(t) await new Promise(r=>setTimeout(r,5000));
+    const ok=await scaricaRicevuta(strutturaId,{dopoInvio:true, auto:true, ultimoTentativo:t===1});
     if(ok)return true;
   }
   return false;
@@ -13731,19 +13732,32 @@ function renderRicevuteFatte(){
         <span class="sub">${escText(new Date(v.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'}))}</span></span>
     </div>`).join('')}`;
 }
-// Dopo un invio parte da sola (salvaRicevutaDopoInvio) col giorno dell'invio; dalle Impostazioni
-// si chiama con strutturaId + l'eventuale giorno scelto nel campo data.
+// Dopo un invio parte da sola (salvaRicevutaDopoInvio, opz.dopoInvio: l'ultima ricevuta
+// disponibile prima di oggi, se non è già stata salvata); dalle Impostazioni si chiama con
+// strutturaId + l'eventuale giorno scelto nel campo data.
 // opz.giorno = giorno preciso da chiedere (YYYY-MM-DD); opz.auto = chiamata da sola dopo
 // l'invio (niente avvisi finché ci sono altri tentativi). Restituisce true se è andata.
 async function scaricaRicevuta(strutturaId,opz){
   opz=opz||{};
   if(!opz.auto) toast('Recupero ricevuta…');
   try{
-    const giorno=opz.giorno||(strutturaId?(($('#ricevutaData')||{}).value||undefined):undefined);
+    const giorno=opz.dopoInvio?undefined:(opz.giorno||(strutturaId?(($('#ricevutaData')||{}).value||undefined):undefined));
     const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
-      body:JSON.stringify({struttura:strutturaId||currentStruttura(), data:giorno})});
+      body:JSON.stringify({struttura:strutturaId||currentStruttura(), data:giorno, dopoInvio:!!opz.dopoInvio})});
     const data=await r.json();
     if(!r.ok) throw new Error(data.error||'Errore');
+    // dopo un invio: nessuna ricevuta precedente (es. primo invio di questa struttura). Non è un errore.
+    if(data.nessuna){
+      segnaPasso('ricevuta','na','nessuna ricevuta precedente da salvare · quella di oggi il portale la prepara domani e si salverà al prossimo invio');
+      return true;
+    }
+    // dopo un invio: l'ultima ricevuta era già stata salvata (es. secondo invio nello stesso giorno)
+    if(data.giaFatta){
+      const q=String(data.data||'').split('-').reverse().join('/');
+      const dove=(data.registrata&&data.registrata.modo==='drive')?'su Google Drive':'sul dispositivo';
+      segnaPasso('ricevuta','ok',`ultima ricevuta (invio del ${escText(q)}) già salvata ${dove} · quella di oggi si salverà al prossimo invio`);
+      return true;
+    }
     const s=struttureList.find(x=>x.id===strutturaId);
     const quando=data.data.split('-').reverse().join('/');
     let riga, esitoOk=true;
@@ -13763,7 +13777,8 @@ async function scaricaRicevuta(strutturaId,opz){
     }
     // conferma che RESTA: la terza spunta del pannello d'invio e la pagina Ricevute
     segnaPasso('ricevuta', esitoOk?'ok':'ko',
-      esitoOk?((data.drive&&data.drive.ok)?('salvata su Google Drive · '+escText(quando)):('scaricata sul dispositivo · '+escText(quando)))
+      esitoOk?(((data.drive&&data.drive.ok)?'salvata su Google Drive':'scaricata sul dispositivo')+' · ricevuta dell\'invio del '+escText(quando)
+               +(opz.dopoInvio?' · quella di oggi si salverà al prossimo invio':''))
              :escText(riga));
     const box=`<div class="esito-riga ${esitoOk?'ok':'warn'}">${escText(riga)}</div>`;
     if(!esitoInvio && $('#sendResult .esito')) aggiungiEsitoRiga(box);
@@ -13781,7 +13796,7 @@ async function scaricaRicevuta(strutturaId,opz){
     toast('Ricevuta: '+e.message);
     const u=$('#ricevutaUltimoEsito');
     if(u)u.innerHTML=`<div class="ricevuta-esito warn">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`;
-    segnaPasso('ricevuta','ko','non salvata: '+escText(e.message), bottoneRicevuta(strutturaId,opz.giorno,'Riprova a salvare la ricevuta'));
+    segnaPasso('ricevuta','ko','non salvata: '+escText(e.message), bottoneRicevuta(strutturaId,opz,'Riprova a salvare la ricevuta'));
     if(!esitoInvio && $('#sendResult .esito')) aggiungiEsitoRiga(`<div class="esito-riga err">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`);
     return false;
   }
