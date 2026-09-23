@@ -13000,6 +13000,8 @@ function aggiornaElencoInvio(nValide){
       <span class="det">${dettaglio}</span>
       ${d?`<div class="azione"><button class="btn ghost sm" onclick="anteprimaIstatOra()">👁 Vedi il modulo prima di inviare</button></div>`:''}</span></div>`);
   }
+  righe.push(`<div class="invio-riga"><span class="ck">${nValide?'✅':'⬜'}</span><span><b>Ricevuta PDF della Questura</b>
+      <span class="det">si salva da sola subito dopo l'invio, non serve altro tocco</span></span></div>`);
   w.innerHTML=righe.join('');
   // etichette dei pulsanti coerenti con quello che fanno davvero
   const conIstat=typeof istatAttivo==='function'&&istatAttivo();
@@ -13620,7 +13622,12 @@ async function invia(){apriCard('invioCard');
     +(conIstat?`\n• Modulo ISTAT via email a ${(istatConfig&&istatConfig.email)||'ufficio del turismo'}`
         +(dIstat?`: ${dIstat.persone} person${dIstat.persone===1?'a':'e'}, ${dIstat.residenza}, ${dIstat.arrivo}${dIstat.partenza?' → '+dIstat.partenza:''}`:'')
       :'')
+    +'\n• Ricevuta PDF della Questura: salvata in automatico subito dopo'
     +`\n\nL'operazione è irreversibile. Procedere?`))return;
+  // struttura e giorno dell'invio fissati ADESSO: la ricevuta va chiesta per questi, anche se
+  // nel frattempo si cambia struttura o si passa la mezzanotte mentre si aspetta il portale
+  const strutturaInviata=currentStruttura();
+  const giornoInvio=oggiItalia();
   const data=await callSend('send');
   if(data){const ok=data.righe.every(x=>x.ok);
     const errs=data.righe.filter(x=>!x.ok);
@@ -13633,8 +13640,8 @@ async function invia(){apriCard('invioCard');
                          : {stato:'na', det:'non previsto per questa struttura'},
       istat: istatAttivo() ? {stato:'corso', det:'preparo il modulo e lo mando via email…'}
                            : {stato:'na', det:'non previsto per questa struttura'},
-      ricevuta: {stato:'todo', det:'non ancora scaricata',
-        azione:`<div class="azione"><button class="btn ghost sm" onclick="scaricaRicevuta()">🧾 Scarica ricevuta PDF</button></div>`},
+      ricevuta: data.valide ? {stato:'corso', det:'la salvo da sola fra qualche secondo…'}
+                            : {stato:'na', det:'nessuna schedina inviata'},
       errori: errs.length?righeErrore(data):[],
     };
     renderPannelloInvio();
@@ -13650,10 +13657,36 @@ async function invia(){apriCard('invioCard');
     }
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
     if(istatAttivo()) inviaIstat(recordsInviati); // per Canazei: modulo ISTAT via email all'ufficio del turismo
+    // la ricevuta PDF si salva da sola (Drive o telefono): prima serviva un secondo tocco su
+    // "Scarica ricevuta PDF" e ce se ne dimenticava. Non blocca Ross1000 e ISTAT.
+    if(data.valide) salvaRicevutaDopoInvio(strutturaInviata,giornoInvio);
   }
 }
-// senza argomenti (dopo un invio): struttura corrente, ultima ricevuta disponibile.
-// con strutturaId (dalle Impostazioni): quella struttura + eventuale giorno scelto nel campo data.
+// giorno di oggi in Italia (YYYY-MM-DD): la ricevuta della Questura è per giorno di invio
+function oggiItalia(){
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Rome',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+}
+// pulsante per rifare a mano il salvataggio della ricevuta (se quello automatico non riesce)
+function bottoneRicevuta(strutturaId,giorno,testo){
+  const sid=strutturaId?`'${strutturaId}'`:'undefined';
+  const opz=giorno?`{giorno:'${giorno}'}`:'undefined';
+  return `<div class="azione"><button class="btn ghost sm" onclick="scaricaRicevuta(${sid},${opz})">🧾 ${testo}</button></div>`;
+}
+/* Ricevuta subito dopo l'invio, senza toccare niente. Si chiede esplicitamente quella del
+   GIORNO DELL'INVIO: senza data il server risale ai giorni precedenti e, se il portale non
+   ha ancora registrato l'invio di adesso, avrebbe salvato la ricevuta di un altro giorno
+   spacciandola per questa. Il portale può metterci qualche secondo: si aspetta un attimo e
+   si riprova un paio di volte prima di arrendersi (e allora resta il pulsante per riprovare). */
+async function salvaRicevutaDopoInvio(strutturaId,giorno){
+  const attese=[4000,8000,15000];   // ~27 secondi in tutto
+  for(let i=0;i<attese.length;i++){
+    if(i) segnaPasso('ricevuta','corso',`il portale non l'ha ancora pronta, riprovo… (${i+1}/${attese.length})`);
+    await new Promise(r=>setTimeout(r,attese[i]));
+    const ok=await scaricaRicevuta(strutturaId,{giorno, auto:true, ultimoTentativo:i===attese.length-1});
+    if(ok)return true;
+  }
+  return false;
+}
 /* ===== registro delle ricevute: la conferma non è più un messaggio che sparisce =====
    Ogni ricevuta scaricata o salvata su Drive viene segnata nell'archivio online dal
    server. Così la si ritrova sempre: nel riquadro dell'invio, nell'elenco "Ricevute
@@ -13698,10 +13731,15 @@ function renderRicevuteFatte(){
         <span class="sub">${escText(new Date(v.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'}))}</span></span>
     </div>`).join('')}`;
 }
-async function scaricaRicevuta(strutturaId){
-  toast('Recupero ricevuta…');
+// Dopo un invio parte da sola (salvaRicevutaDopoInvio) col giorno dell'invio; dalle Impostazioni
+// si chiama con strutturaId + l'eventuale giorno scelto nel campo data.
+// opz.giorno = giorno preciso da chiedere (YYYY-MM-DD); opz.auto = chiamata da sola dopo
+// l'invio (niente avvisi finché ci sono altri tentativi). Restituisce true se è andata.
+async function scaricaRicevuta(strutturaId,opz){
+  opz=opz||{};
+  if(!opz.auto) toast('Recupero ricevuta…');
   try{
-    const giorno=strutturaId?(($('#ricevutaData')||{}).value||undefined):undefined;
+    const giorno=opz.giorno||(strutturaId?(($('#ricevutaData')||{}).value||undefined):undefined);
     const r=await fetch('/api/ricevuta',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({struttura:strutturaId||currentStruttura(), data:giorno})});
     const data=await r.json();
@@ -13736,12 +13774,16 @@ async function scaricaRicevuta(strutturaId){
       ricevuteFatte=[data.registrata].concat(ricevuteFatte.filter(v=>!(v&&v.giorno===data.registrata.giorno&&v.strutturaId===data.registrata.strutturaId)));
       renderRicevuteFatte(); renderStorico();
     }else caricaRicevuteFatte();
+    return true;
   }catch(e){
+    // salvataggio automatico con altri tentativi in arrivo: nessun allarme, si riprova
+    if(opz.auto&&!opz.ultimoTentativo) return false;
     toast('Ricevuta: '+e.message);
     const u=$('#ricevutaUltimoEsito');
     if(u)u.innerHTML=`<div class="ricevuta-esito warn">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`;
-    segnaPasso('ricevuta','ko','non scaricata: '+escText(e.message));
+    segnaPasso('ricevuta','ko','non salvata: '+escText(e.message), bottoneRicevuta(strutturaId,opz.giorno,'Riprova a salvare la ricevuta'));
     if(!esitoInvio && $('#sendResult .esito')) aggiungiEsitoRiga(`<div class="esito-riga err">❌ Ricevuta non scaricata: ${escText(e.message)}</div>`);
+    return false;
   }
 }
 
