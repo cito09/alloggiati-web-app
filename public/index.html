@@ -162,10 +162,40 @@
   .rec-raw summary{font-size:11px; color:var(--muted); cursor:pointer}
   .reclen.ok{color:var(--ok)} .reclen.err{color:var(--err)}
   .field-bad{outline:2px solid var(--err)!important; border-color:var(--err)!important}
-  .field-warn{outline:2px solid var(--amber)!important; border-color:var(--amber)!important}
+  .field-warn{outline:2px solid #ffb703!important; border-color:#ffb703!important}
   .warn-badge{font-size:10px; color:var(--amber); margin-left:6px; font-weight:700}
   .warn-badge.click{cursor:pointer; text-decoration:underline dotted; user-select:none}
   .warn-badge.okd{color:var(--ok); cursor:pointer; user-select:none}
+  /* dato che l'AI non è sicura di aver letto: pastiglia grande da toccare (prima era una
+     scritta minuscola "verifica", difficile da centrare col dito) */
+  .verif-pill{display:inline-flex; align-items:center; gap:7px; margin-left:8px; padding:4px 12px 4px 4px; min-height:34px;
+    border-radius:999px; border:1.5px solid #ffb703; background:rgba(255,183,3,.12); color:#ffb703; font-size:12px; font-weight:800;
+    cursor:pointer; vertical-align:middle; user-select:none; white-space:nowrap}
+  .verif-pill .o{width:24px; height:24px; border-radius:50%; border:2px solid currentColor; display:inline-flex; align-items:center; justify-content:center; font-size:13px; line-height:1}
+  .verif-pill.ok{border-color:rgba(45,198,83,.55); background:rgba(45,198,83,.12); color:var(--ok)}
+  .verif-pill.ok .o{background:var(--ok); border-color:var(--ok); color:#06210f}
+  .verif-pill:active{transform:scale(.96)}
+  /* riquadro unico "Da controllare" in cima al passo 2: tutti i dati dubbi, con la foto accanto */
+  .controlla-box{background:linear-gradient(180deg,rgba(255,183,3,.13),rgba(255,183,3,.04)); border:1.5px solid rgba(255,183,3,.5);
+    border-radius:22px; padding:15px 14px 13px; margin:6px 0 14px}
+  .controlla-tit{font-size:16.5px; font-weight:800; color:#ffcb4d; display:flex; align-items:center; gap:8px; line-height:1.3}
+  .controlla-sub{font-size:12.5px; color:var(--muted); margin-top:5px; line-height:1.5}
+  .controlla-ospite{background:var(--surface); border-radius:18px; padding:12px; margin-top:12px}
+  .controlla-ospite .chi{font-weight:800; font-size:14.5px; display:flex; align-items:center; gap:8px; margin-bottom:9px}
+  .controlla-ospite .chi .quanti{margin-left:auto; font-size:11.5px; color:#ffcb4d; font-weight:800; white-space:nowrap}
+  .controlla-foto{display:flex; gap:8px; overflow-x:auto; margin-bottom:6px; padding-bottom:2px}
+  .controlla-foto img{height:170px; max-width:92%; object-fit:contain; border-radius:12px; background:#000; cursor:zoom-in; flex:0 0 auto}
+  .controlla-foto .nofoto{font-size:12px; color:var(--muted); padding:6px 0}
+  .chk-riga{display:flex; align-items:flex-end; gap:10px; padding:6px 0}
+  .chk-riga .campo{flex:1; min-width:0}
+  .chk-riga .campo .et{font-size:11.5px; color:var(--muted); font-weight:700; margin:0 0 4px 2px}
+  .chk-riga input,.chk-riga select{margin:0}
+  .chk-riga.ok input,.chk-riga.ok select{border-color:rgba(45,198,83,.45)}
+  .chk-dot{width:46px; height:46px; border-radius:50%; flex:0 0 auto; border:2.5px solid #ffb703; background:rgba(255,183,3,.08);
+    color:#ffb703; font-size:20px; font-weight:900; cursor:pointer; display:flex; align-items:center; justify-content:center; user-select:none}
+  .chk-dot.ok{background:var(--ok); border-color:var(--ok); color:#06210f}
+  .chk-dot:active{transform:scale(.93)}
+  .controlla-ok{margin-top:10px}
   .ta-wrap{position:relative}
   .ta-list{position:absolute; left:0; right:0; top:calc(100% + 2px); z-index:40; background:var(--surface2); border:1px solid var(--amber); border-radius:10px; max-height:230px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.4)}
   .ta-item{padding:10px 12px; font-size:14px; cursor:pointer; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:8px}
@@ -747,6 +777,7 @@ function doGet() {
   </div>
 
   <div class="steplbl" id="step2lbl" style="display:none">2 · Controlla e correggi</div>
+  <div id="daControllare"></div>
   <div id="bookings"></div>
 
   <div class="card" id="invioCard" style="margin-top:14px">
@@ -12780,8 +12811,9 @@ function render(){
   bookings.forEach(b=>{
     const card=document.createElement('div'); card.className='card';
     card.innerHTML=`
-      <div class="bhead"><span class="ttl">📋 Prenotazione</span>
+      <div class="bhead"><span class="ttl">📋 Prenotazione${b._inviata?' <span class="pill ok">✓ già inviata</span>':''}</span>
         <button class="btn ghost sm" onclick="rmBooking('${b.id}')">Svuota</button></div>
+      ${b._inviata?'<div class="hint" style="margin-top:8px">Questi ospiti sono già stati mandati alla Questura. Caricando i documenti di una nuova prenotazione il modulo si svuota da solo.</div>':''}
       <div class="row">
         <div><label>Data arrivo</label><div class="datefield">
           <input id="arr-${b.id}" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" value="${b.arrivo||''}" oninput="setB('${b.id}','arrivo',this.value)">
@@ -12809,6 +12841,7 @@ function render(){
     b.guests.forEach((g,idx)=>gw.appendChild(renderGuest(b,g,idx)));
   });
   const lbl=$('#step2lbl'); if(lbl)lbl.style.display=bookings.some(b=>b.guests.length)?'':'none';
+  renderDaControllare(activeId);
   renderPreview();
   scheduleSyncPrenotazioniPendenti();
   if(activeId){
@@ -12841,12 +12874,19 @@ function wireThumbsDrop(el,onFiles){
 
 // avviso AI cliccabile: ⚠ = da controllare (tocca per confermare che è giusto → diventa ✓ verde);
 // ✓ = confermato a mano (tocca per rimettere l'avviso). Correggere il campo a mano conferma da sé.
+// (span e non button: dentro una <label> un pulsante verrebbe "premuto" anche toccando il testo)
 function warnBadge(g,campo){
-  if((g._warn||[]).includes(campo)) return ` <span class="warn-badge click" title="L'AI non è sicura di aver letto bene questo dato: controlla sul documento e, se è giusto, tocca qui per confermare" onclick="confermaCampo('${g._bid}','${g.id}','${campo}')">⚠ verifica</span>`;
-  if((g._warnOk||[]).includes(campo)) return ` <span class="warn-badge okd" title="Verificato: tocca per rimettere l'avviso" onclick="riapriCampo('${g._bid}','${g.id}','${campo}')">✓ verificato</span>`;
+  if((g._warn||[]).includes(campo)) return ` <span class="verif-pill" role="button" tabindex="0" title="L'AI non è sicura di aver letto bene questo dato: controlla sul documento e, se è giusto, tocca qui per confermare" onclick="event.preventDefault();confermaCampo('${g._bid}','${g.id}','${campo}')"><span class="o">?</span>È giusto? Tocca</span>`;
+  if((g._warnOk||[]).includes(campo)) return ` <span class="verif-pill ok" role="button" tabindex="0" title="Controllato: tocca per rimettere l'avviso" onclick="event.preventDefault();riapriCampo('${g._bid}','${g.id}','${campo}')"><span class="o">✓</span>Controllato</span>`;
   return '';
 }
-window.confermaCampo=(bid,gid,campo)=>{const g=getG(bid,gid);if(!g)return;g._warn=(g._warn||[]).filter(x=>x!==campo);g._warnOk=[...new Set([...(g._warnOk||[]),campo])];render();};
+// quanti dati restano da controllare in tutta la registrazione
+function daControllareTot(){ return bookings.reduce((n,b)=>n+b.guests.reduce((m,g)=>m+(g._warn||[]).length,0),0); }
+function dopoControllo(){ if(!daControllareTot()) toast('✓ Tutti i dati controllati'); }
+window.confermaCampo=(bid,gid,campo)=>{const g=getG(bid,gid);if(!g)return;g._warn=(g._warn||[]).filter(x=>x!==campo);g._warnOk=[...new Set([...(g._warnOk||[]),campo])];render();dopoControllo();};
+// "Tutto giusto": conferma in un colpo tutti i dati dubbi di un ospite
+window.confermaTuttoOspite=(bid,gid)=>{const g=getG(bid,gid);if(!g)return;
+  g._warnOk=[...new Set([...(g._warnOk||[]),...(g._warn||[])])]; g._warn=[]; render(); dopoControllo();};
 window.riapriCampo=(bid,gid,campo)=>{const g=getG(bid,gid);if(!g)return;g._warnOk=(g._warnOk||[]).filter(x=>x!==campo);g._warn=[...new Set([...(g._warn||[]),campo])];render();};
 function taField(label,g,nameKey,codeKey,kind,bad,extra,warn,disabled){
   const id='ta-'+g.id+'-'+nameKey;
@@ -12874,6 +12914,65 @@ window.startTA=(input,kind,bid,gid,nameKey,codeKey)=>{
     if(kind==='comune'){g.provinciaNascita=o.p;} render();});
 };
 
+/* ===== riquadro "Da controllare" =====
+   Quando l'AI non è sicura di aver letto bene qualcosa, invece di andarlo a cercare campo per
+   campo scorrendo tutta la pagina, in cima al passo 2 compare un solo riquadro: per ogni
+   ospite la foto del documento (tocca per ingrandire) e SOLO i dati dubbi, già correggibili lì.
+   Il pallino grande conferma il singolo dato, "Tutto giusto" li conferma tutti in un colpo.
+   Correggere un dato vale come controllarlo. Finito il controllo il riquadro sparisce. */
+const CAMPI_CONTROLLO=[
+  ['cognome','Cognome','testo'],['nome','Nome','testo'],['sesso','Sesso','sesso'],['dataNascita','Data di nascita','data'],
+  ['statoNascita','Stato di nascita','ta','statoNascitaCode','stato'],['comuneNascita','Comune di nascita','ta','comuneNascitaCode','comune'],
+  ['cittadinanza','Cittadinanza','ta','cittadinanzaCode','stato'],['tipoDoc','Tipo documento','ta','tipoDocCode','doc'],
+  ['numeroDoc','Numero documento','testo'],['luogoRilascio','Luogo di rilascio','ta','luogoRilascioCode','luogo'],
+];
+function controlloCampo(b,g,def){
+  const [campo,etichetta,tipo,codeKey,kind]=def;
+  const id=`chk-${g.id}-${campo}`;
+  const v=String(g[campo]||'').replace(/"/g,'&quot;');
+  let ctrl;
+  if(tipo==='sesso') ctrl=`<select id="${id}" onchange="setG('${b.id}','${g.id}','sesso',this.value)"><option value="">—</option><option ${g.sesso==='M'?'selected':''}>M</option><option ${g.sesso==='F'?'selected':''}>F</option></select>`;
+  else if(tipo==='ta') ctrl=`<div class="ta-wrap"><input id="${id}" type="text" value="${v}" autocomplete="off"
+      oninput="onTAInput('${b.id}','${g.id}','${campo}','${codeKey}',this.value)"
+      onfocus="startTA(this,'${kind}','${b.id}','${g.id}','${campo}','${codeKey}')"></div>`;
+  else ctrl=`<input id="${id}" type="text" ${tipo==='data'?'inputmode="numeric" placeholder="gg/mm/aaaa"':''} value="${v}" oninput="setG('${b.id}','${g.id}','${campo}',this.value)">`;
+  const ok=!(g._warn||[]).includes(campo);
+  return `<div class="chk-riga${ok?' ok':''}">
+    <span class="chk-dot${ok?' ok':''}" role="button" tabindex="0" title="${ok?'Controllato: tocca per rimettere l\'avviso':'Tocca se il dato è giusto'}"
+      onclick="${ok?'riapriCampo':'confermaCampo'}('${b.id}','${g.id}','${campo}')">${ok?'✓':'?'}</span>
+    <div class="campo"><div class="et">${etichetta}</div>${ctrl}</div>
+  </div>`;
+}
+function renderDaControllare(activeId){
+  const w=$('#daControllare'); if(!w)return;
+  const blocchi=[];
+  bookings.forEach(b=>b.guests.forEach(g=>{
+    const dubbi=(g._warn||[]).length;
+    // l'ospite resta nel riquadro finché ha dati da controllare, o mentre ci si sta scrivendo
+    // dentro (altrimenti correggendo l'ultimo dato la casella sparirebbe sotto le dita)
+    const inUso=activeId&&activeId.startsWith('chk-'+g.id+'-');
+    if(!dubbi&&!inUso)return;
+    const segnati=new Set([...(g._warn||[]),...(g._warnOk||[])]);
+    const righe=CAMPI_CONTROLLO.filter(d=>segnati.has(d[0])).map(d=>controlloCampo(b,g,d)).join('');
+    const foto=(g.imgs||[]).filter(u=>!/^data:application\/pdf/i.test(u)&&!/\.pdf(\?|$)/i.test(u));
+    const nome=[g.cognome,g.nome].filter(Boolean).join(' ')||'Ospite';
+    blocchi.push(`<div class="controlla-ospite">
+      <div class="chi">👤 ${escText(nome)}<span class="quanti">${dubbi?dubbi+' da controllare':'✓ fatto'}</span></div>
+      <div class="controlla-foto">${foto.length?foto.map(u=>`<img ${fotoSrc(u)} onclick="apriFotoDaEl(this)" alt="documento">`).join('')
+        :'<div class="nofoto">Nessuna foto del documento collegata a questo ospite: controlla sull\'originale.</div>'}</div>
+      ${righe}
+      ${dubbi?`<button class="btn primary sm controlla-ok" style="width:100%" onclick="confermaTuttoOspite('${b.id}','${g.id}')">✓ Tutto giusto${dubbi>1?' ('+dubbi+' dati)':''}</button>`:''}
+    </div>`);
+  }));
+  if(!blocchi.length){ w.innerHTML=''; return; }
+  const tot=daControllareTot();
+  w.innerHTML=`<div class="controlla-box">
+    <div class="controlla-tit">⚠️ ${tot?`Controlla ${tot} dat${tot===1?'o':'i'} prima di inviare`:'Quasi fatto'}</div>
+    <div class="controlla-sub">L'AI non è sicura di averl${tot===1?'o letto':'i letti'} bene. Confronta con la foto (toccala per ingrandire):
+      se è giusto tocca il pallino <b>?</b>, se è sbagliato correggilo qui sotto.</div>
+    ${blocchi.join('')}
+  </div>`;
+}
 function renderGuest(b,g,idx){
   const el=document.createElement('div'); el.className='guest';
   const tipo=tipoAlloggiato(b.soggiorno,idx);
@@ -12909,7 +13008,7 @@ function renderGuest(b,g,idx){
     const inItalia = String(g.statoNascita||'').trim().toUpperCase()==='ITALIA';
     if(!inItalia && (g.comuneNascita||g.comuneNascitaCode)){ g.comuneNascita=''; g.comuneNascitaCode=null; g.provinciaNascita=''; }
     f.innerHTML=`
-      ${warn.length?'<div class="hint" style="margin-top:10px">⚠ L\'AI non era sicura di alcuni campi qui sotto (segnati in arancione): ricontrollali a occhio sul documento.</div>':''}
+      ${warn.length?`<div class="hint" style="margin-top:10px;border-left-color:#ffb703">⚠️ ${warn.length} dat${warn.length===1?'o':'i'} da controllare (bordo giallo): confrontal${warn.length===1?'o':'i'} con la foto e tocca <b>«È giusto?»</b>, oppure usa il riquadro <b>Da controllare</b> in cima.</div>`:''}
       <div style="margin-top:10px"><label>Cognome${warnBadge(g,'cognome')}</label><input id="cogn-${g.id}" type="text" class="${fb('cognome')||fw('cognome')}" value="${g.cognome||''}" oninput="setG('${b.id}','${g.id}','cognome',this.value)"></div>
       <div><label>Nome${warnBadge(g,'nome')}</label><input id="nome-${g.id}" type="text" class="${fb('nome')||fw('nome')}" value="${g.nome||''}" oninput="setG('${b.id}','${g.id}','nome',this.value)"></div>
       <div class="row3">
@@ -13037,7 +13136,9 @@ function rmBooking(id){
   render();
 }
 function setB(id,k,v){getB(id)[k]=v;render();}
-function addGuest(bid){getB(bid).guests.push({id:uid(),_bid:bid,imgs:[]});render();}
+function addGuest(bid){
+  if(seInviataRiparti()) bid=bookings[0].id;   // su una prenotazione già inviata si riparte da zero
+  getB(bid).guests.push({id:uid(),_bid:bid,imgs:[]});render();}
 function rmGuest(bid,gid){const b=getB(bid);b.guests=b.guests.filter(g=>g.id!==gid);render();}
 function setG(bid,gid,k,v){const g=getG(bid,gid);g[k]=v;g._touched=true;
   // correggere a mano un campo segnalato dall'AI equivale a verificarlo: l'avviso diventa ✓
@@ -13122,7 +13223,26 @@ function renderIntakeThumbs(){
   intakeFiles.forEach((u,i)=>w.appendChild(thumb(u,()=>{intakeFiles.splice(i,1);renderIntakeThumbs();})));
   updateIntakeBtn();
 }
+/* ===== dopo un invio si riparte da un modulo pulito =====
+   Caso reale: inviati gli ospiti arrivati ieri, si caricano i documenti di quelli che
+   arrivano oggi. Prima i nuovi finivano IN CODA a quelli già inviati (rischio di mandarli
+   alla Questura una seconda volta) e il pannello dell'invio restava con le spunte del giro
+   precedente. Ora qualunque lavoro nuovo (documenti caricati, check-in accettato, ospite
+   aggiunto) su una prenotazione già inviata apre una registrazione nuova e azzera il
+   pannello. Quella inviata resta comunque nell'Archivio. */
+function prenotazioneGiaInviata(){ return bookings.some(b=>b&&b._inviata); }
+function seInviataRiparti(){
+  if(!prenotazioneGiaInviata())return false;
+  bookings=[{id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]}];
+  esitoInvio=null;
+  ['#sendResult','#rossResult'].forEach(sel=>{ const el=$(sel); if(el)el.innerHTML=''; });
+  setIntakeStatus('');
+  render();
+  toast('La prenotazione di prima è già stata inviata: ne ho aperta una nuova');
+  return true;
+}
 async function addIntakeFiles(fileList){
+  seInviataRiparti();
   const files=onlyImages(fileList);
   avvisaScartati(fileList,files);
   if(files.some(f=>f.type==='application/pdf')) toast('Preparo il PDF…');
@@ -13133,6 +13253,7 @@ function setIntakeStatus(html){const s=$('#intakeStatus'); if(s)s.innerHTML=html
 // la prenotazione su cui agganciare i nuovi ospiti riconosciuti dall'intake:
 // quella su cui si sta gia' lavorando (l'ultima), non sempre una nuova
 function bookingAttivo(){
+  seInviataRiparti();
   if(bookings.length) return bookings[bookings.length-1];
   const b={id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]};
   bookings.push(b); return b;
@@ -13367,26 +13488,73 @@ async function runIntake(){
   const btn=$('#intakeBtn'); if(btn)btn.disabled=true;
   const imgs=intakeFiles.slice();
   const b=bookingAttivo();
-  const newGuests=[];
+  const norm=v=>String(v||'').trim().toUpperCase().replace(/\s+/g,' ');
+  const raccolti=[], perChiave={}, screenshot=[], nonLette=[];
+  let date=null, errori=0, ultimoErrore=null;
+  // stesso ospite in più foto (fronte/retro): una sola persona, con tutte le sue foto
+  const aggiungi=(lista,img)=>(lista||[]).filter(o=>o&&(o.cognome||o.nome)).forEach(o=>{
+    const k=norm(o.cognome)+'|'+norm(o.nome);
+    const gia=perChiave[k];
+    if(gia){
+      Object.keys(CAMPO_AI_TO_G).forEach(c=>{ if(!gia[c]&&o[c])gia[c]=o[c]; });
+      gia.incertezze=[...new Set([...(gia.incertezze||[]),...(o.incertezze||[])])];
+      if(img&&!gia._imgs.includes(img))gia._imgs.push(img);
+    }else{ o._imgs=img?[img]:[]; perChiave[k]=o; raccolti.push(o); }
+  });
   try{
-    setIntakeStatus(`<span class="spin"></span> Leggo prenotazione, documenti${testo?' e messaggio':''} con l'AI…`);
-    const j=await apiExtract(imgs,'auto',testo);
-    const pr=j.prenotazione||{};
+    if(testo){
+      // con un messaggio di testo serve una lettura unica di tutto insieme (il testo può
+      // descrivere gli stessi ospiti delle foto): qui le foto non si possono attribuire
+      setIntakeStatus(`<span class="spin"></span> Leggo prenotazione, documenti e messaggio con l'AI…`);
+      const j=await apiExtract(imgs,'auto',testo);
+      date=j.prenotazione||null; aggiungi(j.ospiti,null);
+    }else{
+      // UNA FOTO PER VOLTA: ogni ospite si tiene la SUA foto del documento (serve per
+      // ricontrollare i dati dubbi accanto alla foto, e finisce nell'Archivio insieme alla
+      // prenotazione: prima le foto caricate qui non venivano salvate). Lo screenshot della
+      // prenotazione va al suo posto.
+      for(let i=0;i<imgs.length;i++){
+        setIntakeStatus(`<span class="spin"></span> Leggo la foto ${i+1} di ${imgs.length}…`);
+        try{
+          const j=await apiExtract([imgs[i]],'auto');
+          const pr=j.prenotazione||{};
+          const haDate=!!(pr.data_arrivo||pr.data_partenza||pr.numero_notti);
+          const ospiti=(j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome));
+          if(haDate&&!date) date=pr;
+          if(ospiti.length) aggiungi(ospiti,imgs[i]);
+          else if(haDate) screenshot.push(imgs[i]);
+          else nonLette.push(imgs[i]);
+        }catch(e){ errori++; ultimoErrore=e; nonLette.push(imgs[i]); }
+      }
+    }
+    const pr=date||{};
     if(pr.data_arrivo)b.arrivo=pr.data_arrivo;
     if(pr.numero_notti)b.notti=pr.numero_notti;
     else if(pr.data_arrivo&&pr.data_partenza){const p=s=>{const[d,m,y]=s.split('/').map(Number);return new Date(y,m-1,d);};b.notti=Math.max(1,Math.round((p(pr.data_partenza)-p(pr.data_arrivo))/864e5));}
-    (j.ospiti||[]).forEach(o=>{const g={id:uid(),_bid:b.id,imgs:[]};applyAI(g,o);if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}newGuests.push(g);});
+    if(screenshot.length) b.bookingImgs=(b.bookingImgs||[]).concat(screenshot);
+    const newGuests=raccolti.map(o=>{const g={id:uid(),_bid:b.id,imgs:(o._imgs||[]).slice()};applyAI(g,o);
+      if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;} return g;});
+    // le foto non lette restano nel riquadro "Carica tutto", così si possono riprovare
+    intakeFiles=testo?[]:nonLette; renderIntakeThumbs();
+    const avvisoNonLette=nonLette.length&&!testo
+      ?`<br>⚠️ ${nonLette.length===1?'Una foto non è stata letta: è rimasta':nonLette.length+' foto non sono state lette: sono rimaste'} qui sopra. Riprova con una foto più nitida, oppure aggiungila a mano all'ospite giusto.`:'';
     if(!newGuests.length){
-      setIntakeStatus('Nessun documento riconosciuto. Riprova con foto più nitide, oppure compila a mano qui sotto.');
+      const motivo=(errori&&errori===imgs.length&&ultimoErrore)
+        ?(ultimoErrore._fotoGrandi?'le foto sono troppo pesanti: caricane meno per volta.':'errore di lettura ('+escText(ultimoErrore.message||'')+').')
+        :'nessun documento riconosciuto. Riprova con foto più nitide, oppure compila a mano qui sotto.';
+      setIntakeStatus((screenshot.length&&pr.data_arrivo?`✓ Date lette dallo screenshot (arrivo ${escText(pr.data_arrivo)}). `:'')+'Ospiti: '+motivo);
     }else{
       b.guests.push(...newGuests);
       b.soggiorno=inferSoggiorno(b.guests);
-      intakeFiles=[]; renderIntakeThumbs();
       if(testoEl)testoEl.value='';
-      setIntakeStatus(`✓ Riconosciuti ${newGuests.length} ospit${newGuests.length===1?'e':'i'} · tipo soggiorno: <b>${b.soggiorno}</b>. Controlla qui sotto e conferma.`);
+      setIntakeStatus(`✓ Riconosciuti ${newGuests.length} ospit${newGuests.length===1?'e':'i'} · tipo soggiorno: <b>${b.soggiorno}</b>. Controlla qui sotto e conferma.${avvisoNonLette}`);
     }
     render();
-    if(newGuests.length){const lbl=$('#step2lbl'); if(lbl)lbl.scrollIntoView({behavior:'smooth',block:'start'});}
+    if(newGuests.length){
+      // se l'AI ha dei dubbi si va dritti al riquadro "Da controllare", altrimenti all'elenco
+      const box=$('#daControllare .controlla-box'), lbl=$('#step2lbl');
+      const dove=box||lbl; if(dove)dove.scrollIntoView({behavior:'smooth',block:'start'});
+    }
   }catch(e){
     setIntakeStatus('');
     toast('Riconoscimento non riuscito: '+e.message); console.error(e);
@@ -13441,6 +13609,7 @@ async function downloadTxt(){
     bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
     (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id));
     bookings[0]._pendingIds=[];
+    render();   // la prenotazione si mostra subito come "già inviata"
   }
 }
 
@@ -13656,6 +13825,7 @@ async function invia(){apriCard('invioCard');
       bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
       (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id,true)); // inviate davvero: eliminazione definitiva
       bookings[0]._pendingIds=[];
+      render();   // la prenotazione si mostra subito come "già inviata"
     }
     if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
     if(istatAttivo()) inviaIstat(recordsInviati); // per Canazei: modulo ISTAT via email all'ufficio del turismo
@@ -14345,7 +14515,7 @@ function mostraTab(t){
 const RIPRESA_MS=30*60*1000;
 let appNascostaDa=0;
 function registrazioneAMeta(){
-  try{ return (bookings||[]).some(b=>b&&(String(b.arrivo||'').trim()||(b.guests||[]).length||(b.bookingImgs||[]).length)); }
+  try{ return (bookings||[]).some(b=>b&&!b._inviata&&(String(b.arrivo||'').trim()||(b.guests||[]).length||(b.bookingImgs||[]).length)); }
   catch(e){ return false; }
 }
 function tornaAllaHome(){
