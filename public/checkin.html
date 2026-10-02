@@ -1451,6 +1451,10 @@ async function estraiDati(id){
       aggiornaProgresso(i/imgs.length*100, `${t('progress_reading_doc')} ${i+1} ${t('progress_of')} ${imgs.length}`);
       try{
         const j=await apiExtract([imgs[i]],'auto');
+        // documento fotografato capovolto o di lato: lo raddrizzo subito, così arriva dritto
+        // all'host e il confronto col selfie lavora su un volto dritto
+        const gradi=gradiDaOrientamento((j.orientamento_immagini||[])[0]);
+        if(gradi) imgs[i]=await ruotaImmagine(imgs[i],gradi);
         (j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome)).forEach(o=>{
           const key=norm(o.cognome)+'|'+norm(o.nome);
           if(perChiave[key]){ unisciOspite(perChiave[key],o); if(!perChiave[key]._imgs.includes(imgs[i]))perChiave[key]._imgs.push(imgs[i]); }

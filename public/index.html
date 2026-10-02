@@ -338,9 +338,25 @@
   .stat-vuoto{background:var(--surface2); border-radius:16px; padding:18px 14px; text-align:center; font-size:13px; color:var(--muted)}
   .storico-filtro{display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:space-between;
     background:rgba(132,227,211,.13); border-radius:14px; padding:9px 12px; margin-bottom:10px; font-size:12.5px; font-weight:700}
-  #fotoLightboxImg{max-width:100%; max-height:100%; object-fit:contain; border-radius:10px;
-    box-shadow:0 10px 40px rgba(0,0,0,.6); cursor:zoom-in; transition:max-width .15s, max-height .15s}
-  #fotoLightboxImg.zoom{max-width:none; max-height:none; width:250%; cursor:zoom-out; border-radius:0}
+  /* visore foto: ruota, zoom (pizzico, doppio tocco, rotellina, + e −), trascina per spostare */
+  #fotoLightbox{position:fixed; inset:0; z-index:900; background:rgba(0,0,0,.97); display:none; touch-action:none;
+    user-select:none; -webkit-user-select:none; overflow:hidden}
+  .lb-scena{position:absolute; inset:0; overflow:hidden; touch-action:none}
+  #fotoLightboxImg{position:absolute; left:50%; top:50%; max-width:none; max-height:none; transform-origin:50% 50%;
+    border-radius:6px; box-shadow:0 10px 40px rgba(0,0,0,.6); cursor:grab; -webkit-user-drag:none; will-change:transform}
+  #fotoLightboxImg.anima{transition:transform .22s ease}
+  .lb-chiudi{position:absolute; top:calc(14px + env(safe-area-inset-top)); right:14px; z-index:3; width:46px; height:46px; border-radius:50%;
+    border:none; background:rgba(255,255,255,.16); color:#fff; font-size:22px; line-height:1; cursor:pointer}
+  .lb-barra{position:absolute; left:50%; bottom:calc(16px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:3;
+    display:flex; align-items:center; gap:2px; padding:6px; border-radius:999px; background:rgba(28,28,32,.9);
+    backdrop-filter:blur(14px); box-shadow:0 10px 30px rgba(0,0,0,.5); white-space:nowrap}
+  .lb-barra button{width:48px; height:48px; border-radius:50%; border:none; background:transparent; color:#fff; font-size:23px;
+    line-height:1; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center}
+  .lb-barra button:active{background:rgba(255,255,255,.16)}
+  .lb-barra .pct{width:auto; min-width:66px; padding:0 10px; border-radius:999px; font-size:13.5px; font-weight:800}
+  .lb-barra .sep{width:1px; height:28px; background:rgba(255,255,255,.2); margin:0 4px}
+  .lb-aiuto{position:absolute; left:0; right:0; bottom:calc(80px + env(safe-area-inset-bottom)); z-index:2; text-align:center;
+    color:rgba(255,255,255,.6); font-size:12px; pointer-events:none; padding:0 16px; transition:opacity .2s}
   .esito{margin-top:12px; padding:12px 13px; border-radius:12px; background:var(--surface2); border:1px solid var(--line)}
   .esito.ok{border-color:rgba(45,198,83,.35); background:rgba(45,198,83,.07)}
   .esito.err{border-color:rgba(239,71,111,.35); background:rgba(239,71,111,.07)}
@@ -866,10 +882,18 @@ function doGet() {
 </div>
 <div class="toast" id="toast"></div>
 
-<div id="fotoLightbox" onclick="chiudiFoto()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.92);align-items:center;justify-content:center;padding:16px;overflow:auto;-webkit-overflow-scrolling:touch">
-  <img id="fotoLightboxImg" src="" alt="" onclick="zoomFoto(event)">
-  <button onclick="chiudiFoto()" aria-label="Chiudi" style="position:fixed;top:14px;right:14px;z-index:2;width:42px;height:42px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:22px;line-height:1;cursor:pointer">✕</button>
-  <div style="position:fixed;bottom:16px;left:0;right:0;text-align:center;color:rgba(255,255,255,.75);font-size:12px;pointer-events:none">tocca la foto per ingrandire · tocca fuori per chiudere</div>
+<div id="fotoLightbox">
+  <div class="lb-scena" id="lbScena"><img id="fotoLightboxImg" src="" alt="" draggable="false"></div>
+  <button class="lb-chiudi" onclick="chiudiFoto()" aria-label="Chiudi">✕</button>
+  <div class="lb-aiuto" id="lbAiuto">pizzica o tocca due volte per ingrandire · trascina per spostare · tocca fuori per chiudere</div>
+  <div class="lb-barra">
+    <button onclick="lbRuota(-90)" aria-label="Ruota a sinistra" title="Ruota a sinistra">↺</button>
+    <button onclick="lbRuota(90)" aria-label="Ruota a destra" title="Ruota a destra">↻</button>
+    <span class="sep"></span>
+    <button onclick="lbZoomCentro(1/1.6)" aria-label="Rimpicciolisci" title="Rimpicciolisci">−</button>
+    <button class="pct" id="lbPct" onclick="lbAdatta(true)" title="Torna a misura schermo">100%</button>
+    <button onclick="lbZoomCentro(1.6)" aria-label="Ingrandisci" title="Ingrandisci">+</button>
+  </div>
 </div>
 
 <script src="shared.js"></script>
@@ -12378,15 +12402,138 @@ function osservaBlobProtetti(){
     .observe(document.body,{childList:true,subtree:true}); }catch(e){}
   caricaBlobProtetti(document);
 }
-/* anteprima foto a schermo intero: clic su una foto con classe "zoomable" (documenti/selfie nella coda) */
-function apriFoto(url){ const o=$('#fotoLightbox'), im=$('#fotoLightboxImg'); if(!o||!im||!url)return;
-  im.src=url; im.classList.remove('zoom'); o.style.display='flex'; document.body.style.overflow='hidden'; }
+/* ===== visore foto a schermo intero =====
+   Si apre toccando una foto (documenti, selfie, screenshot). Si può:
+   - GIRARE con ↺ ↻: la rotazione si ricorda per quella foto su questo telefono e, se la foto
+     fa parte della registrazione in corso, la foto viene raddrizzata davvero (così resta dritta
+     anche nelle anteprime, nel riquadro "Da controllare" e nell'Archivio);
+   - INGRANDIRE: pizzicando con due dita, con un doppio tocco sul punto da leggere, con la
+     rotellina del mouse o con + e −; la percentuale al centro riporta a misura schermo;
+   - SPOSTARE trascinando quando è ingrandita. Un tocco fuori dalla foto chiude. */
+const LB={rot:0, rot0:0, s:1, tx:0, ty:0, fit:1, nw:0, nh:0, chiave:'', punti:new Map(), gesto:null, ultimoTap:null};
+const LB_ROT_KEY='fotoRotazioni';
+function lbRotazioniSalvate(){ try{ return JSON.parse(localStorage.getItem(LB_ROT_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function lbSalvaRotazione(chiave,gradi){
+  // solo per le foto con un indirizzo stabile (archivio online): le foto locali si raddrizzano davvero
+  if(!/^https?:\/\//.test(chiave||''))return;
+  try{ const m=lbRotazioniSalvate(); if(gradi)m[chiave]=gradi; else delete m[chiave];
+    const k=Object.keys(m); if(k.length>300)k.slice(0,k.length-300).forEach(x=>delete m[x]);
+    localStorage.setItem(LB_ROT_KEY,JSON.stringify(m)); }catch(e){}
+}
+function lbArea(){ return {W:Math.max(100,innerWidth-24), H:Math.max(100,innerHeight-170)}; }
+function lbCalcolaFit(){
+  const {W,H}=lbArea(); if(!LB.nw||!LB.nh){LB.fit=1;return;}
+  LB.fit=(LB.rot%180===0)?Math.min(W/LB.nw,H/LB.nh):Math.min(W/LB.nh,H/LB.nw);
+}
+// la foto non può scappare del tutto: si sposta solo quanto sborda dallo schermo
+function lbLimita(){
+  if(LB.s<=1.001){LB.tx=0;LB.ty=0;return;}
+  const lato=LB.rot%180!==0;
+  const w=(lato?LB.nh:LB.nw)*LB.fit*LB.s, h=(lato?LB.nw:LB.nh)*LB.fit*LB.s;
+  const mx=Math.max(0,(w-innerWidth)/2+40), my=Math.max(0,(h-innerHeight)/2+40);
+  LB.tx=Math.max(-mx,Math.min(mx,LB.tx)); LB.ty=Math.max(-my,Math.min(my,LB.ty));
+}
+function lbApplica(anima){
+  const im=$('#fotoLightboxImg'); if(!im)return;
+  im.classList.toggle('anima',!!anima);
+  im.style.width=Math.round(LB.nw*LB.fit)+'px'; im.style.height=Math.round(LB.nh*LB.fit)+'px';
+  im.style.transform=`translate(-50%,-50%) translate(${LB.tx}px,${LB.ty}px) scale(${LB.s}) rotate(${LB.rot}deg)`;
+  const p=$('#lbPct'); if(p)p.textContent=Math.round(LB.s*100)+'%';
+  const a=$('#lbAiuto'); if(a)a.style.opacity=LB.s>1.01?'0':'';   // ingrandita: l'aiuto non deve coprire il documento
+}
+function lbAdatta(anima){ LB.s=1; LB.tx=0; LB.ty=0; lbCalcolaFit(); lbApplica(anima); }
+// zoom tenendo fermo il punto (px,py) dello schermo sotto il dito o il mouse
+function lbZoomA(k,px,py,anima){
+  const s2=Math.max(1,Math.min(8,LB.s*k)); const kk=s2/LB.s; if(kk===1)return;
+  const cx=innerWidth/2, cy=innerHeight/2;
+  LB.tx=px-cx-(px-cx-LB.tx)*kk; LB.ty=py-cy-(py-cy-LB.ty)*kk; LB.s=s2;
+  lbLimita(); lbApplica(anima);
+}
+function lbZoomCentro(k){ lbZoomA(k,innerWidth/2,innerHeight/2,true); }
+function lbRuota(d){ LB.rot=((LB.rot+d)%360+360)%360; LB.s=1; LB.tx=0; LB.ty=0; lbCalcolaFit(); lbApplica(true); }
+function apriFoto(url,chiave){ const o=$('#fotoLightbox'), im=$('#fotoLightboxImg'); if(!o||!im||!url)return;
+  LB.chiave=chiave||url; LB.rot0=LB.rot=(lbRotazioniSalvate()[LB.chiave]||0); LB.s=1; LB.tx=0; LB.ty=0; LB.nw=LB.nh=0;
+  LB.punti.clear(); LB.gesto=null; LB.ultimoTap=null;
+  im.style.width=im.style.height='0px';
+  im.onload=()=>{ LB.nw=im.naturalWidth; LB.nh=im.naturalHeight; lbAdatta(false); };
+  im.src=url; if(im.complete&&im.naturalWidth){ LB.nw=im.naturalWidth; LB.nh=im.naturalHeight; lbAdatta(false); }
+  o.style.display='block'; document.body.style.overflow='hidden'; }
 // apre la foto partendo dall'immagine già visibile: funziona anche per i file privati,
 // che nella miniatura sono già stati caricati tramite il proxy autenticato
-function apriFotoDaEl(el){ if(el&&el.src)apriFoto(el.src); }
-function chiudiFoto(){ const o=$('#fotoLightbox'); if(o)o.style.display='none'; const im=$('#fotoLightboxImg'); if(im){im.src='';im.classList.remove('zoom');} document.body.style.overflow=''; }
-// tocca l'immagine grande per ingrandire ancora (comodo per leggere i dati piccoli del documento)
-function zoomFoto(e){ e.stopPropagation(); const im=$('#fotoLightboxImg'); if(im)im.classList.toggle('zoom'); }
+function apriFotoDaEl(el){ if(el&&el.src)apriFoto(el.src, el.getAttribute('data-blob')||el.getAttribute('src')||el.src); }
+function chiudiFoto(){
+  const o=$('#fotoLightbox'); if(o)o.style.display='none';
+  const im=$('#fotoLightboxImg'); const src=im?im.src:'';
+  if(im){ im.onload=null; im.removeAttribute('src'); }
+  document.body.style.overflow='';
+  if(LB.rot!==LB.rot0){
+    lbSalvaRotazione(LB.chiave,LB.rot);
+    raddrizzaInRegistrazione(LB.chiave,src,LB.rot);
+  }
+}
+// se la foto girata fa parte della registrazione in corso, la si gira DAVVERO (nuovo JPEG):
+// così anche anteprime, riquadro "Da controllare" e Archivio la mostrano dritta
+async function raddrizzaInRegistrazione(chiave,src,gradi){
+  if(!gradi||!src||typeof bookings==='undefined')return;
+  const inAttesa=(typeof intakeFiles!=='undefined')&&intakeFiles.includes(chiave);   // ancora da leggere in "Carica tutto"
+  const usata=inAttesa||bookings.some(b=>(b.bookingImgs||[]).includes(chiave)||b.guests.some(g=>(g.imgs||[]).includes(chiave)));
+  if(!usata)return;
+  const nuova=await ruotaImmagine(src,gradi);
+  if(!nuova||nuova===src||!/^data:image\//.test(nuova))return;   // non disegnabile: resta solo la rotazione a video
+  if(inAttesa){ intakeFiles=intakeFiles.map(x=>x===chiave?nuova:x); renderIntakeThumbs(); }
+  bookings.forEach(b=>{
+    b.bookingImgs=(b.bookingImgs||[]).map(x=>x===chiave?nuova:x);
+    b.guests.forEach(g=>{ g.imgs=(g.imgs||[]).map(x=>x===chiave?nuova:x); });
+  });
+  if(typeof render==='function')render();
+  toast('Foto raddrizzata');
+}
+// gesti: un dito trascina (se ingrandita), due dita pizzicano, doppio tocco ingrandisce
+(function(){
+  const sc=document.getElementById('lbScena'); if(!sc)return;
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  sc.addEventListener('pointerdown',e=>{
+    try{ sc.setPointerCapture(e.pointerId); }catch(_){}
+    LB.punti.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:Date.now(),suFoto:e.target&&e.target.id==='fotoLightboxImg'});
+    if(LB.punti.size===2){ const [a,b]=[...LB.punti.values()];
+      LB.gesto={tipo:'pizzico', d:dist(a,b), mx:(a.x+b.x)/2, my:(a.y+b.y)/2}; }
+    else if(LB.punti.size===1) LB.gesto={tipo:'tocco', mosso:false};
+  });
+  sc.addEventListener('pointermove',e=>{
+    const p=LB.punti.get(e.pointerId); if(!p)return;
+    const dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
+    if(LB.gesto&&LB.gesto.tipo==='pizzico'&&LB.punti.size>=2){
+      const [a,b]=[...LB.punti.values()]; const d=dist(a,b), mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+      if(LB.gesto.d>0) lbZoomA(d/LB.gesto.d,mx,my,false);
+      LB.tx+=mx-LB.gesto.mx; LB.ty+=my-LB.gesto.my; lbLimita(); lbApplica(false);
+      LB.gesto.d=d; LB.gesto.mx=mx; LB.gesto.my=my;
+    }else if(LB.gesto&&LB.gesto.tipo==='tocco'){
+      if(Math.hypot(e.clientX-p.x0,e.clientY-p.y0)>8) LB.gesto.mosso=true;
+      if(LB.s>1.001){ LB.tx+=dx; LB.ty+=dy; lbLimita(); lbApplica(false); }
+    }
+  });
+  const fine=e=>{
+    const p=LB.punti.get(e.pointerId); LB.punti.delete(e.pointerId); if(!p)return;
+    if(LB.gesto&&LB.gesto.tipo==='pizzico'){ if(LB.punti.size===0)LB.gesto=null; else LB.gesto={tipo:'tocco',mosso:true}; return; }
+    const tap=LB.gesto&&LB.gesto.tipo==='tocco'&&!LB.gesto.mosso&&(Date.now()-p.t0)<350;
+    LB.gesto=null;
+    if(!tap||e.type==='pointercancel')return;
+    const ora=Date.now(), u=LB.ultimoTap;
+    if(u&&ora-u.t<320&&Math.hypot(e.clientX-u.x,e.clientY-u.y)<40){
+      // doppio tocco: ingrandisce sul punto toccato, oppure torna a misura schermo
+      LB.ultimoTap=null;
+      if(LB.s>1.05) lbAdatta(true); else lbZoomA(2.6,e.clientX,e.clientY,true);
+      return;
+    }
+    LB.ultimoTap={t:ora,x:e.clientX,y:e.clientY};
+    if(!p.suFoto) chiudiFoto();   // un tocco fuori dalla foto chiude
+  };
+  sc.addEventListener('pointerup',fine); sc.addEventListener('pointercancel',fine);
+  sc.addEventListener('wheel',e=>{ e.preventDefault(); lbZoomA(Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY,false); },{passive:false});
+  window.addEventListener('resize',()=>{ const o=document.getElementById('fotoLightbox'); if(o&&o.style.display!=='none'){ lbCalcolaFit(); lbLimita(); lbApplica(false); } });
+  document.addEventListener('keydown',e=>{ const o=document.getElementById('fotoLightbox'); if(!o||o.style.display==='none')return;
+    if(e.key==='Escape')chiudiFoto(); else if(e.key==='r'||e.key==='R')lbRuota(90); else if(e.key==='+'||e.key==='=')lbZoomCentro(1.6); else if(e.key==='-')lbZoomCentro(1/1.6); });
+})();
 // apre un PDF: se è un file privato lo chiede al proxy autenticato, poi lo apre in una scheda
 async function apriPdf(u){
   try{
@@ -12455,7 +12602,7 @@ async function privatizzaVecchie(){
   }catch(e){ if(msg)msg.textContent='Errore: '+e.message; }
   finally{ if(btn)btn.disabled=false; }
 }
-document.addEventListener('click',e=>{ const im=e.target&&e.target.closest&&e.target.closest('img.zoomable'); if(im&&im.src){ e.preventDefault(); apriFoto(im.src); } });
+document.addEventListener('click',e=>{ const im=e.target&&e.target.closest&&e.target.closest('img.zoomable'); if(im&&im.src){ e.preventDefault(); apriFotoDaEl(im); } });
 function padR(v,len){v=(v==null?'':String(v));if(v.length>len)v=v.slice(0,len);return v+' '.repeat(len-v.length);}
 function padNum(v,len){v=(v==null?'':String(v)).replace(/\D/g,'');if(v.length>len)v=v.slice(-len);return '0'.repeat(len-v.length)+v;}
 
@@ -13199,6 +13346,13 @@ async function extractGuest(bid,gid){
   g._busy=true;render();
   try{
     const j=await apiExtract(g.imgs,'documento'); applyAI(g,j); toast('Letto con AI');
+    // raddrizza le foto capovolte o di lato (solo quelle caricate qui: quelle già in archivio
+    // si possono girare a mano dal visore)
+    const ori=j.orientamento_immagini||[];
+    for(let k=0;k<g.imgs.length;k++){
+      const gr=gradiDaOrientamento(ori[k]);
+      if(gr&&/^data:image\//.test(g.imgs[k])) g.imgs[k]=await ruotaImmagine(g.imgs[k],gr);
+    }
     if(g.comuneNascita){const e=lookupComune(g.comuneNascita);if(e)g.provinciaNascita=e.p;}
   }catch(e){toast(e&&e._fotoGrandi?'Le foto/PDF sono troppo pesanti: caricane meno per volta o più piccoli':'Estrazione non riuscita: '+e.message);console.error(e);}
   g._busy=false;render();
@@ -13517,6 +13671,9 @@ async function runIntake(){
         setIntakeStatus(`<span class="spin"></span> Leggo la foto ${i+1} di ${imgs.length}…`);
         try{
           const j=await apiExtract([imgs[i]],'auto');
+          // documento fotografato capovolto o di lato: lo raddrizzo prima di tenerlo
+          const gradi=gradiDaOrientamento((j.orientamento_immagini||[])[0]);
+          if(gradi) imgs[i]=await ruotaImmagine(imgs[i],gradi);
           const pr=j.prenotazione||{};
           const haDate=!!(pr.data_arrivo||pr.data_partenza||pr.numero_notti);
           const ospiti=(j.ospiti||[]).filter(o=>o&&(o.cognome||o.nome));

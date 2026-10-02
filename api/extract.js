@@ -6,9 +6,16 @@ DOPPIA VERIFICA numero_documento: molti documenti (in particolare i passaporti) 
 COGNOME E NOME COMPOSTI (molto importante, errore frequente): per cognome e nome usa SEMPRE come fonte principale i campi stampati in chiaro sul documento con etichetta esplicita (es. "Cognome"/"Surname"/"Nom"/"Apellidos" per il cognome; "Nome"/"Given names"/"Prénoms"/"Nombres" per il nome) — sono più affidabili della zona MRZ. Riporta cognome e nome COMPLETI, anche se composti da più parole (es. cognome doppio "SMITH-COOK", nome doppio "AMIRA LEE"): non spezzare mai un cognome doppio mettendone una parte nel campo nome, e non perdere nessuna parola del nome. Se usi anche la zona MRZ come riferimento, ricorda la sua sintassi: il cognome e il nome sono separati dal DOPPIO simbolo "<<", mentre un SINGOLO "<" dentro la stessa parte è solo uno spazio tra parole dello STESSO campo (es. tra le due parole di un cognome o nome composto) — non confondere mai un singolo "<" con il separatore tra cognome e nome. Se il campo stampato in chiaro e la lettura della MRZ non coincidono per cognome o nome, aggiungi quel campo a "incertezze".
 Per ogni altro campo dove non sei sicuro di aver letto bene (foto sfocata, riflesso, carattere ambiguo), aggiungi il nome di quel campo (es. "data_nascita", "cognome") all'array "incertezze". Se sei sicuro di tutto, "incertezze" è un array vuoto [].`;
 
+// Orientamento di ogni foto: serve per raddrizzarla da sola (tanti documenti arrivano
+// fotografati capovolti o di lato). Si chiede dove punta la PARTE ALTA del documento, che è
+// una domanda descrittiva e più affidabile di "di quanti gradi va girata".
+const CAMPO_ORIENTAMENTO = `"orientamento_immagini":["su"|"giu"|"sinistra"|"destra"]`;
+const REGOLA_ORIENTAMENTO = `"orientamento_immagini": UNA voce per OGNI immagine ricevuta, nello stesso ordine: il lato dell'IMMAGINE verso cui è rivolta la parte alta del documento o dello screenshot, cioè dove punta la cima delle lettere stampate. "su" = dritto, si legge normalmente; "giu" = capovolto, testo a testa in giù; "sinistra" = girato di lato con la cima delle lettere verso il bordo SINISTRO dell'immagine (le righe si leggono dal basso verso l'alto); "destra" = girato di lato con la cima delle lettere verso il bordo DESTRO (le righe si leggono dall'alto verso il basso). Se non sei sicuro, "su".`;
+
 const PROMPT_DOC = `Sei un estrattore dati per la schedina italiana Alloggiati Web. Dalle immagini del documento d'identità estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
-${CAMPI_OSPITE}
-Regole: ${REGOLE_OSPITE}`;
+${CAMPI_OSPITE.replace(/\}$/, "," + CAMPO_ORIENTAMENTO + "}")}
+Regole: ${REGOLE_OSPITE}
+${REGOLA_ORIENTAMENTO}`;
 
 function promptBooking(oggi) {
   return `Oggi è ${oggi}. Dallo screenshot di una prenotazione estrai le date di un soggiorno futuro o recente (vicino a oggi). Rispondi SOLO con JSON: {"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null}. Se vedi check-in e check-out calcola le notti come differenza. Se l'anno non è scritto esplicitamente nello screenshot, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date del soggiorno: NON usare mai un anno passato a caso, e non confondere l'anno con quello di altre cifre presenti nello screenshot.`;
@@ -17,8 +24,9 @@ function promptBooking(oggi) {
 // 'auto': riceve immagini MISTE (screenshot prenotazione + foto documenti) e/o un messaggio di testo, e li separa da solo.
 function promptAuto(oggi, haTesto) {
   return `Oggi è ${oggi}. Ricevi una o più immagini che possono essere di due tipi: (a) screenshot di una prenotazione (Airbnb, Booking, ecc.) oppure (b) foto di documenti d'identità (passaporto, carta d'identità, patente)${haTesto ? `, ed inoltre un MESSAGGIO DI TESTO scritto dall'ospite (es. copiato da una chat Airbnb/Booking) con i dati anagrafici di uno o più ospiti, da usare come fonte al pari dei documenti` : ""}. Classifica ogni immagine ed estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
-{"prenotazione":{"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null},"ospiti":[${CAMPI_OSPITE}]}
+{"prenotazione":{"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null},"ospiti":[${CAMPI_OSPITE}],${CAMPO_ORIENTAMENTO}}
 Regole:
+- ${REGOLA_ORIENTAMENTO}
 - "ospiti": UNA voce per ogni DOCUMENTO d'identità, PIÙ una voce per ogni ospite descritto SOLO nel messaggio di testo (se presente) e non già coperto da un documento. NON creare ospiti dagli screenshot di prenotazione (i nomi nello screenshot NON sono ospiti).
 - Se una stessa foto contiene PIÙ documenti di persone diverse (es. più carte d'identità affiancate sul tavolo), crea un ospite per CIASCUN documento presente nella foto.
 - Se due foto sono fronte/retro o due pagine dello STESSO documento, sono UN solo ospite.

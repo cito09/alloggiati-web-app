@@ -10,6 +10,28 @@ function downscale(dataURL,max=1600,q=0.82){return new Promise(res=>{const img=n
     res(c.toDataURL('image/jpeg',q));};
   img.onerror=()=>res(dataURL); img.src=dataURL;});}
 
+// Gira un'immagine di 90/180/270 gradi in senso orario e la restituisce come JPEG (data-URL).
+// Serve a raddrizzare i documenti fotografati capovolti o di lato: girata qui, la foto resta
+// dritta ovunque (anteprime, archivio, confronto del selfie). PDF e immagini che il browser
+// non sa disegnare tornano intatti. Il lato lungo viene limitato a 'max' pixel (memoria).
+function ruotaImmagine(src,gradi,{max=2400,q=0.9}={}){
+  gradi=((Number(gradi)||0)%360+360)%360;
+  if(!gradi||/^data:application\/pdf/i.test(String(src||'')))return Promise.resolve(src);
+  return new Promise(res=>{ const img=new Image();
+    img.onload=()=>{ try{
+      let w=img.naturalWidth,h=img.naturalHeight; if(!w||!h)return res(src);
+      const r=Math.min(1,max/Math.max(w,h)); w=Math.round(w*r); h=Math.round(h*r);
+      const c=document.createElement('canvas'); const diLato=gradi%180!==0;
+      c.width=diLato?h:w; c.height=diLato?w:h;
+      const x=c.getContext('2d'); x.translate(c.width/2,c.height/2); x.rotate(gradi*Math.PI/180); x.drawImage(img,-w/2,-h/2,w,h);
+      res(c.toDataURL('image/jpeg',q));
+    }catch(e){ res(src); } };
+    img.onerror=()=>res(src); img.src=src; });
+}
+// l'AI dice dove punta la parte alta del documento ("su","giu","sinistra","destra"):
+// di quanti gradi in senso orario va girata la foto per raddrizzarla
+function gradiDaOrientamento(v){ return ({su:0,giu:180,sinistra:90,destra:270})[String(v||'').toLowerCase().trim()]||0; }
+
 // stima dei byte di un data-URL base64 (per non superare il limite ~4.5MB di Vercel)
 function dataUrlBytes(d){ const i=String(d).indexOf(','); return Math.ceil((String(d).length-(i+1))*0.75); }
 
