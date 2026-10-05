@@ -7,6 +7,8 @@
 //           registrata in Questura — con pallino colorato per struttura (🟢 Canazei/Alba,
 //           🔴 Bologna/Falegnami); si ripete ogni giorno finché non viene registrata
 //        3) è il giorno 3 del mese e c'è almeno una struttura Ross1000 (file da caricare entro il 5)
+//        Prima ancora rimanda a Ross1000 gli invii rimasti in coda perché la Regione non
+//        rispondeva (api/_ross.js) e avvisa quando sono arrivati.
 //        Se NTFY_TOPIC non è configurato non fa nulla. Con CRON_SECRET impostato, accetta
 //        solo le chiamate del cron di Vercel (header Authorization: Bearer <segreto>).
 //
@@ -22,6 +24,7 @@ const { checkAdmin } = require("./_admin");
 const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
+const { rimandaRossInSospeso } = require("./_ross");
 
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
@@ -111,6 +114,48 @@ function giorniDaArrivoOggi(arrivoStr) {
   const oggi = Date.UTC(+p.year, +p.month - 1, +p.day);
   const arr = Date.UTC(+m[3], +m[2] - 1, +m[1]);
   return Math.round((oggi - arr) / 86400000);
+}
+
+// Ross1000: i dati di un mese vanno alla Regione entro il 5 del mese dopo. Per un invio
+// rimasto in coda conta il mese d'arrivo. Risponde la scadenza come giorno UTC (mezzanotte).
+function scadenzaRoss(arrivoStr) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(arrivoStr || "");
+  return m ? Date.UTC(+m[3], +m[2], 5) : null; // +m[2] = mese dopo (i mesi di Date partono da 0)
+}
+function oggiRomaUtc() {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(new Date()).reduce((a, x) => ((a[x.type] = x.value), a), {});
+  return Date.UTC(+p.year, +p.month - 1, +p.day);
+}
+// nomi brevi per le notifiche: "ROSSI MARIO e altri 2"
+function nomiBrevi(ospiti) {
+  const l = (ospiti || []).filter(Boolean);
+  if (!l.length) return "ospiti senza nome";
+  return l.length === 1 ? l[0] : `${l[0]} e altr${l.length === 2 ? "o 1" : "i " + (l.length - 1)}`;
+}
+// Messaggi del rinvio automatico Ross1000: sempre quando un invio rimasto indietro è
+// finalmente arrivato alla Regione (così si sa che è a posto); quando invece è ancora in
+// coda, solo dal 1° del mese della scadenza in poi (prima non c'è motivo di allarmarsi:
+// riprova da solo ogni giorno e ogni volta che si apre KeyFlow).
+function avvisiRinvioRoss({ tentati, inCoda }) {
+  const avvisi = [];
+  tentati.filter((t) => t.esito.ok).forEach(({ voce }) => {
+    avvisi.push(`✅ ${emojiStruttura(voce.struttura)} Ross1000 inviato adesso: il soggiorno con arrivo ${voce.arrivo || "?"} (${nomiBrevi(voce.ospiti)}) era rimasto indietro perché la Regione non rispondeva. Ora è a posto, non devi fare niente.`);
+  });
+  const ultimoErrore = new Map(tentati.filter((t) => !t.esito.ok).map((t) => [t.voce.ts, t.esito]));
+  const oggi = oggiRomaUtc();
+  inCoda.forEach((voce) => {
+    const scad = scadenzaRoss(voce.arrivo);
+    if (scad === null || oggi < scad - 4 * 86400000) return;
+    const quando = new Date(scad);
+    const scadTxt = `${quando.getUTCDate()} ${MESI_IT[quando.getUTCMonth()]}`;
+    const esito = ultimoErrore.get(voce.ts) || { temporaneo: voce.rossTemporaneo, error: voce.rossErrore };
+    const motivo = esito.temporaneo === false && esito.error
+      ? `la Regione non lo accetta (${String(esito.error).slice(0, 160)})`
+      : "la Regione non risponde ancora";
+    avvisi.push(`⚠️ ${emojiStruttura(voce.struttura)} Ross1000: ${motivo}. Il soggiorno con arrivo ${voce.arrivo || "?"} (${nomiBrevi(voce.ospiti)}) è ancora in coda, scadenza ${scadTxt}${oggi > scad ? " (già passata)" : ""}. Riprovo io ogni giorno; il dettaglio è in KeyFlow → ⚙️ Impostazioni → Ross1000.`);
+  });
+  return avvisi;
 }
 
 // --- comunicazione ISTAT (presenze turistiche negli alloggi privati) ---
@@ -303,10 +348,24 @@ module.exports = async (req, res) => {
   if (secret && (req.headers.authorization || "") !== `Bearer ${secret}`) {
     return res.status(401).json({ error: "Non autorizzato" });
   }
-  const topic = process.env.NTFY_TOPIC;
-  if (!topic) return res.status(200).json({ ok: true, nota: "NTFY_TOPIC non configurato: nessun promemoria" });
+  // 0) ROSS1000 RIMASTI INDIETRO: se al momento dell'invio il server della Regione non
+  //    rispondeva, la voce dell'Archivio è rimasta "in coda" coi suoi dati. Ogni mattina la
+  //    rimando da solo (il gestionale ci riprova anche ogni volta che lo si apre). Va fatto
+  //    anche senza notifiche configurate: per questo sta prima del controllo su NTFY_TOPIC.
+  let avvisiRoss = [];
+  let rinvioRoss = null;
+  try {
+    if (conn) {
+      const r = await rimandaRossInSospeso(conn);
+      rinvioRoss = { tentati: r.tentati.length, riusciti: r.tentati.filter((t) => t.esito.ok).length, inCoda: r.inCoda.length };
+      avvisiRoss = avvisiRinvioRoss(r);
+    }
+  } catch (e) { /* archivio non raggiungibile: si riprova domani */ }
 
-  const avvisi = [];
+  const topic = process.env.NTFY_TOPIC;
+  if (!topic) return res.status(200).json({ ok: true, nota: "NTFY_TOPIC non configurato: nessun promemoria", rinvioRoss });
+
+  const avvisi = [...avvisiRoss];
 
   // 1) PROMEMORIA CHECK-IN per struttura: dal giorno di arrivo in poi, per ogni prenotazione
   //    NON ancora registrata in Questura. Il giorno dell'arrivo avvisa "oggi è il check-in";
@@ -392,5 +451,5 @@ module.exports = async (req, res) => {
       });
     } catch (e) { /* notifica non riuscita: riproverà domani */ }
   }
-  return res.status(200).json({ ok: true, inviati: avvisi.length, fascicolo });
+  return res.status(200).json({ ok: true, inviati: avvisi.length, fascicolo, rinvioRoss });
 };

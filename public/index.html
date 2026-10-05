@@ -385,6 +385,7 @@
   .esito-passo.ko .txt b{color:var(--err)}
   .esito-passo.ko .det{color:var(--err)}
   .esito-passo.na{opacity:.55}
+  .esito-passo.coda .txt b{color:#ffb703}
   .esito-passo .azione{margin-top:8px}
   .invio-riga{display:flex; align-items:flex-start; gap:9px; padding:7px 0; font-size:13px; line-height:1.45}
   .invio-riga .ck{flex:0 0 auto; font-size:14px}
@@ -704,7 +705,8 @@ function doGet() {
     <h2>📊 Ross1000 · file e arretrati</h2>
   </div>
   <div class="pp-body">
-    <div class="muted" style="font-size:12.5px;line-height:1.55">Non servono per l'invio normale: con <b>Invia tutto</b> Ross1000 parte già da solo. Usa queste opzioni solo per caricare a mano sul portale o per recuperare mesi passati.</div>
+    <div id="rossCodaBox"></div>
+    <div class="muted" style="font-size:12.5px;line-height:1.55">Non servono per l'invio normale: con <b>Invia tutto</b> Ross1000 parte già da solo, e se la Regione non risponde lo rimando io appena torna su. Usa queste opzioni solo per caricare a mano sul portale o per recuperare mesi passati.</div>
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn ghost sm" style="flex:1" id="rossFileBtn" onclick="scaricaRossXml()">⬇ Scarica .xml</button>
       <button class="btn ghost sm" style="flex:1" id="rossSendBtn" onclick="inviaRoss(true)">Invia solo Ross1000</button>
@@ -758,7 +760,8 @@ function doGet() {
     </div>
     <div class="card" id="oggiScadenzeCard" style="display:none">
       <h2><span class="n">⏰</span> Scadenze</h2>
-      <div class="scad-riga" id="oggiRoss" style="display:none" onclick="mostraTab('registra')"></div>
+      <div class="scad-riga" id="oggiRossCoda" style="display:none" onclick="apriPagina('rossOverlay')"></div>
+      <div class="scad-riga" id="oggiRoss" style="display:none" onclick="apriPagina('rossOverlay')"></div>
       <div class="scad-riga" id="oggiGeis" style="display:none" onclick="apriGeis()"></div>
     </div>
     <div class="card" id="oggiAzioniCard">
@@ -12737,6 +12740,9 @@ function currentStrutturaNome(){
   const opt=sel&&sel.selectedOptions&&sel.selectedOptions[0];
   return opt?opt.textContent:'';
 }
+// l'ultima voce in viaggio verso l'archivio online: chi la modifica subito dopo (l'esito di
+// Ross1000) aspetta che sia arrivata, sennò il server cercherebbe una voce che non ha ancora
+let storicoInArrivo=Promise.resolve();
 function aggiungiStorico(entry){
   // mostra subito la voce (istantaneo, funziona anche offline), poi la manda
   // all'archivio online se e' configurato: se ok, riallinea lo storico condiviso.
@@ -12746,10 +12752,11 @@ function aggiungiStorico(entry){
   storico.unshift(voce);
   salvaStorico();
   renderStorico();
-  fetch('/api/storico',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(voce)})
+  storicoInArrivo=fetch('/api/storico',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(voce)})
     .then(r=>r.json())
     .then(data=>{ if(data.configurato&&Array.isArray(data.storico)){ storico=data.storico; salvaStorico(); renderStorico(); } })
     .catch(()=>{/* offline o archivio online non configurato: resta comunque salvata in locale */});
+  return voce;
 }
 async function syncStoricoFromServer(){
   try{
@@ -12820,7 +12827,8 @@ function renderStorico(){
     const pillRic=ric?` <span class="pill ok" title="${escText(etichettaRicevuta(ric))}">🧾 ${ric.modo==='drive'?'su Drive':'scaricata'}</span>`
       :diOggi?' <span class="pill wait" title="Il portale Alloggiati Web prepara la ricevuta di oggi domani: si salverà da sola al prossimo invio">🧾 ricevuta pronta da domani</span>'
       :((e.tipo==='inviata'&&recente)?' <span class="pill wait">🧾 ricevuta da fare</span>':'');
-    const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>':'')+pillRic;
+    const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>'
+      :(rossInSospeso(e)?` <span class="pill wait" title="${escText(rossMotivoCoda(e)+' '+ROSS_CODA_SPIEGA)}">🔁 Ross1000 in coda</span>`:''))+pillRic;
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
     const sInfo=e.struttura?strutturaInfo(e.struttura):null;
     const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null].filter(Boolean).map(escText).join(' · ');
@@ -13810,7 +13818,7 @@ async function callSend(mode){
    riquadro con le righe di testo e una pastiglia Ross1000 a parte): a colpo d'occhio non
    si capiva cosa fosse davvero andato a buon fine. Ora c'è un solo pannello con
    Questura, Ross1000 e Ricevuta, e lo stato di ognuna. */
-const ICO_PASSO={ok:'✅',corso:'⏳',ko:'⚠️',todo:'⬜',na:'➖'};
+const ICO_PASSO={ok:'✅',corso:'⏳',ko:'⚠️',todo:'⬜',na:'➖',coda:'🔁'};   // coda = non partito, si rimanda da solo
 function segnaPasso(quale,stato,det,azione){
   if(!esitoInvio)return;
   esitoInvio[quale]={stato,det,azione:azione||''};
@@ -13830,11 +13838,13 @@ function renderPannelloInvio(){
   const finito=passi.every(v=>v.stato==='ok'||v.stato==='na');
   const guasto=passi.some(v=>v.stato==='ko');
   const inCorso=passi.some(v=>v.stato==='corso');
+  const inCoda=passi.some(v=>v.stato==='coda');
   const stato=guasto?'attesa':(finito?'ok':'attesa');
   const titolo=guasto?'Qualcosa non è andato'
-    :(finito?'Tutto fatto ✓':(inCorso?'Invio in corso…':'Invio riuscito — manca la ricevuta'));
-  const col=guasto?'var(--err)':(finito?'var(--ok)':'var(--amber)');
-  const ico=guasto?'⚠️':(finito?'✅':'⏳');
+    :(finito?'Tutto fatto ✓':(inCorso?'Invio in corso…'
+      :(inCoda?'Fatto — Ross1000 partirà da solo appena la Regione risponde':'Invio riuscito — manca la ricevuta')));
+  const col=guasto?'var(--err)':(finito?'var(--ok)':(inCoda&&!inCorso?'#ffb703':'var(--amber)'));
+  const ico=guasto?'⚠️':(finito?'✅':(inCoda&&!inCorso?'🔁':'⏳'));
   w.innerHTML=`<div class="esito ${stato}">
     <div class="esito-tit" style="color:${col}">${ico} ${titolo}</div>
     <div class="esito-passi">
@@ -13986,14 +13996,15 @@ async function invia(){apriCard('invioCard');
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     await archiviaDocumentiManuali();
     const snap=snapshotOspiti();
-    aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
+    const voce=aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
+    if(esitoInvio)esitoInvio.rossTs=voce.ts;
     if(bookings[0]){
       bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
       (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id,true)); // inviate davvero: eliminazione definitiva
       bookings[0]._pendingIds=[];
       render();   // la prenotazione si mostra subito come "già inviata"
     }
-    if(rossAttivo()) inviaRoss(false); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
+    if(rossAttivo()) inviaRoss(false,voce.ts); // per le strutture con obbligo ISTAT (es. Bologna) manda anche a Ross1000
     if(istatAttivo()) inviaIstat(recordsInviati); // per Canazei: modulo ISTAT via email all'ufficio del turismo
     // la ricevuta PDF si salva da sola (Drive o telefono): prima serviva un secondo tocco su
     // "Scarica ricevuta PDF" e ce se ne dimenticava. Non blocca Ross1000 e ISTAT.
@@ -14529,37 +14540,41 @@ async function scaricaRossXml(){
     toast('File Ross1000 scaricato: importalo sul portale (check-in → importa file gestionale)');
   }catch(e){toast('Ross1000: '+e.message);}
 }
-async function inviaRoss(manuale){
+// ts = la voce dell'Archivio di questo invio: il server ci segna com'è andata e, se la Regione
+// non risponde, la lascia "in coda" coi dati per rimandarla da sola (vedi riprovaRossInSospeso)
+async function inviaRoss(manuale,ts){
   const p=rossPayload();
   const out=$(manuale?'#rossResultManuale':'#rossResult');
-  const riga=$('#esitoRoss');
   if(!p){
     // niente da trasmettere: la spunta non deve restare a "in corso" per sempre
     if(manuale)toast('Nessun ospite completo da trasmettere');
     else segnaPasso('ross','ko','nessun ospite completo da trasmettere — riprova da ⚙️ Impostazioni → Ross1000');
     return;
   }
+  // dalle Impostazioni ("Invia solo Ross1000"): la voce è quella con la stessa data d'arrivo
+  if(!ts){ const ent=storico.find(x=>x.tipo==='inviata'&&x.arrivo===p.arrivo); if(ent)ts=ent.ts; }
   const btn=$('#rossSendBtn'); if(btn)btn.disabled=true;
   if(out)out.innerHTML='<div class="muted" style="margin-top:10px"><span class="spin"></span> Invio a Ross1000…</div>';
-  try{
-    const r=await fetch('/api/ross',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'invia',...p})});
-    const data=await r.json();
-    if(!r.ok)throw new Error(data.error||'Errore');
-    if(riga)riga.innerHTML='✅ Ross1000 (Regione ISTAT): trasmesso';
+  await storicoInArrivo;   // la voce deve essere già nell'archivio online, sennò il server non la trova
+  const esito=await chiamaRoss({azione:'invia',...p,...(ts?{ts}:{})});
+  if(btn)btn.disabled=false;
+  if(esito.ok){
     if(!manuale)segnaPasso('ross','ok','trasmesso alla Regione');
     if(out&&(manuale||!esitoInvio))out.innerHTML='<div class="pill ok" style="margin-top:10px">Ross1000: trasmesso ✓</div>';
     else if(out)out.innerHTML='';
     toast('Ross1000: dati trasmessi');
     // segna nello storico che per questo soggiorno Ross1000 è fatto (per gli "arretrati")
-    const ent=storico.find(x=>x.tipo==='inviata'&&x.arrivo===(bookings[0]&&bookings[0].arrivo));
-    if(ent)segnaRossFatto(ent.ts);
-  }catch(e){
-    if(riga){ riga.className='esito-riga err'; riga.innerHTML='⚠️ Ross1000 non trasmesso: '+escText(e.message)+' — puoi riprovare da ⚙️ Impostazioni → Ross1000'; }
-    if(!manuale)segnaPasso('ross','ko',escText(e.message)+' — riprova da ⚙️ Impostazioni → Ross1000');
-    if(out&&(manuale||!esitoInvio))out.innerHTML=`<div class="pill err" style="margin-top:10px">Ross1000: ${escText(e.message)}</div>`;
-    else if(out)out.innerHTML='';
-    if(manuale)toast('Ross1000: '+e.message);
-  }finally{ if(btn)btn.disabled=false; }
+    if(ts)segnaRossFatto(ts);
+    return;
+  }
+  // non partito: resta in coda (se sappiamo di quale voce si tratta) e si rimanda da solo
+  if(ts)segnaRossDaRifare(ts,esito);
+  const det=ts?dettaglioRossKo(esito):escText(esito.error)+' — riprova da ⚙️ Impostazioni → Ross1000';
+  if(!manuale)segnaPasso('ross',(ts&&esito.irraggiungibile)?'coda':'ko',det,ts?bottoneRiprovaRoss():'');
+  if(out&&(manuale||!esitoInvio))out.innerHTML=`<div class="pill ${esito.irraggiungibile?'wait':'err'}" style="margin-top:10px">Ross1000: ${escText(esito.error)}</div>`
+    +(ts?`<div class="muted" style="font-size:12px;margin-top:6px">${escText(ROSS_CODA_SPIEGA)}</div>`:'');
+  else if(out)out.innerHTML='';
+  if(manuale)toast(esito.irraggiungibile&&ts?'La Regione non risponde: resta in coda, lo rimando io':'Ross1000: '+esito.error);
 }
 
 /* ===== Arretrati Ross1000: file unico con le prenotazioni non ancora mandate =====
@@ -14631,7 +14646,7 @@ function renderRossArretrati(){
         <input type="checkbox" data-ts="${e.ts}" ${e.rossOk?'':'checked'} style="width:20px;height:20px;flex:0 0 auto;accent-color:var(--amber)">
         <span style="flex:1;font-size:13.5px;line-height:1.35"><b>arrivo ${escText(s.arrivo)}</b> · ${s.notti} nott${s.notti===1?'e':'i'} · ${s.ospiti.length} ospit${s.ospiti.length===1?'e':'i'}<br>
           <span class="muted" style="font-size:12px">${escText(cognomi)}</span></span>
-        ${e.rossOk?'<span class="pill ok">✓ fatta</span>':'<span class="pill wait">da fare</span>'}
+        ${e.rossOk?'<span class="pill ok">✓ fatta</span>':(rossInSospeso(e)?'<span class="pill wait">🔁 in coda</span>':'<span class="pill wait">da fare</span>')}
       </label>`;
     }).join('')}
     <button class="btn primary sm" style="width:100%;margin-top:10px" onclick="generaRossUnico()">⬇ Scarica file unico (.xml)</button>
@@ -14656,10 +14671,152 @@ async function generaRossUnico(){
   }catch(e){toast('Ross1000: '+e.message);}
 }
 function segnaRossFatto(ts){
-  const e=storico.find(x=>x.ts===ts);
-  if(e&&!e.rossOk){ e.rossOk=true; salvaStorico(); renderStorico(); }
-  fetch('/api/storico',{method:'PATCH',headers:adminHeaders({'Content-Type':'application/json'}),
-    body:JSON.stringify({ts,campi:{rossOk:true}})}).catch(()=>{/* offline: resta segnato in locale */});
+  segnaEsitoRossLocale(ts,{ok:true});
+  // dopo che la voce è arrivata all'archivio: prima il server non la troverebbe
+  storicoInArrivo.then(()=>fetch('/api/storico',{method:'PATCH',headers:adminHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({ts,campi:CAMPI_ROSS_FATTO})})).catch(()=>{/* offline: resta segnato in locale */});
+}
+
+/* ===== Ross1000 rimasto indietro: si rimanda da solo =====
+   Caso reale (5 ottobre 2026): "Invia tutto" ha mandato la Questura, ma Ross1000 ha dato
+   "fetch failed". Era il server della Regione Emilia-Romagna a essere giù (non rispondeva da
+   nessun paese, Italia compresa), non KeyFlow. Prima l'invio si perdeva e andava rifatto a mano.
+   Ora l'esito si segna sulla voce dell'Archivio (lo fa il server, vedi api/_ross.js):
+     rossDaRifare  → è "in coda": lo si rimanda da solo appena la Regione torna su,
+                     da qui (all'apertura dell'app, al rientro e ogni 10 minuti mentre è aperta)
+                     e dal promemoria del server ogni mattina, che poi avvisa col telefono;
+     rossDati      → cosa rimandare, identico al primo invio (stessi idswh: la Regione non
+                     lo conta due volte); se manca si ricostruisce dalle schedine. */
+const CAMPI_ROSS_FATTO={rossOk:true, rossDaRifare:null, rossErrore:null, rossTemporaneo:null, rossTentativo:null, rossDati:null};
+// Da questo giorno ogni invio Ross1000 ha il suo esito segnato. Un invio ufficiale di una casa
+// con Ross1000 fatto da allora, senza conferma né errore dopo 10 minuti, vuol dire che l'app si
+// è chiusa a metà (o che è quello del 5/10, quando l'esito non si segnava ancora): va rimandato.
+// I più vecchi no: potevano essere già stati caricati a mano sul portale (restano negli Arretrati).
+const ROSS_TRACCIATO_DAL=Date.UTC(2026,9,4,22,0,0);   // 5 ottobre 2026, mezzanotte in Italia
+const ROSS_RIPROVA_MS=10*60*1000;
+let rossRiprovaInCorso=false, rossUltimaRiprova=0;
+function strutturaHaRoss(nome){ const id=idStrutturaDaNome(nome); return !!id&&struttureList.some(s=>s.id===id&&s.ross); }
+function rossInSospeso(e){
+  if(!e||e.tipo!=='inviata'||e.rossOk)return false;
+  if(e.rossDaRifare)return true;
+  return e.ts>=ROSS_TRACCIATO_DAL && Date.now()-e.ts>ROSS_RIPROVA_MS && strutturaHaRoss(e.struttura) && !!rossSoggiornoDaStorico(e);
+}
+function rossCoda(){ return storico.filter(rossInSospeso); }
+// cosa mandare per una voce in coda: i dati del primo invio, oppure ricostruiti dalle schedine
+function rossDatiDiVoce(e){
+  const d=e&&e.rossDati;
+  if(d&&d.struttura&&Array.isArray(d.soggiorni)&&d.soggiorni.length)return d;
+  const s=rossSoggiornoDaStorico(e), id=idStrutturaDaNome(e&&e.struttura);
+  return (s&&id)?{struttura:id, soggiorni:[s]}:null;
+}
+// chiamata a /api/ross che non lancia mai: {ok, esito} oppure {ok:false, error, irraggiungibile, registrato}
+async function chiamaRoss(corpo){
+  try{
+    const r=await fetch('/api/ross',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(corpo)});
+    let d={}; try{ d=await r.json(); }catch(e){ d={error:`risposta non valida dal server (HTTP ${r.status})`, irraggiungibile:r.status>=500}; }
+    if(!r.ok||!d.ok)return {ok:false, error:d.error||('errore HTTP '+r.status), irraggiungibile:!!d.irraggiungibile, registrato:!!d.registrato};
+    return {ok:true, esito:d.esito, registrato:!!d.registrato};
+  }catch(e){
+    // niente internet sul telefono: la Regione non c'entra, ma l'invio va rifatto lo stesso
+    return {ok:false, error:'connessione a internet assente', irraggiungibile:true, offline:true};
+  }
+}
+// l'esito sulla copia locale (sul server lo ha già scritto /api/ross, se sapeva quale voce)
+function segnaEsitoRossLocale(ts,esito){
+  const e=storico.find(x=>x.ts===ts); if(!e)return;
+  if(esito.ok){ if(e.rossOk&&!e.rossDaRifare)return; Object.keys(CAMPI_ROSS_FATTO).forEach(k=>delete e[k]); e.rossOk=true; }
+  else{ e.rossDaRifare=true; e.rossErrore=esito.error||''; e.rossTemporaneo=!!esito.irraggiungibile; e.rossTentativo=Date.now(); }
+  salvaStorico(); renderStorico();
+}
+function segnaRossDaRifare(ts,esito){
+  segnaEsitoRossLocale(ts,esito);
+  if(esito.registrato)return;   // l'ha già scritto il server sulla voce
+  storicoInArrivo.then(()=>fetch('/api/storico',{method:'PATCH',headers:adminHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({ts,campi:{rossDaRifare:true, rossErrore:esito.error||'', rossTemporaneo:!!esito.irraggiungibile, rossTentativo:Date.now()}})}))
+    .catch(()=>{/* offline: resta in coda qui; riaprendo la si ritrova lo stesso (vedi rossInSospeso) */});
+}
+// testo per chi legge: perché è in coda e cosa succede adesso
+function rossMotivoCoda(e){
+  if(e&&e.rossTemporaneo===false&&e.rossErrore)return 'La Regione non ha accettato i dati: '+e.rossErrore;
+  if(e&&/internet assente/.test(e.rossErrore||''))return 'Mancava la connessione a internet.';
+  return 'Il server della Regione non rispondeva (è un loro guasto, non di KeyFlow).';
+}
+const ROSS_CODA_SPIEGA='Lo rimando io da solo appena la Regione torna su: non devi fare niente.';
+const bottoneRiprovaRoss=(testo,stile)=>`<button class="btn ghost sm" style="${stile||'width:auto'}" onclick="event.stopPropagation();riprovaRossInSospeso({manuale:true})"${rossRiprovaInCorso?' disabled':''}>${rossRiprovaInCorso?'<span class="spin"></span> Provo…':(testo||'🔄 Riprova adesso')}</button>`;
+/* Rimanda le voci in coda, una per volta. Prima riprende l'Archivio dal server: il rinvio
+   potrebbe averlo già fatto il promemoria di stamattina (niente doppioni alla Regione).
+   Se la Regione è ancora giù si ferma al primo tentativo (gli altri fallirebbero uguale). */
+async function riprovaRossInSospeso({manuale}={}){
+  if(rossRiprovaInCorso){ if(manuale)toast('Sto già riprovando Ross1000…'); return; }
+  rossRiprovaInCorso=true; aggiornaRossCodaUI();
+  let fatti=0, ultimo=null;
+  try{
+    await syncStoricoFromServer();
+    let voci=rossCoda();
+    // da soli non si insiste sulla stessa voce più di una volta ogni 10 minuti (anche fra un'apertura e l'altra)
+    if(!manuale)voci=voci.filter(e=>!e.rossTentativo||Date.now()-e.rossTentativo>=ROSS_RIPROVA_MS);
+    if(!voci.length){ if(manuale)toast('Niente da rimandare a Ross1000 ✓'); return; }
+    for(const e of voci){
+      const dati=rossDatiDiVoce(e); if(!dati)continue;
+      const esito=await chiamaRoss({azione:'invia', ts:e.ts, ...dati});
+      if(esito.ok){
+        fatti++; segnaRossFatto(e.ts);
+        if(esitoInvio&&esitoInvio.rossTs===e.ts)segnaPasso('ross','ok','trasmesso alla Regione (al nuovo tentativo)');
+      }else{
+        ultimo=esito; segnaRossDaRifare(e.ts,esito);
+        if(esitoInvio&&esitoInvio.rossTs===e.ts)segnaPasso('ross',esito.irraggiungibile?'coda':'ko',dettaglioRossKo(esito),bottoneRiprovaRoss());
+        if(esito.irraggiungibile)break;
+      }
+    }
+  }finally{ rossRiprovaInCorso=false; aggiornaRossCodaUI(); }
+  if(fatti)toast(fatti===1?'✅ Ross1000: mandato adesso l\'invio rimasto indietro':`✅ Ross1000: mandati adesso ${fatti} invii rimasti indietro`);
+  if(manuale&&ultimo)toast(ultimo.irraggiungibile?(ultimo.offline?'Manca internet: riprovo io più tardi':'La Regione non risponde ancora: riprovo io più tardi'):'Ross1000: '+ultimo.error);
+}
+// da sola: all'apertura, al rientro nell'app e ogni tanto mentre resta aperta
+function riprovaRossAutomatica(){
+  if(rossRiprovaInCorso||Date.now()-rossUltimaRiprova<ROSS_RIPROVA_MS)return;
+  if(!rossCoda().length)return;
+  rossUltimaRiprova=Date.now();
+  riprovaRossInSospeso({manuale:false});
+}
+setInterval(()=>{ if(!document.hidden)riprovaRossAutomatica(); },2*60*1000);
+// spiegazione nel pannello dell'invio
+function dettaglioRossKo(esito){
+  if(esito.offline)return 'Manca la connessione a internet. '+ROSS_CODA_SPIEGA;
+  if(esito.irraggiungibile)return 'Il server della Regione non risponde in questo momento (è un loro guasto, non di KeyFlow). Resta in coda e lo rimando io da solo appena torna su: non devi fare niente.';
+  return escText(esito.error)+' — resta in coda e riprovo io più tardi.';
+}
+// riga in Home (Scadenze) e riquadro nella pagina Ross1000 delle Impostazioni
+function aggiornaRossCodaUI(){
+  const coda=rossCoda();
+  const rifiutati=coda.filter(e=>e.rossTemporaneo===false&&e.rossErrore);
+  const riga=$('#oggiRossCoda');
+  if(riga){
+    riga.style.display=coda.length?'':'none';
+    if(coda.length){
+      const n=coda.length;
+      riga.innerHTML=`<span class="ico">🔁</span>
+        <span class="txt"><b>Ross1000 · ${n===1?'1 invio in coda':n+' invii in coda'}</b><br>
+          <span class="muted">${escText(rifiutati.length?rossMotivoCoda(rifiutati[0])
+            :(/internet/.test(coda[0].rossErrore||'')?'Mancava internet':'La Regione era giù')+': lo rimando io appena torna su, non devi fare niente.')}</span></span>
+        ${bottoneRiprovaRoss('Riprova ora','flex:0 0 auto;width:auto;padding:8px 12px')}`;
+    }
+  }
+  const box=$('#rossCodaBox');
+  if(box){
+    box.innerHTML=coda.length?`<div class="esito attesa" style="margin-top:0;margin-bottom:12px">
+      <div class="esito-tit" style="color:#ffb703">🔁 In coda per Ross1000: ${coda.length}</div>
+      <div class="muted" style="font-size:12.5px;line-height:1.5;margin-top:4px">${escText(ROSS_CODA_SPIEGA)} Ci riprovo ogni volta che apri KeyFlow e ogni mattina dal server (ti arriva una notifica quando è fatto).</div>
+      ${coda.map(e=>{
+        const quando=e.rossTentativo?new Date(e.rossTentativo).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+        return `<div style="padding:8px 0;border-top:1px solid var(--line);margin-top:8px;font-size:13px;line-height:1.4">
+          <b>arrivo ${escText(e.arrivo||'?')}</b> · ${escText((e.ospiti||[]).join(', '))}<br>
+          <span class="muted" style="font-size:12px">${escText(rossMotivoCoda(e))}${quando?' · ultimo tentativo '+escText(quando):''}</span></div>`;
+      }).join('')}
+      <div style="margin-top:8px">${bottoneRiprovaRoss('🔄 Riprova adesso','width:100%')}</div>
+    </div>`:'';
+  }
+  if(typeof aggiornaScadenze==='function')aggiornaScadenze();
 }
 
 /* ===== schede dashboard ===== */
@@ -14696,6 +14853,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ appNascostaDa=Date.now(); return; }
   const via=appNascostaDa?Date.now()-appNascostaDa:0;
   appNascostaDa=0;
+  riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
   try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); }catch(e){}
   if(registrazioneAMeta()){ aggiornaOggi(); return; }
@@ -14800,18 +14958,19 @@ function aggiornaOggi(){
       const urgente=giorno<=5; const mancano=5-giorno;
       rw.innerHTML=`<span class="ico">📅</span>
         <span class="txt"><b>Ross1000 · flussi di ${escText(urgente?mesePrec:meseIt(oggi))}</b><br>
-          <span class="muted">${urgente?'Da caricare entro il 5: generalo da Registrazione → Scarica .xml'
+          <span class="muted">${urgente?'Da completare entro il 5. Ogni invio ufficiale li trasmette già; quelli mancanti sono in ⚙️ Impostazioni → Ross1000 → Arretrati'
             :'Prossima scadenza: 5 '+escText(meseIt(new Date(oggi.getFullYear(),oggi.getMonth()+1,1)))+'. Ogni invio ufficiale lo trasmette già.'}</span></span>
         ${urgente?`<span class="pill ${mancano<=1?'err':'wait'}" style="flex:0 0 auto">${mancano===0?'oggi':'fra '+mancano+' g'}</span>`:''}`;
     }
   }
   if(typeof geisAvvisoHome==='function')geisAvvisoHome();
+  aggiornaRossCodaUI();
   aggiornaScadenze();
 }
 // la scheda "Scadenze" si vede solo se almeno una riga ha qualcosa da dire
 function aggiornaScadenze(){
   const card=$('#oggiScadenzeCard'); if(!card)return;
-  const righe=['#oggiRoss','#oggiGeis'].map(id=>$(id)).filter(el=>el&&el.style.display!=='none');
+  const righe=['#oggiRossCoda','#oggiRoss','#oggiGeis'].map(id=>$(id)).filter(el=>el&&el.style.display!=='none');
   card.style.display=righe.length?'':'none';
 }
 
@@ -15620,6 +15779,7 @@ function apriPagina(id){
   $('#'+id).classList.add('open');
   document.body.style.overflow='hidden';
   if(id==='statoOverlay')renderSettingsInfo();
+  if(id==='rossOverlay')aggiornaRossCodaUI();
 }
 function chiudiPagina(id){
   $('#'+id).classList.remove('open');
@@ -15768,11 +15928,13 @@ function apriCard(id){
   document.body.classList.add('ready');
   $('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
   mostraTab('oggi');   // si riparte sempre dalla Home, non dall'ultima scheda usata
-  loadStrutture();
+  const strutturePronte=loadStrutture();
   wireDropzone();
   wireChangeCodeForm();
   renderStorico();
-  syncStoricoFromServer();
+  const storicoPronto=syncStoricoFromServer();
+  // Ross1000 rimasti indietro (la Regione non rispondeva): appena si sa quali sono, li rimando
+  Promise.all([strutturePronte,storicoPronto]).then(()=>riprovaRossAutomatica()).catch(()=>{});
   caricaRicevuteFatte();
   caricaIstatConfig();
   isRenderStorico();

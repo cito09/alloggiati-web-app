@@ -5,10 +5,12 @@
 // GET  -> { configurato, storico }
 // POST { ...voce } -> aggiunge una voce in testa, risponde { configurato, storico }
 // POST { azione:"documento", file } -> salva UN documento su Blob, risponde { ok, url }
+// PATCH { ts, campi } -> cambia dei campi della voce (null = toglie il campo)
 // DELETE { ts } -> rimuove la voce con quel timestamp, risponde { configurato, storico }
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin } = require("./_admin");
 const { salvaBlob } = require("./_blob");
+const { applicaCampi } = require("./_ross");
 
 const KEY = "storico_schedine";
 const MAX_VOCI = 500;
@@ -55,12 +57,13 @@ module.exports = async (req, res) => {
       return res.status(200).json({ configurato: true, storico });
     }
     if (req.method === "PATCH") {
-      // aggiorna campi di una voce esistente (es. rossOk:true dopo l'export Ross1000)
+      // aggiorna campi di una voce esistente (es. rossOk:true dopo l'export Ross1000);
+      // un campo a null si toglie (es. i dati da rimandare a Ross1000, una volta mandati)
       const { ts, campi } = req.body || {};
       const raw = await redisCmd(conn, ["GET", KEY]);
       const storico = raw ? JSON.parse(raw) : [];
       const voce = storico.find((v) => v.ts === ts);
-      if (voce && campi && typeof campi === "object") Object.assign(voce, campi);
+      if (voce && campi && typeof campi === "object") applicaCampi(voce, campi);
       await redisCmd(conn, ["SET", KEY, JSON.stringify(storico)]);
       return res.status(200).json({ configurato: true, storico });
     }
