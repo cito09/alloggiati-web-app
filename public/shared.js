@@ -104,8 +104,8 @@ function caricaPdfJs(){
   _pdfjsPromise=new Promise((ok,ko)=>{
     if(window.pdfjsLib) return ok(window.pdfjsLib);
     const sc=document.createElement('script');
-    sc.src='vendor/pdfjs/pdf.min.js';
-    sc.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='vendor/pdfjs/pdf.worker.min.js'; ok(window.pdfjsLib); }catch(e){ ko(e); } };
+    sc.src='/vendor/pdfjs/pdf.min.js';
+    sc.onload=()=>{ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='/vendor/pdfjs/pdf.worker.min.js'; ok(window.pdfjsLib); }catch(e){ ko(e); } };
     sc.onerror=()=>ko(new Error('pdf.js non caricato'));
     document.head.appendChild(sc);
     setTimeout(()=>ko(new Error('timeout pdf.js')),30000);

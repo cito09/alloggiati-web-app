@@ -12,6 +12,7 @@ const { getStrutture } = require("./_alloggiati");
 const { getContrattoStruttura, testoContratto, firmaLabel } = require("./_contratto");
 const { generaContrattoPdf } = require("./_pdf");
 const { inviaEmailConAllegato } = require("./_email");
+const { codiceValido } = require("./_codice");
 
 const KEY = "checkin_pending";
 const MAX_VOCI = 200;
@@ -91,7 +92,9 @@ module.exports = async (req, res) => {
 
   const codiceAtteso = process.env.CHECKIN_CODE;
   if (!codiceAtteso) return res.status(403).json({ error: "Check-in non configurato: manca CHECKIN_CODE" });
-  if ((req.body || {}).codice !== codiceAtteso) return res.status(403).json({ error: "Link non valido" });
+  // stessa regola tollerante dell'apertura (_codice.js): un link accettato all'inizio non può
+  // essere respinto proprio all'invio finale
+  if (!codiceValido((req.body || {}).codice)) return res.status(403).json({ error: "Link non valido" });
 
   // Caricamento di UNA foto per volta (azione:'upload'): il browser carica ogni immagine da
   // sola e poi manda l'invio finale con i soli link. Così una singola richiesta non trasporta

@@ -6,7 +6,7 @@
 <title>KeyFlow Check-in</title>
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%23ffb703"/><circle cx="22" cy="32" r="8" fill="none" stroke="%2323170a" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="%2323170a" stroke-width="6" stroke-linecap="round" fill="none"/></svg>'>
 <meta name="theme-color" content="#0d1b2a">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -290,7 +290,7 @@
   </div>
 </div>
 
-<script src="shared.js"></script>
+<script src="/shared.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -860,28 +860,36 @@ function t(key){ return (T[lang]||T.it)[key]; }
 const T2={
   it:{ titolare_title:'Chi è il titolare della prenotazione?', titolare_spoiler:'Sul titolare scelto verrà fatta la verifica d\'identità con selfie e sarà l\'intestatario del contratto. Assicurati di scegliere la persona giusta.', titolare_hint:'Tocca il nome di chi ha effettuato la prenotazione.', titolare_for:'Verifica identità per',
     verif_title:'Verifica dell\'identità', verif_prep:'Preparo la verifica…', verif_selfie:'Analizzo il selfie…', verif_doc:'Leggo il volto sul documento…', verif_compare:'Confronto i volti…', verif_done_bar:'Completata', verif_done_title:'Verifica terminata', verif_done_sub:'Grazie, puoi continuare.', cam_selfie_hint:'Inquadra il tuo viso nell\'ovale, ben illuminato', verif_skip:'Continua senza verifica', verif_failed:'La verifica non è riuscita su questo telefono: puoi proseguire lo stesso.',
-    lettura_ko:'Non sono riuscito a leggere i documenti in queste foto.', lettura_ko_hint:'Riprova con foto nitide e ben illuminate (una per documento) oppure scrivi i dati a mano: ci vuole un minuto.', btn_manuale:'✍️ Scrivi i dati a mano', ok_add_more:'➕ Aggiungi altri ospiti', ok_add_more_hint:'Mancano delle persone? Aggiungile adesso: non serve rifare contratto e selfie.', aggiunta_banner:'Stai aggiungendo altri ospiti al check-in già inviato: carica i loro documenti, anche tutti insieme.', foto_non_leggibile:'Questa foto non si apre su questo telefono (formato non supportato): rimandala come JPG o fai uno screenshot.', date_passate:'Controlla le date del soggiorno: risultano già passate.' },
+    lettura_ko:'Non sono riuscito a leggere i documenti in queste foto.', lettura_ko_hint:'Riprova con foto nitide e ben illuminate (una per documento) oppure scrivi i dati a mano: ci vuole un minuto.', btn_manuale:'✍️ Scrivi i dati a mano', ok_add_more:'➕ Aggiungi altri ospiti', ok_add_more_hint:'Mancano delle persone? Aggiungile adesso: non serve rifare contratto e selfie.', aggiunta_banner:'Stai aggiungendo altri ospiti al check-in già inviato: carica i loro documenti, anche tutti insieme.', foto_non_leggibile:'Questa foto non si apre su questo telefono (formato non supportato): rimandala come JPG o fai uno screenshot.', date_passate:'Controlla le date del soggiorno: risultano già passate.',
+    link_monco_tit:'Il link è arrivato incompleto', link_monco_txt:'Manca una parte del link: succede quando la chat lo traduce o lo taglia. Apri il link dal messaggio originale (senza traduzione automatica) oppure copialo per intero nel browser. Se non funziona, chiedi alla struttura di rimandartelo.' },
   en:{ titolare_title:'Who is the booking holder?', titolare_spoiler:'The selected holder will do the selfie identity check and will be named on the rental contract. Make sure you pick the right person.', titolare_hint:'Tap the name of the person who made the booking.', titolare_for:'Identity check for',
     verif_title:'Identity check', verif_prep:'Preparing the check…', verif_selfie:'Analysing the selfie…', verif_doc:'Reading the face on the document…', verif_compare:'Comparing the faces…', verif_done_bar:'Done', verif_done_title:'Check complete', verif_done_sub:'Thank you, you can continue.', cam_selfie_hint:'Fit your face in the oval, well lit', verif_skip:'Continue without the check', verif_failed:'The check didn\'t work on this phone: you can carry on anyway.',
-    lettura_ko:'We couldn\'t read any document in these photos.', lettura_ko_hint:'Try again with sharp, well-lit photos (one per document) or just type the details in: it only takes a minute.', btn_manuale:'✍️ Type the details in', ok_add_more:'➕ Add more guests', ok_add_more_hint:'Someone missing? Add them now: no need to sign the agreement or take the selfie again.', aggiunta_banner:'You are adding more guests to the check-in you already sent: upload their documents, all together if you like.', foto_non_leggibile:'This photo won\'t open on this phone (unsupported format): send it as JPG or take a screenshot.', date_passate:'Please check the dates of your stay: they appear to be in the past.' },
+    lettura_ko:'We couldn\'t read any document in these photos.', lettura_ko_hint:'Try again with sharp, well-lit photos (one per document) or just type the details in: it only takes a minute.', btn_manuale:'✍️ Type the details in', ok_add_more:'➕ Add more guests', ok_add_more_hint:'Someone missing? Add them now: no need to sign the agreement or take the selfie again.', aggiunta_banner:'You are adding more guests to the check-in you already sent: upload their documents, all together if you like.', foto_non_leggibile:'This photo won\'t open on this phone (unsupported format): send it as JPG or take a screenshot.', date_passate:'Please check the dates of your stay: they appear to be in the past.',
+    link_monco_tit:'The link arrived incomplete', link_monco_txt:'Part of the link is missing: this happens when the chat translates or shortens it. Open the link from the original message (without automatic translation) or copy the whole link into your browser. If it still does not work, ask the property to send it again.' },
   fr:{ titolare_title:'Qui est le titulaire de la réservation ?', titolare_spoiler:'Le titulaire choisi effectuera la vérification d\'identité par selfie et figurera sur le contrat de location. Assurez-vous de choisir la bonne personne.', titolare_hint:'Touchez le nom de la personne qui a réservé.', titolare_for:'Vérification d\'identité pour',
     verif_title:'Vérification d\'identité', verif_prep:'Préparation de la vérification…', verif_selfie:'Analyse du selfie…', verif_doc:'Lecture du visage sur le document…', verif_compare:'Comparaison des visages…', verif_done_bar:'Terminé', verif_done_title:'Vérification terminée', verif_done_sub:'Merci, vous pouvez continuer.', cam_selfie_hint:'Placez votre visage dans l\'ovale, bien éclairé', verif_skip:'Continuer sans la vérification', verif_failed:'La vérification n\'a pas fonctionné sur ce téléphone : vous pouvez continuer.',
-    lettura_ko:'Nous n\'avons lu aucun document sur ces photos.', lettura_ko_hint:'Réessayez avec des photos nettes et bien éclairées (une par document) ou saisissez les données à la main : c\'est l\'affaire d\'une minute.', btn_manuale:'✍️ Saisir les données à la main', ok_add_more:'➕ Ajouter d\'autres voyageurs', ok_add_more_hint:'Il manque quelqu\'un ? Ajoutez-le maintenant : inutile de refaire le contrat et le selfie.', aggiunta_banner:'Vous ajoutez d\'autres voyageurs au check-in déjà envoyé : chargez leurs documents, même tous ensemble.', foto_non_leggibile:'Cette photo ne s\'ouvre pas sur ce téléphone (format non pris en charge) : renvoyez-la en JPG ou faites une capture d\'écran.', date_passate:'Vérifiez les dates de votre séjour : elles semblent déjà passées.' },
+    lettura_ko:'Nous n\'avons lu aucun document sur ces photos.', lettura_ko_hint:'Réessayez avec des photos nettes et bien éclairées (une par document) ou saisissez les données à la main : c\'est l\'affaire d\'une minute.', btn_manuale:'✍️ Saisir les données à la main', ok_add_more:'➕ Ajouter d\'autres voyageurs', ok_add_more_hint:'Il manque quelqu\'un ? Ajoutez-le maintenant : inutile de refaire le contrat et le selfie.', aggiunta_banner:'Vous ajoutez d\'autres voyageurs au check-in déjà envoyé : chargez leurs documents, même tous ensemble.', foto_non_leggibile:'Cette photo ne s\'ouvre pas sur ce téléphone (format non pris en charge) : renvoyez-la en JPG ou faites une capture d\'écran.', date_passate:'Vérifiez les dates de votre séjour : elles semblent déjà passées.',
+    link_monco_tit:'Le lien est arrivé incomplet', link_monco_txt:'Une partie du lien manque : cela arrive quand la messagerie le traduit ou le coupe. Ouvrez le lien depuis le message original (sans traduction automatique) ou copiez-le en entier dans votre navigateur. Si cela ne fonctionne pas, demandez à la structure de vous le renvoyer.' },
   es:{ titolare_title:'¿Quién es el titular de la reserva?', titolare_spoiler:'El titular elegido hará la verificación de identidad con selfie y figurará en el contrato de alquiler. Asegúrate de elegir a la persona correcta.', titolare_hint:'Toca el nombre de quien hizo la reserva.', titolare_for:'Verificación de identidad para',
     verif_title:'Verificación de identidad', verif_prep:'Preparando la verificación…', verif_selfie:'Analizando el selfie…', verif_doc:'Leyendo el rostro del documento…', verif_compare:'Comparando los rostros…', verif_done_bar:'Completada', verif_done_title:'Verificación terminada', verif_done_sub:'Gracias, puedes continuar.', cam_selfie_hint:'Encaja tu cara en el óvalo, bien iluminada', verif_skip:'Continuar sin la verificación', verif_failed:'La verificación no ha funcionado en este teléfono: puedes continuar igualmente.',
-    lettura_ko:'No hemos podido leer ningún documento en estas fotos.', lettura_ko_hint:'Inténtalo con fotos nítidas y bien iluminadas (una por documento) o escribe los datos a mano: es cosa de un minuto.', btn_manuale:'✍️ Escribir los datos a mano', ok_add_more:'➕ Añadir más huéspedes', ok_add_more_hint:'¿Falta alguien? Añádelo ahora: no hace falta repetir el contrato ni el selfie.', aggiunta_banner:'Estás añadiendo más huéspedes al check-in ya enviado: sube sus documentos, incluso todos juntos.', foto_non_leggibile:'Esta foto no se abre en este teléfono (formato no compatible): envíala como JPG o haz una captura de pantalla.', date_passate:'Revisa las fechas de la estancia: parecen ya pasadas.' },
+    lettura_ko:'No hemos podido leer ningún documento en estas fotos.', lettura_ko_hint:'Inténtalo con fotos nítidas y bien iluminadas (una por documento) o escribe los datos a mano: es cosa de un minuto.', btn_manuale:'✍️ Escribir los datos a mano', ok_add_more:'➕ Añadir más huéspedes', ok_add_more_hint:'¿Falta alguien? Añádelo ahora: no hace falta repetir el contrato ni el selfie.', aggiunta_banner:'Estás añadiendo más huéspedes al check-in ya enviado: sube sus documentos, incluso todos juntos.', foto_non_leggibile:'Esta foto no se abre en este teléfono (formato no compatible): envíala como JPG o haz una captura de pantalla.', date_passate:'Revisa las fechas de la estancia: parecen ya pasadas.',
+    link_monco_tit:'El enlace ha llegado incompleto', link_monco_txt:'Falta una parte del enlace: pasa cuando el chat lo traduce o lo corta. Abre el enlace desde el mensaje original (sin traducción automática) o cópialo entero en el navegador. Si no funciona, pide al alojamiento que te lo envíe de nuevo.' },
   de:{ titolare_title:'Wer ist der Buchungsinhaber?', titolare_spoiler:'Der ausgewählte Inhaber macht die Selfie-Identitätsprüfung und steht im Mietvertrag. Bitte die richtige Person auswählen.', titolare_hint:'Tippen Sie auf den Namen der Person, die gebucht hat.', titolare_for:'Identitätsprüfung für',
     verif_title:'Identitätsprüfung', verif_prep:'Prüfung wird vorbereitet…', verif_selfie:'Selfie wird analysiert…', verif_doc:'Gesicht auf dem Dokument wird gelesen…', verif_compare:'Gesichter werden verglichen…', verif_done_bar:'Fertig', verif_done_title:'Prüfung abgeschlossen', verif_done_sub:'Danke, Sie können fortfahren.', cam_selfie_hint:'Halten Sie Ihr Gesicht ins Oval, gut beleuchtet', verif_skip:'Ohne Prüfung fortfahren', verif_failed:'Die Prüfung hat auf diesem Handy nicht funktioniert: Sie können trotzdem fortfahren.',
-    lettura_ko:'In diesen Fotos konnten wir kein Dokument lesen.', lettura_ko_hint:'Versuchen Sie es mit scharfen, gut beleuchteten Fotos (eines pro Dokument) oder geben Sie die Daten von Hand ein: das dauert nur eine Minute.', btn_manuale:'✍️ Daten von Hand eingeben', ok_add_more:'➕ Weitere Gäste hinzufügen', ok_add_more_hint:'Fehlt jemand? Jetzt hinzufügen: Vertrag und Selfie müssen nicht wiederholt werden.', aggiunta_banner:'Sie fügen dem bereits gesendeten Check-in weitere Gäste hinzu: Laden Sie ihre Dokumente hoch, gerne alle zusammen.', foto_non_leggibile:'Dieses Foto lässt sich auf diesem Handy nicht öffnen (Format nicht unterstützt): Senden Sie es als JPG oder machen Sie einen Screenshot.', date_passate:'Bitte prüfen Sie die Daten Ihres Aufenthalts: sie liegen in der Vergangenheit.' },
+    lettura_ko:'In diesen Fotos konnten wir kein Dokument lesen.', lettura_ko_hint:'Versuchen Sie es mit scharfen, gut beleuchteten Fotos (eines pro Dokument) oder geben Sie die Daten von Hand ein: das dauert nur eine Minute.', btn_manuale:'✍️ Daten von Hand eingeben', ok_add_more:'➕ Weitere Gäste hinzufügen', ok_add_more_hint:'Fehlt jemand? Jetzt hinzufügen: Vertrag und Selfie müssen nicht wiederholt werden.', aggiunta_banner:'Sie fügen dem bereits gesendeten Check-in weitere Gäste hinzu: Laden Sie ihre Dokumente hoch, gerne alle zusammen.', foto_non_leggibile:'Dieses Foto lässt sich auf diesem Handy nicht öffnen (Format nicht unterstützt): Senden Sie es als JPG oder machen Sie einen Screenshot.', date_passate:'Bitte prüfen Sie die Daten Ihres Aufenthalts: sie liegen in der Vergangenheit.',
+    link_monco_tit:'Der Link ist unvollständig angekommen', link_monco_txt:'Ein Teil des Links fehlt: Das passiert, wenn der Chat ihn übersetzt oder kürzt. Öffnen Sie den Link aus der Originalnachricht (ohne automatische Übersetzung) oder kopieren Sie ihn vollständig in den Browser. Falls es nicht klappt, bitten Sie die Unterkunft, ihn erneut zu senden.' },
   ro:{ titolare_title:'Cine este titularul rezervării?', titolare_spoiler:'Titularul ales va face verificarea de identitate cu selfie și va figura în contractul de închiriere. Asigurați-vă că alegeți persoana corectă.', titolare_hint:'Atingeți numele persoanei care a făcut rezervarea.', titolare_for:'Verificare identitate pentru',
     verif_title:'Verificarea identității', verif_prep:'Se pregătește verificarea…', verif_selfie:'Se analizează selfie-ul…', verif_doc:'Se citește chipul de pe document…', verif_compare:'Se compară chipurile…', verif_done_bar:'Gata', verif_done_title:'Verificare finalizată', verif_done_sub:'Mulțumim, puteți continua.', cam_selfie_hint:'Încadrează-ți fața în oval, bine luminată', verif_skip:'Continuă fără verificare', verif_failed:'Verificarea nu a funcționat pe acest telefon: poți continua oricum.',
-    lettura_ko:'Nu am reușit să citim niciun document în aceste fotografii.', lettura_ko_hint:'Încercați cu fotografii clare și bine luminate (una pentru fiecare document) sau scrieți datele manual: durează un minut.', btn_manuale:'✍️ Scrie datele manual', ok_add_more:'➕ Adaugă alți oaspeți', ok_add_more_hint:'Lipsește cineva? Adăugați-l acum: nu trebuie refăcute contractul și selfie-ul.', aggiunta_banner:'Adăugați alți oaspeți la check-in-ul deja trimis: încărcați documentele lor, chiar toate odată.', foto_non_leggibile:'Această fotografie nu se deschide pe acest telefon (format neacceptat): trimiteți-o ca JPG sau faceți o captură de ecran.', date_passate:'Verificați datele sejurului: par să fie deja trecute.' },
+    lettura_ko:'Nu am reușit să citim niciun document în aceste fotografii.', lettura_ko_hint:'Încercați cu fotografii clare și bine luminate (una pentru fiecare document) sau scrieți datele manual: durează un minut.', btn_manuale:'✍️ Scrie datele manual', ok_add_more:'➕ Adaugă alți oaspeți', ok_add_more_hint:'Lipsește cineva? Adăugați-l acum: nu trebuie refăcute contractul și selfie-ul.', aggiunta_banner:'Adăugați alți oaspeți la check-in-ul deja trimis: încărcați documentele lor, chiar toate odată.', foto_non_leggibile:'Această fotografie nu se deschide pe acest telefon (format neacceptat): trimiteți-o ca JPG sau faceți o captură de ecran.', date_passate:'Verificați datele sejurului: par să fie deja trecute.',
+    link_monco_tit:'Linkul a ajuns incomplet', link_monco_txt:'Lipsește o parte din link: se întâmplă când chatul îl traduce sau îl taie. Deschideți linkul din mesajul original (fără traducere automată) sau copiați-l în întregime în browser. Dacă tot nu merge, cereți structurii să vi-l trimită din nou.' },
   pt:{ titolare_title:'Quem é o titular da reserva?', titolare_spoiler:'O titular escolhido fará a verificação de identidade com selfie e constará no contrato de locação. Certifique-se de escolher a pessoa certa.', titolare_hint:'Toque no nome de quem fez a reserva.', titolare_for:'Verificação de identidade para',
     verif_title:'Verificação de identidade', verif_prep:'A preparar a verificação…', verif_selfie:'A analisar a selfie…', verif_doc:'A ler o rosto no documento…', verif_compare:'A comparar os rostos…', verif_done_bar:'Concluída', verif_done_title:'Verificação terminada', verif_done_sub:'Obrigado, pode continuar.', cam_selfie_hint:'Enquadre o seu rosto no oval, bem iluminado', verif_skip:'Continuar sem a verificação', verif_failed:'A verificação não funcionou neste telemóvel: pode continuar à mesma.',
-    lettura_ko:'Não conseguimos ler nenhum documento nestas fotos.', lettura_ko_hint:'Tente com fotos nítidas e bem iluminadas (uma por documento) ou escreva os dados à mão: demora um minuto.', btn_manuale:'✍️ Escrever os dados à mão', ok_add_more:'➕ Adicionar mais hóspedes', ok_add_more_hint:'Falta alguém? Adicione agora: não é preciso repetir o contrato nem a selfie.', aggiunta_banner:'Está a adicionar mais hóspedes ao check-in já enviado: carregue os documentos deles, mesmo todos juntos.', foto_non_leggibile:'Esta foto não abre neste telemóvel (formato não suportado): envie-a como JPG ou faça uma captura de ecrã.', date_passate:'Verifique as datas da estadia: parecem já ter passado.' },
+    lettura_ko:'Não conseguimos ler nenhum documento nestas fotos.', lettura_ko_hint:'Tente com fotos nítidas e bem iluminadas (uma por documento) ou escreva os dados à mão: demora um minuto.', btn_manuale:'✍️ Escrever os dados à mão', ok_add_more:'➕ Adicionar mais hóspedes', ok_add_more_hint:'Falta alguém? Adicione agora: não é preciso repetir o contrato nem a selfie.', aggiunta_banner:'Está a adicionar mais hóspedes ao check-in já enviado: carregue os documentos deles, mesmo todos juntos.', foto_non_leggibile:'Esta foto não abre neste telemóvel (formato não suportado): envie-a como JPG ou faça uma captura de ecrã.', date_passate:'Verifique as datas da estadia: parecem já ter passado.',
+    link_monco_tit:'O link chegou incompleto', link_monco_txt:'Falta uma parte do link: acontece quando o chat o traduz ou corta. Abra o link a partir da mensagem original (sem tradução automática) ou copie-o inteiro para o navegador. Se não funcionar, peça ao alojamento que o envie de novo.' },
   pl:{ titolare_title:'Kto jest osobą rezerwującą?', titolare_spoiler:'Wybrana osoba przejdzie weryfikację tożsamości selfie i zostanie wpisana w umowie najmu. Upewnij się, że wybierasz właściwą osobę.', titolare_hint:'Dotknij imienia osoby, która dokonała rezerwacji.', titolare_for:'Weryfikacja tożsamości dla',
     verif_title:'Weryfikacja tożsamości', verif_prep:'Przygotowuję weryfikację…', verif_selfie:'Analizuję selfie…', verif_doc:'Odczytuję twarz z dokumentu…', verif_compare:'Porównuję twarze…', verif_done_bar:'Gotowe', verif_done_title:'Weryfikacja zakończona', verif_done_sub:'Dziękujemy, możesz kontynuować.', cam_selfie_hint:'Umieść twarz w owalu, dobrze oświetloną', verif_skip:'Kontynuuj bez weryfikacji', verif_failed:'Weryfikacja nie zadziałała na tym telefonie: możesz kontynuować.',
-    lettura_ko:'Nie udało się odczytać żadnego dokumentu na tych zdjęciach.', lettura_ko_hint:'Spróbuj ponownie z ostrymi, dobrze oświetlonymi zdjęciami (po jednym na dokument) albo wpisz dane ręcznie: to chwila.', btn_manuale:'✍️ Wpisz dane ręcznie', ok_add_more:'➕ Dodaj kolejnych gości', ok_add_more_hint:'Kogoś brakuje? Dodaj teraz: nie trzeba powtarzać umowy ani selfie.', aggiunta_banner:'Dodajesz kolejnych gości do już wysłanego zameldowania: wgraj ich dokumenty, może być wszystkie naraz.', foto_non_leggibile:'Tego zdjęcia nie da się otworzyć na tym telefonie (nieobsługiwany format): wyślij je jako JPG lub zrób zrzut ekranu.', date_passate:'Sprawdź daty pobytu: wygląda na to, że już minęły.' },
+    lettura_ko:'Nie udało się odczytać żadnego dokumentu na tych zdjęciach.', lettura_ko_hint:'Spróbuj ponownie z ostrymi, dobrze oświetlonymi zdjęciami (po jednym na dokument) albo wpisz dane ręcznie: to chwila.', btn_manuale:'✍️ Wpisz dane ręcznie', ok_add_more:'➕ Dodaj kolejnych gości', ok_add_more_hint:'Kogoś brakuje? Dodaj teraz: nie trzeba powtarzać umowy ani selfie.', aggiunta_banner:'Dodajesz kolejnych gości do już wysłanego zameldowania: wgraj ich dokumenty, może być wszystkie naraz.', foto_non_leggibile:'Tego zdjęcia nie da się otworzyć na tym telefonie (nieobsługiwany format): wyślij je jako JPG lub zrób zrzut ekranu.', date_passate:'Sprawdź daty pobytu: wygląda na to, że już minęły.',
+    link_monco_tit:'Link dotarł niekompletny', link_monco_txt:'Brakuje części linku: dzieje się tak, gdy czat go tłumaczy lub skraca. Otwórz link z oryginalnej wiadomości (bez automatycznego tłumaczenia) albo skopiuj go w całości do przeglądarki. Jeśli nadal nie działa, poproś obiekt o ponowne wysłanie.' },
 };
 function t2(key){ return (T2[lang]||T2.it)[key]; }
 // bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
@@ -950,22 +958,40 @@ function applicaTraduzioniStatiche(){
   const add=$('#okAddMore');
   if(add) add.innerHTML=`<div class="muted" style="margin-bottom:10px">${t2('ok_add_more_hint')}</div>
     <button class="btn ghost" style="max-width:340px;margin:0 auto" onclick="aggiungiAltriOspitiDopo()">${t2('ok_add_more')}</button>`;
-  $('#blockTitle').textContent=t('block_title');
-  $('#blockText').textContent=t('block_text');
+  // link arrivato senza codice: si spiega cosa è successo (anche cambiando lingua)
+  $('#blockTitle').textContent=codice?t('block_title'):t2('link_monco_tit');
+  $('#blockText').textContent=codice?t('block_text'):t2('link_monco_txt');
   aggiornaNotti();
   render();
 }
 
 /* ===== struttura (nome mostrato in base a ?s=) ===== */
-const codice=new URLSearchParams(location.search).get('c')||'';
-const strutturaId=new URLSearchParams(location.search).get('s')||'';
+/* Il link del check-in può arrivare in due forme:
+   - nuova, a prova di chat: /c/CODICE/struttura — niente "?", "=" e "&", che la traduzione
+     automatica di Airbnb (e altre chat) spezzano: all'ospite arrivava solo
+     /checkin.html senza codice e vedeva "Link non valido";
+   - vecchia: /checkin.html?c=CODICE&s=struttura (continua a funzionare).
+   In tutte e due si tolgono i rimasugli che le chat attaccano: spazi, punteggiatura in fondo,
+   "&amp;" al posto di "&". */
+function parametriLink(){
+  const q=new URLSearchParams(String(location.search||'').replace(/&amp;/gi,'&'));
+  let c=q.get('c')||q.get('C')||'', s=q.get('s')||q.get('S')||'';
+  const m=/^\/c\/([^\/?#]+)(?:\/([^\/?#]+))?/i.exec(location.pathname||'');
+  const dec=v=>{ try{ return decodeURIComponent(v||''); }catch(e){ return v||''; } };
+  if(m){ if(!c)c=dec(m[1]); if(!s)s=dec(m[2]); }
+  const pulisci=v=>String(v||'').trim().replace(/^[\s(\[{<«"']+/,'').replace(/[\s.,;:!?)\]}>»"']+$/,'');
+  return {c:pulisci(c), s:pulisci(s)};
+}
+const codice=parametriLink().c;
+let strutturaId=parametriLink().s;
 let contrattoCfg=null; // dati pubblici del contratto per questa struttura (null se non configurato)
 async function caricaNomeStruttura(){
   if(!strutturaId)return;
   try{
     const r=await fetch('/api/strutture'); const data=await r.json();
-    const s=(data.strutture||[]).find(x=>x.id===strutturaId);
+    const s=(data.strutture||[]).find(x=>String(x.id).toLowerCase()===String(strutturaId).toLowerCase());
     if(s){
+      strutturaId=s.id;   // l'id esatto, quello che si manda col check-in
       document.title=s.nome+' · KeyFlow'; const h=$('#pageTitle'); if(h)h.textContent=s.nome+' — Check-in';
       contrattoCfg=s.contratto||null;
     }
@@ -1117,16 +1143,16 @@ function caricaFaceApi(){
   faceApiPromise=(async()=>{
     if(!window.faceapi){
       await new Promise((ok,ko)=>{
-        const sc=document.createElement('script'); sc.src='vendor/faceapi/face-api.min.js';
+        const sc=document.createElement('script'); sc.src='/vendor/faceapi/face-api.min.js';
         sc.onload=ok; sc.onerror=()=>ko(new Error('script'));
         document.head.appendChild(sc);
         setTimeout(()=>ko(new Error('timeout script')),30000);
       });
     }
     await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri('vendor/faceapi'),
-      faceapi.nets.faceLandmark68TinyNet.loadFromUri('vendor/faceapi'),
-      faceapi.nets.faceRecognitionNet.loadFromUri('vendor/faceapi'),
+      faceapi.nets.tinyFaceDetector.loadFromUri('/vendor/faceapi'),
+      faceapi.nets.faceLandmark68TinyNet.loadFromUri('/vendor/faceapi'),
+      faceapi.nets.faceRecognitionNet.loadFromUri('/vendor/faceapi'),
     ]);
   })();
   faceApiPromise.catch(()=>{ faceApiPromise=null; }); // si potrà ritentare al prossimo selfie
@@ -2017,7 +2043,11 @@ async function inviaCheckin(){
 }
 
 async function verificaAccesso(){
-  if(!codice){ mostraSolo('blockWrap'); return; }
+  if(!codice){
+    // il link è arrivato senza codice: quasi sempre è la chat che l'ha tagliato o tradotto
+    $('#blockTitle').textContent=t2('link_monco_tit'); $('#blockText').textContent=t2('link_monco_txt');
+    mostraSolo('blockWrap'); return;
+  }
   try{
     const r=await fetch('/api/checkin-verify?c='+encodeURIComponent(codice));
     const data=await r.json();

@@ -13432,7 +13432,14 @@ async function loadCheckinLink(){
     }
     let strutture=[];
     try{ const sd=await (await fetch('/api/strutture')).json(); strutture=sd.strutture||[]; }catch(e){/* usa link generico */}
-    const base=`${location.origin}/checkin.html?c=${encodeURIComponent(codeData.codice)}`;
+    // Link "a prova di chat": /c/CODICE/struttura, senza "?", "=" e "&". La traduzione
+    // automatica di Airbnb spezzava il link vecchio (checkin.html?c=…&s=…) e all'ospite
+    // arrivava senza codice: "Link non valido". Il vecchio continua comunque a funzionare.
+    // (Se il codice contenesse caratteri strani si torna al formato vecchio.)
+    const codiceSemplice=/^[A-Za-z0-9_-]+$/.test(codeData.codice);
+    const base=codiceSemplice?`${location.origin}/c/${codeData.codice}`
+                             :`${location.origin}/checkin.html?c=${encodeURIComponent(codeData.codice)}`;
+    const conStruttura=id=>codiceSemplice?`${base}/${encodeURIComponent(id)}`:`${base}&s=${encodeURIComponent(id)}`;
     const riga=(nome,link,i)=>`
       <div class="link-row">
         <div style="flex:1; min-width:0">
@@ -13444,11 +13451,13 @@ async function loadCheckinLink(){
           <button class="btn ghost sm" id="copyCheckinBtn-${i}" title="Copia link" onclick="copiaLinkCheckin('${link}','copyCheckinBtn-${i}')">📋</button>
         </div>
       </div>`;
+    const nota=`<div class="hint" style="margin-top:10px">🔗 Questo è il link da mandare agli ospiti: è fatto apposta per non rompersi con la traduzione automatica di Airbnb.
+      Se nei <b>messaggi programmati di Airbnb</b> hai ancora il link vecchio (quello con <i>checkin.html?c=</i>), sostituiscilo con questo.</div>`;
     if(strutture.length>1){
-      w.innerHTML=strutture.map((s,i)=>riga(s.nome,`${base}&s=${encodeURIComponent(s.id)}`,i)).join('');
+      w.innerHTML=strutture.map((s,i)=>riga(s.nome,conStruttura(s.id),i)).join('')+nota;
     }else{
-      const link=strutture.length===1?`${base}&s=${encodeURIComponent(strutture[0].id)}`:base;
-      w.innerHTML=riga(strutture.length===1?strutture[0].nome:'Check-in ospiti',link,0);
+      const link=strutture.length===1?conStruttura(strutture[0].id):base;
+      w.innerHTML=riga(strutture.length===1?strutture[0].nome:'Check-in ospiti',link,0)+nota;
     }
   }catch(e){/* offline: nessun link mostrato, non blocca il resto dell'app */}
 }
