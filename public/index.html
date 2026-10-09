@@ -285,6 +285,10 @@
   .gcal-riga:last-child{border-bottom:none}
   .gcal-riga:active{background:rgba(255,255,255,.06)}
   .gcal-riga .barra{width:4px; align-self:stretch; border-radius:3px; flex:0 0 auto}
+  .gcal-casa{display:flex; align-items:center; gap:7px; font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--muted); margin:12px 0 2px}
+  .gcal-casa .pallo{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
+  .gcal-libera{font-size:12.5px; color:var(--muted); padding:5px 0 8px}
   .gcal-riga .vai,.agenda-ev .vai{color:var(--muted); font-size:17px; font-weight:700; flex:0 0 auto; line-height:1}
   .agenda-g{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
   .agenda-g:last-child{border-bottom:none}
@@ -15063,14 +15067,39 @@ function calNomeCorto(n){ const p=String(n||'').trim().split(/\s+/)[0]||'ospite'
 // dove porta il tocco su un nome: già registrato -> la sua voce nell'Archivio,
 // ancora in attesa -> la scheda del check-in, da cui si registra
 const calApriAttr=e=>e.registrato?`onclick="calApriRegistrato(${e.ts||0})"`:`onclick="calApriInAttesa('${e.id||''}')"`;
+// una riga del giorno scelto: chi parte (p), chi arriva (a) o chi è in casa (c)
+const calDataBreve=d=>d?d.toLocaleDateString('it-IT',{day:'numeric',month:'numeric'}):'';
 function calRigaEvento(e){
   const pend=(!e.registrato&&e.id)?checkinPending.find(v=>v.id===e.id):null;
+  const cosa=e.tipo==='a'?'🟢 Arrivo':e.tipo==='p'?'🔴 Partenza':'🛏️ In casa';
+  const quando=e.tipo==='a'?(e.partenza?'parte il '+calDataBreve(e.partenza):'')
+    :e.tipo==='p'?'arrivati il '+calDataBreve(e.arrivo)
+    :'dal '+calDataBreve(e.arrivo)+(e.partenza?', parte il '+calDataBreve(e.partenza):'');
   return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore}"></span>
     <span style="flex:1;min-width:0">
-      <b style="font-size:13px">${e.tipo==='a'?'🟢 Arrivo':'🔴 Partenza'} · ${escText(e.nome)}</b>
-      <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${e.struttura?' · '+escText(e.struttura):''}</span></span>
+      <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
+      <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${quando?' · '+escText(quando):''}</span></span>
     ${pend?pendingAzione(pend,'padding:8px 12px;font-size:12.5px')
           :'<span class="vai">›</span>'}</div>`;
+}
+/* Il giorno scelto, casa per casa. Prima comparivano solo arrivi e partenze di quel giorno:
+   una casa senza movimenti spariva del tutto (es. l'8/10 si vedeva solo Falegnami, e di Alba
+   Loft non si capiva se fosse vuota o occupata). Ora ogni casa ha il suo riquadro: chi parte,
+   chi arriva, chi è in casa, oppure "libera". */
+function calGiornoPerCasa(k){
+  const giorno=new Date(k+'T00:00');
+  const eventi=[];
+  soggiorniHome().forEach(s=>{
+    if(dataKey(s.arrivo)===k) eventi.push(Object.assign({tipo:'a'},s));
+    if(s.partenza&&dataKey(s.partenza)===k) eventi.push(Object.assign({tipo:'p'},s));
+    if(s.partenza&&s.arrivo<giorno&&s.partenza>giorno) eventi.push(Object.assign({tipo:'c'},s));
+  });
+  const casaDi=e=>nomeStrutturaCanonico(e.struttura)||'Casa non indicata';
+  const case_=[...struttureList.map(x=>x.nome).filter(Boolean)];
+  eventi.forEach(e=>{ const c=casaDi(e); if(!case_.includes(c))case_.push(c); });
+  const ordine={p:0,a:1,c:2};
+  return case_.map(casa=>({casa, colore:strutturaInfo(casa).colore,
+    eventi:eventi.filter(e=>casaDi(e)===casa).sort((a,b)=>ordine[a.tipo]-ordine[b.tipo])}));
 }
 // tocco sul nome di chi è GIÀ REGISTRATO: apre la sua voce nell'Archivio, con il dettaglio
 // delle schedine già aperto, e la fa lampeggiare un attimo per farla trovare a colpo d'occhio
@@ -15099,12 +15128,14 @@ function calApriInAttesa(id){
 // sotto al calendario: il giorno scelto, oppure l'agenda dei prossimi giorni
 function calDettaglio(ev){
   if(calSelDay){
-    const lista=ev[calSelDay]||[];
     const d=new Date(calSelDay+'T12:00');
     const tit=maiuscola(d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
+    const gruppi=calGiornoPerCasa(calSelDay);
     return `<div class="gcal-dett"><div class="testa"><span class="giorno">${escText(tit)}</span>
         <button class="chiudi" onclick="calSeleziona('${calSelDay}')" title="Torna ai prossimi giorni">✕</button></div>
-      ${lista.length?lista.map(calRigaEvento).join('')
+      ${gruppi.length?gruppi.map(g=>`<div class="gcal-casa"><span class="pallo" style="background:${g.colore}"></span>${escText(g.casa)}</div>
+        ${g.eventi.length?g.eventi.map(calRigaEvento).join('')
+          :'<div class="gcal-libera">Libera: nessun arrivo, partenza o ospite.</div>'}`).join('')
         :'<div class="muted" style="font-size:12.5px;padding:4px 0 8px">Nessun arrivo o partenza in questo giorno.</div>'}</div>`;
   }
   const oggi=new Date(); const oggi0=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate());
@@ -15150,7 +15181,7 @@ function renderCalendario(){
     </div>
     <div class="gcal-dow">${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<span>${g}</span>`).join('')}</div>
     <div class="gcal-grid">${celle}</div>
-    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa.<br>Tocca un giorno per i nomi, poi un nome per aprirlo.</div>
+    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa.<br>Tocca un giorno per vedere ogni casa (chi parte, chi arriva, chi è in casa), poi un nome per aprirlo.</div>
     ${calDettaglio(ev)}`;
 }
 function calSposta(n){ calMese=new Date(calMese.getFullYear(),calMese.getMonth()+n,1); calSelDay=''; renderCalendario(); }
