@@ -15042,8 +15042,8 @@ function renderSintesi(){
   const box=(cls,ico,num,et,click)=>`<button class="kpi ${num?cls:'calmo'}" onclick="${click}"><span class="ico">${ico}</span><b>${num}</b><span class="et">${et}</span></button>`;
   w.innerHTML=`<div class="dash-data">${escText(data)} · oggi in casa e in arrivo</div>
     <div class="dash-kpi">
-      ${box('','🟢',arrivi,'arrivi','calVaiOggi()')}
-      ${box('','🔴',partenze,'partenze','calVaiOggi()')}
+      ${box('','➡️',arrivi,'arrivi','calVaiOggi()')}
+      ${box('','⬅️',partenze,'partenze','calVaiOggi()')}
       ${box('','🛏️',inCasa,'in casa','calVaiOggi()')}
       ${box('alert','📌',daFare,'da fare','vaiDaFare()')}
     </div>`;
@@ -15071,7 +15071,8 @@ const calApriAttr=e=>e.registrato?`onclick="calApriRegistrato(${e.ts||0})"`:`onc
 const calDataBreve=d=>d?d.toLocaleDateString('it-IT',{day:'numeric',month:'numeric'}):'';
 function calRigaEvento(e){
   const pend=(!e.registrato&&e.id)?checkinPending.find(v=>v.id===e.id):null;
-  const cosa=e.tipo==='a'?'🟢 Arrivo':e.tipo==='p'?'🔴 Partenza':'🛏️ In casa';
+  // frecce e non pallini rossi/verdi: quei colori sono già quelli delle case (Falegnami/Alba)
+  const cosa=e.tipo==='a'?'➡️ Arrivo':e.tipo==='p'?'⬅️ Partenza':'🛏️ In casa';
   const quando=e.tipo==='a'?(e.partenza?'parte il '+calDataBreve(e.partenza):'')
     :e.tipo==='p'?'arrivati il '+calDataBreve(e.arrivo)
     :'dal '+calDataBreve(e.arrivo)+(e.partenza?', parte il '+calDataBreve(e.partenza):'');
