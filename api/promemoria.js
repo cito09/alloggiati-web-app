@@ -25,6 +25,7 @@ const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
+const { azioneCalendari, sincronizzaCalendari, leggiCalendari } = require("./_calendari");
 
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
@@ -318,6 +319,16 @@ module.exports = async (req, res) => {
       }
     }
 
+    // prenotazioni in anticipo dai calendari di Airbnb/Booking (link "esporta calendario"):
+    // { link?:{idStruttura:"link"}, aggiorna?:true } — vedi api/_calendari.js
+    if ((req.body || {}).azione === "calendari") {
+      try {
+        return res.status(200).json(await azioneCalendari(conn, req.body || {}));
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
     // fascicolo mensile a richiesta dal gestionale
     if ((req.body || {}).azione === "fascicolo") {
       try {
@@ -361,6 +372,14 @@ module.exports = async (req, res) => {
       avvisiRoss = avvisiRinvioRoss(r);
     }
   } catch (e) { /* archivio non raggiungibile: si riprova domani */ }
+
+  // 0-bis) calendari di Airbnb/Booking: li rileggo ogni mattina anche se l'app resta chiusa
+  try {
+    if (conn) {
+      const cal = await leggiCalendari(conn);
+      if (Object.values(cal.link || {}).some((l) => (l || []).length)) await sincronizzaCalendari(conn, cal);
+    }
+  } catch (e) { /* portale o archivio non raggiungibili: si riprova all'apertura dell'app */ }
 
   const topic = process.env.NTFY_TOPIC;
   if (!topic) return res.status(200).json({ ok: true, nota: "NTFY_TOPIC non configurato: nessun promemoria", rinvioRoss });

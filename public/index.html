@@ -264,6 +264,12 @@
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border:1.5px solid transparent}
   .gcal-ev.arr{color:#0a0a0c}
   .gcal-ev.par{background:transparent}
+  /* prenotazione letta dal calendario di Airbnb/Booking, check-in non ancora fatto: a righe */
+  .gcal-ev.est{opacity:.62; background-image:repeating-linear-gradient(135deg,rgba(10,10,12,.35) 0 3px,transparent 3px 6px)}
+  .gcal-ev.est.par{border-style:dashed; background-image:none}
+  .gcal-invito{display:block; width:100%; margin-top:10px; padding:10px 12px; border:1px dashed var(--line); border-radius:14px;
+    background:transparent; color:var(--muted); font:inherit; font-size:12px; text-align:left; cursor:pointer}
+  .gcal-invito b{color:var(--amber)}
   /* su telefono le caselle sono strette: i nomi diventerebbero "Ro…", quindi restano
      solo barrette colorate (piena = arrivo, vuota = partenza) e i nomi si leggono
      nel dettaglio del giorno e nei prossimi giorni. */
@@ -483,6 +489,7 @@
     </div>
 
     <button class="link-row menu-riga" id="rowStruttura" style="display:none" onclick="apriPagina('strutturaOverlay')"><span class="mi">🏠</span><span style="flex:1;text-align:left">Struttura predefinita</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriCalendari()"><span class="mi">📅</span><span style="flex:1;text-align:left">Calendari Airbnb · prenotazioni in anticipo</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
@@ -700,6 +707,32 @@ function doGet() {
     <div id="istatElenco" style="margin-top:10px"></div>
     <button class="btn primary sm" style="width:100%;margin-top:10px" id="istatInviaBtn" onclick="inviaIstatSelezionati()">📤 Invia i selezionati</button>
     <div id="istatElencoMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
+  </div>
+</div>
+
+<div class="pagina-piena" id="calendariOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('calendariOverlay')" style="width:auto">← Indietro</button>
+    <h2>📅 Calendari Airbnb</h2>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.55">Così il calendario della Home si riempie <b>da solo</b> con le prenotazioni, prima ancora che gli ospiti facciano il check-in. KeyFlow le rilegge ogni volta che apri l'app e ogni mattina.<br>
+      Airbnb nel calendario non dà il nome né il numero degli ospiti: vedrai le date (barrette <b>a righe</b>) e toccandole si apre la prenotazione su Airbnb. Quando l'ospite fa il check-in, al loro posto compare il suo nome.</div>
+    <details style="margin-top:10px">
+      <summary style="font-size:12.5px;font-weight:700;cursor:pointer">📖 Dove trovo il link su Airbnb</summary>
+      <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:8px 0">
+        <li>Apri Airbnb da host (sito o app) e vai su <b>Calendario</b>.</li>
+        <li>Scegli l'appartamento, poi <b>Disponibilità</b> e in fondo <b>Collega calendari</b> (in alcune versioni "Sincronizza calendari").</li>
+        <li>Tocca <b>Esporta calendario</b> e <b>copia il link</b> (finisce con <i>.ics</i>).</li>
+        <li>Incollalo qui sotto nella casa giusta e premi Salva. Poi lo stesso per l'altro appartamento.</li>
+      </ol>
+      <div class="muted" style="font-size:12px;line-height:1.55">Se usi anche Booking: Extranet → Tariffe e disponibilità → Sincronizza calendari → Esporta. Nella stessa casa puoi mettere più link, uno per riga.<br>
+        Il link è personale: non condividerlo con altri (chi lo ha vede le date occupate).</div>
+    </details>
+    <div id="calendariCampi" style="margin-top:6px"></div>
+    <button class="btn primary" style="width:100%;margin-top:14px" id="calendariSalvaBtn" onclick="salvaCalendari()">💾 Salva e leggi le prenotazioni</button>
+    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="caricaCalendariEsterni({aggiorna:true,avvisa:true})">🔄 Rileggi adesso</button>
+    <div id="calendariEsito" class="muted" style="font-size:12px;margin-top:10px"></div>
   </div>
 </div>
 
@@ -13452,6 +13485,8 @@ async function loadCheckinLink(){
     const base=codiceSemplice?`${location.origin}/c/${codeData.codice}`
                              :`${location.origin}/checkin.html?c=${encodeURIComponent(codeData.codice)}`;
     const conStruttura=id=>codiceSemplice?`${base}/${encodeURIComponent(id)}`:`${base}&s=${encodeURIComponent(id)}`;
+    // anche per il calendario: "📋 Link check-in" accanto alle prenotazioni di Airbnb
+    window.linkCheckinPerStruttura={}; strutture.forEach(s=>{ window.linkCheckinPerStruttura[s.id]=conStruttura(s.id); });
     const riga=(nome,link,i)=>`
       <div class="link-row">
         <div style="flex:1; min-width:0">
@@ -14859,7 +14894,7 @@ document.addEventListener('visibilitychange',()=>{
   appNascostaDa=0;
   riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
-  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); }catch(e){}
+  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); caricaCalendariEsterni(); }catch(e){}
   if(registrazioneAMeta()){ aggiornaOggi(); return; }
   tornaAllaHome();
 });
@@ -14990,6 +15025,80 @@ const parseIt=a=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(a||'');return m?new
 const piuGiorni=(d,n)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
 const maiuscola=t=>String(t||'').charAt(0).toUpperCase()+String(t||'').slice(1);
 
+/* ===== prenotazioni in anticipo dai calendari di Airbnb/Booking =====
+   Prima il calendario si riempiva solo col check-in degli ospiti. Ora, incollato il link
+   "Esporta calendario" di Airbnb (Impostazioni → Calendari Airbnb), il server legge da solo le
+   prenotazioni (api/_calendari.js): qui arrivano con date, codice e ultime cifre del telefono,
+   senza nome. Copia in questo telefono per vederle subito anche senza rete. */
+let prenotazioniEsterne=[], calendariConfig=null;
+try{ const c=JSON.parse(localStorage.getItem('calendari_cache')||'null'); if(c&&Array.isArray(c.prenotazioni))prenotazioniEsterne=c.prenotazioni; }catch(e){}
+function nomeCasaDaId(id){ const s=struttureList.find(x=>x.id===id); return s?s.nome:(id||''); }
+function calendariCollegati(){ return !!calendariConfig&&Object.values(calendariConfig.link||{}).some(l=>(l||[]).length); }
+async function caricaCalendariEsterni(opz={}){
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'calendari',...(opz.link?{link:opz.link}:{}),...(opz.aggiorna?{aggiorna:true}:{})})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'errore');
+    if(d.configurato===false){ calendariConfig={link:{}}; return; }
+    calendariConfig={link:d.link||{}, aggiornato:d.aggiornato||0};
+    prenotazioniEsterne=Array.isArray(d.prenotazioni)?d.prenotazioni:[];
+    try{ localStorage.setItem('calendari_cache',JSON.stringify({prenotazioni:prenotazioniEsterne})); }catch(e){}
+    aggiornaOggi();
+    if(opz.campi)renderCalendariCampi(); else renderCalendariEsiti();
+    if(opz.avvisa){
+      const ko=Object.values(calendariConfig.link).flat().filter(x=>x.esito&&!x.esito.ok);
+      toast(ko.length?'⚠️ Un calendario non si è letto: guarda il motivo qui sotto':`📅 Calendari letti: ${prenotazioniEsterne.length} prenotazion${prenotazioniEsterne.length===1?'e':'i'}`);
+    }
+  }catch(e){
+    if(opz.avvisa)toast('Calendari non letti: '+(e.message||'connessione assente'));
+  }
+}
+function apriCalendari(){
+  apriPagina('calendariOverlay');
+  renderCalendariCampi();
+  caricaCalendariEsterni({campi:true});
+}
+// un campo per casa, col colore della casa, e sotto com'è andata l'ultima lettura di ogni link
+function renderCalendariCampi(){
+  const w=$('#calendariCampi'); if(!w)return;
+  const link=(calendariConfig&&calendariConfig.link)||{};
+  const case_=struttureList.length?struttureList:Object.keys(link).map(id=>({id,nome:id}));
+  w.innerHTML=case_.map(s=>{
+    const info=strutturaInfo(s.nome||s.id);
+    const valore=(link[s.id]||[]).map(x=>x.url).join('\n');
+    return `<label style="display:block;margin-top:14px"><span style="color:${info.colore}">●</span> ${escText(s.nome||s.id)}</label>
+      <textarea id="calLink_${escText(s.id)}" rows="2" placeholder="incolla qui il link di Esporta calendario (…ics)" spellcheck="false" autocomplete="off"
+        style="width:100%;font-size:12px;background:var(--surface2);color:var(--ink);border:none;border-radius:12px;padding:10px;resize:vertical">${escText(valore)}</textarea>
+      <div class="muted" id="calEsito_${escText(s.id)}" style="font-size:12px;margin-top:4px"></div>`;
+  }).join('');
+  renderCalendariEsiti();
+}
+function renderCalendariEsiti(){
+  const link=(calendariConfig&&calendariConfig.link)||{};
+  Object.keys(link).concat(struttureList.map(s=>s.id)).forEach(id=>{
+    const el=document.getElementById('calEsito_'+id); if(!el)return;
+    const voci=link[id]||[];
+    el.innerHTML=voci.map(x=>{
+      const e=x.esito; if(!e)return `${escText(x.fonte)}: non ancora letto`;
+      const ora=new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      return e.ok?`<span style="color:var(--ok)">✓ ${escText(x.fonte)}: ${e.quante} prenotazion${e.quante===1?'e':'i'}</span> · letto il ${escText(ora)}`
+        :`<span style="color:var(--err)">⚠️ ${escText(x.fonte)}: ${escText(e.errore||'non letto')}</span>${e.quante?` · tengo le ${e.quante} lette prima`:''}`;
+    }).join('<br>');
+  });
+  const tot=$('#calendariEsito');
+  if(tot)tot.textContent=calendariCollegati()?`In calendario: ${prenotazioniEsterne.length} prenotazion${prenotazioniEsterne.length===1?'e':'i'} lette dai portali.`:'';
+}
+async function salvaCalendari(){
+  const link={};
+  struttureList.forEach(s=>{ const t=document.getElementById('calLink_'+s.id); if(t)link[s.id]=t.value; });
+  const scritti=Object.values(link).join(' ');
+  if(scritti.trim()&&!/https?:\/\/|webcal:\/\//i.test(scritti)){ toast('Incolla il link completo (inizia con https://)'); return; }
+  const btn=$('#calendariSalvaBtn'); if(btn){btn.disabled=true; btn.innerHTML='<span class="spin"></span> Leggo le prenotazioni…';}
+  await caricaCalendariEsterni({link, campi:true, avvisa:true});
+  if(btn){btn.disabled=false; btn.textContent='💾 Salva e leggi le prenotazioni';}
+}
+
 // tutti i soggiorni da mostrare in Home. Se lo stesso soggiorno è sia registrato sia
 // ancora in coda (stesso arrivo e stesso titolare) vince quello registrato.
 function soggiorniHome(){
@@ -15014,6 +15123,23 @@ function soggiorniHome(){
       ospiti:(v.ospiti||[]).length||1, struttura:v.strutturaNome||'', colore:strutturaInfo(v.strutturaNome||'').colore,
       registrato:false, id:v.id});
   });
+  // prenotazioni lette dal calendario di Airbnb/Booking: compaiono solo dove non c'è già il
+  // soggiorno vero (check-in fatto o registrato) nella stessa casa e nelle stesse notti.
+  // Una casa non può avere due soggiorni sovrapposti, quindi "si accavalla" = "è lo stesso".
+  // Airbnb per primo: è quello con il codice e il link alla prenotazione.
+  const casaCanon=n=>nomeStrutturaCanonico(n||'');
+  prenotazioniEsterne.slice().sort((a,b)=>(a.fonte==='Airbnb'?0:1)-(b.fonte==='Airbnb'?0:1)).forEach(p=>{
+    const arr=parseIt(p.arrivo), par=parseIt(p.partenza); if(!arr||!par||par<=arr)return;
+    const casa=nomeCasaDaId(p.strutturaId);
+    const giaCe=out.some(x=>{
+      const fine=x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1);
+      return (!x.struttura||casaCanon(x.struttura)===casa)&&x.arrivo<par&&fine>arr;
+    });
+    if(giaCe)return;
+    out.push({arrivo:arr, partenza:par, nome:'Prenotazione '+(p.fonte||'Airbnb'), ospiti:null, struttura:casa,
+      colore:strutturaInfo(casa).colore, registrato:false, esterna:true, fonte:p.fonte||'Airbnb',
+      uid:p.uid, url:p.url||'', telefono4:p.telefono4||'', codice:p.codice||'', strutturaId:p.strutturaId});
+  });
   return out;
 }
 // eventi giorno per giorno: prima le partenze, poi gli arrivi (come si fa in casa)
@@ -15036,7 +15162,7 @@ function renderSintesi(){
   const arrivi=delGiorno.filter(e=>e.tipo==='a').length;
   const partenze=delGiorno.filter(e=>e.tipo==='p').length;
   const inCasa=sogg.filter(s=>s.arrivo<=mezzogiorno&&(!s.partenza||s.partenza>mezzogiorno))
-                   .reduce((a,s)=>a+(s.ospiti||1),0);
+                   .reduce((a,s)=>a+(s.esterna?0:(s.ospiti||1)),0);   // da Airbnb il numero non si sa
   const daFare=checkinPending.length;
   const data=maiuscola(oggi.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
   const box=(cls,ico,num,et,click)=>`<button class="kpi ${num?cls:'calmo'}" onclick="${click}"><span class="ico">${ico}</span><b>${num}</b><span class="et">${et}</span></button>`;
@@ -15066,7 +15192,15 @@ function calVaiOggi(){
 function calNomeCorto(n){ const p=String(n||'').trim().split(/\s+/)[0]||'ospite'; return p.charAt(0).toUpperCase()+p.slice(1).toLowerCase(); }
 // dove porta il tocco su un nome: già registrato -> la sua voce nell'Archivio,
 // ancora in attesa -> la scheda del check-in, da cui si registra
-const calApriAttr=e=>e.registrato?`onclick="calApriRegistrato(${e.ts||0})"`:`onclick="calApriInAttesa('${e.id||''}')"`;
+const calApriAttr=e=>e.esterna?`onclick="calApriEsterna('${encodeURIComponent(e.uid||'').replace(/'/g,'%27')}')"`
+  :e.registrato?`onclick="calApriRegistrato(${e.ts||0})"`:`onclick="calApriInAttesa('${e.id||''}')"`;
+// prenotazione presa dal calendario di Airbnb: si apre la prenotazione sul sito di Airbnb
+// (lì ci sono nome e messaggi); se il portale non dà il link, si spiega cos'è
+function calApriEsterna(uidEnc){
+  const p=prenotazioniEsterne.find(x=>x.uid===decodeURIComponent(uidEnc||''));
+  if(p&&p.url){ window.open(p.url,'_blank','noopener'); return; }
+  toast(`Prenotazione ${p?p.fonte:'dal calendario'}: il check-in online non è ancora stato fatto`);
+}
 // una riga del giorno scelto: chi parte (p), chi arriva (a) o chi è in casa (c)
 const calDataBreve=d=>d?d.toLocaleDateString('it-IT',{day:'numeric',month:'numeric'}):'';
 function calRigaEvento(e){
@@ -15076,6 +15210,17 @@ function calRigaEvento(e){
   const quando=e.tipo==='a'?(e.partenza?'parte il '+calDataBreve(e.partenza):'')
     :e.tipo==='p'?'arrivati il '+calDataBreve(e.arrivo)
     :'dal '+calDataBreve(e.arrivo)+(e.partenza?', parte il '+calDataBreve(e.partenza):'');
+  if(e.esterna){
+    // da Airbnb: niente nome né numero di ospiti finché non fanno il check-in
+    const link=(window.linkCheckinPerStruttura||{})[e.strutturaId];
+    const bid='calLink-'+(e.tipo)+'-'+encodeURIComponent(e.uid||'').replace(/[^A-Za-z0-9]/g,'').slice(-12);
+    return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore};opacity:.55"></span>
+    <span style="flex:1;min-width:0">
+      <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
+      <span class="muted" style="display:block;font-size:11.5px">check-in non ancora fatto${quando?' · '+escText(quando):''}${e.telefono4?' · tel. …'+escText(e.telefono4):''}</span>
+      ${link&&e.tipo!=='p'?`<button class="btn ghost sm" id="${bid}" style="width:auto;margin-top:7px;padding:7px 11px;font-size:12px" onclick="event.stopPropagation();copiaLinkCheckin('${link}','${bid}')">📋 Copia il link del check-in</button>`:''}</span>
+    ${e.url?'<span class="vai">›</span>':''}</div>`;
+  }
   return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore}"></span>
     <span style="flex:1;min-width:0">
       <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
@@ -15148,7 +15293,7 @@ function calDettaglio(ev){
     righe.push(`<div class="agenda-g"><span class="quando${i===0?' oggi':''}">${escText(quando)}</span>
       <span class="cosa">${lista.map(e=>`<span class="agenda-ev" ${calApriAttr(e)}><span class="pallo" style="background:${e.colore}"></span>
         <span class="nome">${e.tipo==='a'?'→':'←'} ${escText(e.nome)}${e.ospiti>1?' <span class="muted">👤'+e.ospiti+'</span>':''}</span>
-        ${e.registrato?'<span class="vai muted">›</span>':'<span class="pill err">da fare</span>'}</span>`).join('')}</span></div>`);
+        ${e.esterna?'<span class="pill wait">check-in da fare</span>':e.registrato?'<span class="vai muted">›</span>':'<span class="pill err">da fare</span>'}</span>`).join('')}</span></div>`);
   }
   return `<div class="stat-lab" style="margin-top:14px">PROSSIMI GIORNI</div>
     ${righe.length?righe.join(''):'<div class="muted" style="font-size:12.5px">Nessun arrivo o partenza in programma.</div>'}`;
@@ -15168,7 +15313,7 @@ function renderCalendario(){
   let celle='';
   for(let i=0;i<settimane*7;i++){
     const d=piuGiorni(inizio,i); const k=dataKey(d); const lista=ev[k]||[];
-    const chips=lista.slice(0,maxEv).map(e=>`<span class="gcal-ev ${e.tipo==='a'?'arr':'par'}" style="${e.tipo==='a'?'background:'+e.colore:'color:'+e.colore+';border-color:'+e.colore}">${e.tipo==='a'?'→':'←'} ${escText(calNomeCorto(e.nome))}</span>`).join('');
+    const chips=lista.slice(0,maxEv).map(e=>`<span class="gcal-ev ${e.tipo==='a'?'arr':'par'}${e.esterna?' est':''}" style="${e.tipo==='a'?'background-color:'+e.colore:'color:'+e.colore+';border-color:'+e.colore}">${e.tipo==='a'?'→':'←'} ${escText(e.esterna?e.fonte:calNomeCorto(e.nome))}</span>`).join('');
     const altri=lista.length>maxEv?`<span class="gcal-more">+${lista.length-maxEv}</span>`:'';
     celle+=`<div class="gcal-day${d.getMonth()!==mese?' fuori':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')">
       <span class="num">${d.getDate()}</span>${chips}${altri}</div>`;
@@ -15182,7 +15327,8 @@ function renderCalendario(){
     </div>
     <div class="gcal-dow">${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<span>${g}</span>`).join('')}</div>
     <div class="gcal-grid">${celle}</div>
-    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa.<br>Tocca un giorno per vedere ogni casa (chi parte, chi arriva, chi è in casa), poi un nome per aprirlo.</div>
+    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa.${prenotazioniEsterne.length?'<br>A righe = prenotazione da Airbnb, check-in non ancora fatto.':''}<br>Tocca un giorno per vedere ogni casa (chi parte, chi arriva, chi è in casa), poi un nome per aprirlo.</div>
+    ${calendariConfig&&!calendariCollegati()?'<button class="gcal-invito" onclick="apriCalendari()">📅 Vuoi vedere le prenotazioni <b>in anticipo</b>, prima del check-in? <b>Collega il calendario di Airbnb ›</b></button>':''}
     ${calDettaglio(ev)}`;
 }
 function calSposta(n){ calMese=new Date(calMese.getFullYear(),calMese.getMonth()+n,1); calSelDay=''; renderCalendario(); }
@@ -15967,6 +16113,7 @@ function apriCard(id){
   const storicoPronto=syncStoricoFromServer();
   // Ross1000 rimasti indietro (la Regione non rispondeva): appena si sa quali sono, li rimando
   Promise.all([strutturePronte,storicoPronto]).then(()=>riprovaRossAutomatica()).catch(()=>{});
+  strutturePronte.then(()=>caricaCalendariEsterni()).catch(()=>{});   // prenotazioni di Airbnb in anticipo
   caricaRicevuteFatte();
   caricaIstatConfig();
   isRenderStorico();
