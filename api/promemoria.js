@@ -25,7 +25,7 @@ const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
-const { azioneCalendari, sincronizzaCalendari, leggiCalendari } = require("./_calendari");
+const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti } = require("./_calendari");
 
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
@@ -377,7 +377,7 @@ module.exports = async (req, res) => {
   try {
     if (conn) {
       const cal = await leggiCalendari(conn);
-      if (Object.values(cal.link || {}).some((l) => (l || []).length)) await sincronizzaCalendari(conn, cal);
+      if (haFonti(cal)) await sincronizzaCalendari(conn, cal);
     }
   } catch (e) { /* portale o archivio non raggiungibili: si riprova all'apertura dell'app */ }
 

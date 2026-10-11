@@ -12,9 +12,12 @@
 //     esiti: { sorgente: { ok, quante, errore, ts } }, aggiornato: ts,
 //     email: { attivo, stato:{casella,uidValidity,ultimoUid}, conferme:{HM…:{nome,ospiti,arrivo,partenza,ts}}, esito } }
 // Con "email" attivo i nomi e il numero di ospiti arrivano dalle email di Airbnb (_airbnbEmail.js).
+//     prohost: { chiave, case:{listingId: idStruttura|"-"}, annunci:[…], esito } — con la chiave di
+//              ProhostAI (_prohost.js) arrivano tutte le prenotazioni con nome e ospiti (sorgente "prohost")
 const crypto = require("crypto");
 const { redisCmd } = require("./_kv");
 const { leggiConfermeAirbnb, spiegaErroreGmail } = require("./_airbnbEmail");
+const { leggiProhost, chiaveMascherata } = require("./_prohost");
 
 const KEY = "calendari_esterni";
 const ATTESA_MS = 15000;
@@ -124,8 +127,8 @@ async function leggiCalendari(conn) {
   try {
     const raw = await redisCmd(conn, ["GET", KEY]);
     const s = raw ? JSON.parse(raw) : {};
-    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {} };
-  } catch { return { link: {}, prenotazioni: [], esiti: {}, aggiornato: 0, email: {} }; }
+    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {}, prohost: s.prohost || {} };
+  } catch { return { link: {}, prenotazioni: [], esiti: {}, aggiornato: 0, email: {}, prohost: {} }; }
 }
 async function salvaCalendari(conn, stato) {
   await redisCmd(conn, ["SET", KEY, JSON.stringify(stato)]);
@@ -156,11 +159,32 @@ async function aggiornaEmail(email) {
   return e;
 }
 
+// ProhostAI: annunci e prenotazioni con nome. Se non risponde, pren = null (restano quelle di prima)
+function struttureConfigurate() {
+  try { return require("./_alloggiati").getStrutture().map((x) => ({ id: x.id, nome: x.nome })); } catch { return []; }
+}
+async function aggiornaProhost(prohost) {
+  const ph = { ...(prohost || {}) };
+  if (!ph.chiave) return { prohost: ph, pren: [] };
+  try {
+    const r = await leggiProhost(ph, struttureConfigurate());
+    ph.annunci = r.annunci;
+    ph.esito = { ok: true, ts: Date.now(), quante: r.prenotazioni.length, tutte: r.tutte };
+    return { prohost: ph, pren: r.prenotazioni };
+  } catch (e) {
+    // rifiutata = chiave sbagliata, senza permessi o piano insufficiente: riprovare non serve
+    ph.esito = { ok: false, ts: Date.now(), errore: String((e && e.message) || e), rifiutata: [401, 402, 403].includes(e && e.status) };
+    return { prohost: ph, pren: null };
+  }
+}
+const haFonti = (stato) => Object.values(stato.link || {}).some((l) => (l || []).length) || !!(stato.prohost && stato.prohost.chiave);
+
 // Rilegge tutti i link. Se un link non risponde, le prenotazioni lette l'ultima volta da
 // quel link restano (un portale giù per un'ora non deve svuotare il calendario).
 async function sincronizzaCalendari(conn, stato) {
   stato = stato || (await leggiCalendari(conn));
   const emailInArrivo = aggiornaEmail(stato.email);   // in parallelo ai calendari
+  const prohostInArrivo = aggiornaProhost(stato.prohost);
   const lavori = [];
   for (const [strutturaId, links] of Object.entries(stato.link || {})) {
     for (const url of links || []) lavori.push({ strutturaId, url, sorgente: sorgenteDi(url) });
@@ -182,7 +206,10 @@ async function sincronizzaCalendari(conn, stato) {
       : { ok: false, errore: r.errore, ts: Date.now(), strutturaId: r.strutturaId, fonte: fonteDi(r.url),
           quante: (stato.prenotazioni || []).filter((p) => p.sorgente === r.sorgente).length };
   }
-  const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now(), email: await emailInArrivo };
+  const ph = await prohostInArrivo;
+  // ProhostAI non ha risposto: restano le sue prenotazioni lette l'ultima volta
+  prenotazioni.push(...(ph.pren || (stato.prenotazioni || []).filter((p) => p.sorgente === "prohost")));
+  const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost };
   await salvaCalendari(conn, nuovo);
   return nuovo;
 }
@@ -195,6 +222,7 @@ async function sincronizzaCalendari(conn, stato) {
 function conNomi(prenotazioni, conferme) {
   const lista = Object.entries(conferme || {}).map(([codice, c]) => ({ codice, ...c }));
   return (prenotazioni || []).map((p) => {
+    if (p.nome) return p;   // ha già il nome (da ProhostAI)
     let c = p.codice && conferme && conferme[String(p.codice).toUpperCase()];
     if (!c) {
       const stesse = lista.filter((x) => x.arrivo && x.arrivo === p.arrivo && x.partenza === p.partenza);
@@ -214,7 +242,10 @@ function vistaCalendari(stato) {
   return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0,
     email: { attivo: !!em.attivo, configurato: gmailConfigurato(), casella: process.env.GMAIL_USER || "",
       esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,
-      conNome: prenotazioni.filter((p) => p.nome).length } };
+      conNome: prenotazioni.filter((p) => p.nome).length },
+    // la chiave di ProhostAI non torna mai al telefono: solo l'inizio e la fine, per riconoscerla
+    prohost: { collegato: !!(stato.prohost && stato.prohost.chiave), chiave: chiaveMascherata(stato.prohost && stato.prohost.chiave),
+      annunci: (stato.prohost && stato.prohost.annunci) || [], esito: (stato.prohost && stato.prohost.esito) || null } };
 }
 
 // azione 'calendari' di /api/promemoria: { link?:{idStruttura:"testo con i link"}, aggiorna?:true }
@@ -226,6 +257,21 @@ async function azioneCalendari(conn, corpo) {
     stato = { ...stato, email: corpo.email ? { attivo: true } : { attivo: false } };
     cambiati = true;
   }
+  // ProhostAI: { chiave } collega, { scollega:true } toglie tutto, { case:{listingId:idStruttura|"-"} } abbina gli annunci
+  if (corpo && corpo.prohost && typeof corpo.prohost === "object") {
+    const q = corpo.prohost;
+    let ph = { ...(stato.prohost || {}) };
+    if (q.scollega) ph = {};
+    if (typeof q.chiave === "string" && q.chiave.trim()) ph = { ...ph, chiave: q.chiave.trim().slice(0, 300), esito: null };
+    if (q.case && typeof q.case === "object") {
+      const casi = { ...(ph.case || {}) };
+      for (const [k, v] of Object.entries(q.case)) if (/^[\w-]{1,80}$/.test(k) && /^[\w-]{0,40}$/.test(String(v))) casi[k] = String(v);
+      ph.case = casi;
+    }
+    stato = { ...stato, prohost: ph };
+    if (!ph.chiave) stato.prenotazioni = (stato.prenotazioni || []).filter((p) => p.sorgente !== "prohost");
+    cambiati = true;
+  }
   if (corpo && corpo.link && typeof corpo.link === "object") {
     const link = {};
     for (const [id, testo] of Object.entries(corpo.link)) {
@@ -235,9 +281,15 @@ async function azioneCalendari(conn, corpo) {
     stato = { ...stato, link };
     cambiati = true;
   }
-  const haLink = Object.values(stato.link || {}).some((l) => (l || []).length);
-  if (haLink && (cambiati || (corpo && corpo.aggiorna) || Date.now() - (stato.aggiornato || 0) > VECCHIO_MS)) {
+  const chiaveNuova = !!(corpo && corpo.prohost && typeof corpo.prohost.chiave === "string" && corpo.prohost.chiave.trim());
+  if (haFonti(stato) && (cambiati || (corpo && corpo.aggiorna) || Date.now() - (stato.aggiornato || 0) > VECCHIO_MS)) {
     stato = await sincronizzaCalendari(conn, stato);
+    // una chiave appena incollata che ProhostAI rifiuta non si tiene: si mostra l'errore e basta
+    const e = stato.prohost && stato.prohost.esito;
+    if (chiaveNuova && e && e.rifiutata) {
+      stato = { ...stato, prohost: { esito: e }, prenotazioni: (stato.prenotazioni || []).filter((p) => p.sorgente !== "prohost") };
+      await salvaCalendari(conn, stato);
+    }
   } else if (cambiati) {
     stato = { ...stato, prenotazioni: [], esiti: {}, aggiornato: Date.now() };
     await salvaCalendari(conn, stato);
@@ -245,4 +297,4 @@ async function azioneCalendari(conn, corpo) {
   return vistaCalendari(stato);
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari, conNomi };
+module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari, conNomi, haFonti };

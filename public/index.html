@@ -717,8 +717,14 @@ function doGet() {
   </div>
   <div class="pp-body">
     <div class="muted" style="font-size:12.5px;line-height:1.55">Così il calendario della Home si riempie <b>da solo</b> con le prenotazioni, prima ancora che gli ospiti facciano il check-in. KeyFlow le rilegge ogni volta che apri l'app e ogni mattina.<br>
-      Il calendario di Airbnb dà solo le date (barrette <b>a righe</b>): nome e numero di ospiti si prendono dalle email di conferma di Airbnb, se accendi la lettura qui sotto. Quando l'ospite fa il check-in, al loro posto compaiono i dati del check-in.</div>
-    <details style="margin-top:10px">
+      Finché l'ospite non fa il check-in la prenotazione è una barretta <b>a righe</b>: con ProhostAI ha già nome e numero di ospiti; col solo calendario di Airbnb solo le date. Dopo il check-in compaiono i dati veri.</div>
+    <div style="margin-top:14px;padding:12px 13px;border-radius:16px;background:var(--surface2);border:1.5px solid rgba(132,227,211,.34)">
+      <div style="font-weight:800;font-size:13.5px">⭐ ProhostAI · il modo più completo</div>
+      <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Se usi ProhostAI (va bene anche il piano gratuito), collegalo qui: arrivano <b>tutte</b> le prenotazioni con <b>nome, numero di ospiti e date</b>, anche quelle di Booking. Così non servono né i link qui sotto né le email.</div>
+      <div id="prohostStato" style="margin-top:8px"></div>
+    </div>
+    <div style="font-weight:700;font-size:13px;margin-top:18px">📅 Oppure: link del calendario di Airbnb (solo date)</div>
+    <details style="margin-top:6px">
       <summary style="font-size:12.5px;font-weight:700;cursor:pointer">📖 Dove trovo il link su Airbnb</summary>
       <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:8px 0">
         <li>Apri Airbnb da host (sito o app) e vai su <b>Calendario</b>.</li>
@@ -15041,24 +15047,26 @@ const maiuscola=t=>String(t||'').charAt(0).toUpperCase()+String(t||'').slice(1);
 let prenotazioniEsterne=[], calendariConfig=null;
 try{ const c=JSON.parse(localStorage.getItem('calendari_cache')||'null'); if(c&&Array.isArray(c.prenotazioni))prenotazioniEsterne=c.prenotazioni; }catch(e){}
 function nomeCasaDaId(id){ const s=struttureList.find(x=>x.id===id); return s?s.nome:(id||''); }
-function calendariCollegati(){ return !!calendariConfig&&Object.values(calendariConfig.link||{}).some(l=>(l||[]).length); }
+function calendariCollegati(){ return !!calendariConfig&&(Object.values(calendariConfig.link||{}).some(l=>(l||[]).length)||!!(calendariConfig.prohost&&calendariConfig.prohost.collegato)); }
 async function caricaCalendariEsterni(opz={}){
   try{
     const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({azione:'calendari',...(opz.link?{link:opz.link}:{}),...(opz.aggiorna?{aggiorna:true}:{}),
-        ...(typeof opz.email==='boolean'?{email:opz.email}:{})})});
+        ...(typeof opz.email==='boolean'?{email:opz.email}:{}),...(opz.prohost?{prohost:opz.prohost}:{})})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'errore');
     if(d.configurato===false){ calendariConfig={link:{}}; return; }
-    calendariConfig={link:d.link||{}, aggiornato:d.aggiornato||0, email:d.email||{}};
+    calendariConfig={link:d.link||{}, aggiornato:d.aggiornato||0, email:d.email||{}, prohost:d.prohost||{}};
     prenotazioniEsterne=Array.isArray(d.prenotazioni)?d.prenotazioni:[];
     try{ localStorage.setItem('calendari_cache',JSON.stringify({prenotazioni:prenotazioniEsterne})); }catch(e){}
     aggiornaOggi();
     if(opz.campi)renderCalendariCampi(); else renderCalendariEsiti();
     renderCalendariEmail();
+    renderProhost();
     if(opz.avvisa){
       const ko=Object.values(calendariConfig.link).flat().filter(x=>x.esito&&!x.esito.ok);
-      const em=calendariConfig.email||{};
+      const em=calendariConfig.email||{}, ph=calendariConfig.prohost||{};
+      if(ph.collegato&&ph.esito&&!ph.esito.ok){ toast('⚠️ ProhostAI: '+(ph.esito.errore||'non letto')); return; }
       toast(ko.length?'⚠️ Un calendario non si è letto: guarda il motivo qui sotto'
         :(em.attivo&&em.esito&&!em.esito.ok)?'⚠️ Email di Airbnb non lette: guarda il motivo qui sotto'
         :`📅 Calendari letti: ${prenotazioniEsterne.length} prenotazion${prenotazioniEsterne.length===1?'e':'i'}${em.attivo?`, ${em.conNome} con il nome`:''}`);
@@ -15070,6 +15078,7 @@ async function caricaCalendariEsterni(opz={}){
 function apriCalendari(){
   apriPagina('calendariOverlay');
   renderCalendariCampi();
+  renderProhost();
   caricaCalendariEsterni({campi:true});
 }
 // un campo per casa, col colore della casa, e sotto com'è andata l'ultima lettura di ogni link
@@ -15102,6 +15111,59 @@ function renderCalendariEsiti(){
   const tot=$('#calendariEsito');
   if(tot)tot.textContent=calendariCollegati()?`In calendario: ${prenotazioniEsterne.length} prenotazion${prenotazioniEsterne.length===1?'e':'i'} lette dai portali.`:'';
 }
+/* ===== ProhostAI: prenotazioni con nome, ospiti e date (api/_prohost.js) =====
+   L'host crea una chiave API in ProhostAI (Impostazioni → 🔑 API Keys) e la incolla qui. La
+   chiave resta solo sul server: al telefono torna solo l'inizio e la fine, per riconoscerla.
+   Ogni annuncio di ProhostAI va abbinato a una casa di KeyFlow (da solo, per città o nome). */
+function renderProhost(){
+  const w=$('#prohostStato'); if(!w)return;
+  const ph=(calendariConfig&&calendariConfig.prohost)||{};
+  // da collegare, oppure la chiave non va più (cancellata in ProhostAI, permessi tolti): se ne incolla una nuova
+  const daCollegare=!ph.collegato||(ph.esito&&ph.esito.rifiutata);
+  if(daCollegare){
+    w.innerHTML=`<details${calendariConfig&&!ph.collegato?' open':''}><summary style="font-size:12.5px;font-weight:700;cursor:pointer">📖 Come si collega (2 minuti)</summary>
+      <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:8px 0">
+        <li>Dal computer (o dal telefono con <b>"Sito desktop"</b> attivo nel browser) apri <b>app.prohost.ai</b> ed entra.</li>
+        <li>Vai in <b>Impostazioni → 🔑 API Keys</b> e crea una chiave nuova, chiamala "KeyFlow". Se ti chiede i permessi, bastano quelli di <b>sola lettura</b> di prenotazioni e annunci.</li>
+        <li><b>Copiala subito</b> (dopo non si vede più) e incollala qui sotto. Non mandarla in chat a nessuno: è come una password.</li>
+      </ol></details>
+      <input type="password" id="prohostChiave" placeholder="incolla qui la chiave (inizia con ph_…)" autocomplete="off" spellcheck="false"
+        style="width:100%;font-size:13px;background:var(--surface);color:var(--ink);border:none;border-radius:12px;padding:11px">
+      <button class="btn primary sm" style="width:100%;margin-top:8px" id="prohostBtn" onclick="collegaProhost()">🔗 Collega ProhostAI</button>
+      ${ph.esito&&!ph.esito.ok?`<div style="color:var(--err);font-size:12px;margin-top:6px">⚠️ ${escText(ph.esito.errore||'')}</div>`:''}
+      ${ph.collegato?'<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="scollegaProhost()">Scollega ProhostAI</button>':''}`;
+    return;
+  }
+  const e=ph.esito;
+  const quando=e&&e.ts?new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+  const opzioni=a=>`<option value="">— scegli la casa —</option>`+struttureList.map(s=>`<option value="${escText(s.id)}"${a.casa===s.id?' selected':''}>${escText(s.nome||s.id)}</option>`).join('')
+    +`<option value="-"${a.casa==='-'?' selected':''}>Non usare questo annuncio</option>`;
+  w.innerHTML=`<div style="font-size:12.5px;line-height:1.55">${e&&e.ok
+      ?`<span style="color:var(--ok)">✓ Collegato</span> · ${e.quante} prenotazion${e.quante===1?'e':'i'} nel calendario · letto il ${escText(quando)}`
+      :`<span style="color:var(--err)">⚠️ ${escText((e&&e.errore)||'non ancora letto')}</span>${quando?' · '+escText(quando):''}`}
+      <br><span class="muted">chiave ${escText(ph.chiave||'')}</span></div>
+    ${(ph.annunci||[]).length?`<div class="muted" style="font-size:12px;margin-top:10px">Ogni annuncio di ProhostAI a quale casa corrisponde:</div>
+      ${ph.annunci.map(a=>`<div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.35">${escText(a.titolo)}${a.citta?`<br><span class="muted" style="font-size:11.5px">${escText(a.citta)}</span>`:''}</span>
+        <select style="flex:0 0 46%;font-size:12.5px${a.casa?'':';border:1.5px solid #ffb703'}" onchange="abbinaAnnuncioProhost('${escText(a.id)}',this.value)">${opzioni(a)}</select></div>`).join('')}`:''}
+    <button class="btn ghost sm" style="width:100%;margin-top:10px" onclick="scollegaProhost()">Scollega ProhostAI</button>`;
+}
+async function collegaProhost(){
+  const inp=$('#prohostChiave'); const chiave=((inp&&inp.value)||'').trim();
+  if(chiave.length<10){ toast('Incolla la chiave completa di ProhostAI'); return; }
+  const btn=$('#prohostBtn'); if(btn){btn.disabled=true; btn.innerHTML='<span class="spin"></span> Collego e leggo le prenotazioni…';}
+  await caricaCalendariEsterni({prohost:{chiave}, avvisa:true});
+  if(inp)inp.value='';
+  renderProhost();
+}
+async function abbinaAnnuncioProhost(id,casa){
+  await caricaCalendariEsterni({prohost:{case:{[id]:casa}}, avvisa:true});
+}
+async function scollegaProhost(){
+  if(!confirm('Scollegare ProhostAI? Le sue prenotazioni spariscono dal calendario (puoi ricollegarlo quando vuoi).'))return;
+  await caricaCalendariEsterni({prohost:{scollega:true}, avvisa:true});
+}
+
 // sezione "nomi dalle email": quale casella legge e com'è andata l'ultima lettura
 function renderCalendariEmail(){
   const box=$('#calEmailStato'), chk=$('#calEmailAttivo'); if(!box)return;
@@ -15163,7 +15225,9 @@ function soggiorniHome(){
   // Una casa non può avere due soggiorni sovrapposti, quindi "si accavalla" = "è lo stesso".
   // Airbnb per primo: è quello con il codice e il link alla prenotazione.
   const casaCanon=n=>nomeStrutturaCanonico(n||'');
-  prenotazioniEsterne.slice().sort((a,b)=>(a.fonte==='Airbnb'?0:1)-(b.fonte==='Airbnb'?0:1)).forEach(p=>{
+  // prima ProhostAI (ha nome e ospiti), poi Airbnb (ha codice e link), poi gli altri
+  const ordineFonte=p=>p.sorgente==='prohost'?0:(p.fonte==='Airbnb'?1:2);
+  prenotazioniEsterne.slice().sort((a,b)=>ordineFonte(a)-ordineFonte(b)).forEach(p=>{
     const arr=parseIt(p.arrivo), par=parseIt(p.partenza); if(!arr||!par||par<=arr)return;
     const casa=nomeCasaDaId(p.strutturaId);
     const giaCe=out.some(x=>{
@@ -15364,7 +15428,7 @@ function renderCalendario(){
     </div>
     <div class="gcal-dow">${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<span>${g}</span>`).join('')}</div>
     <div class="gcal-grid">${celle}</div>
-    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa.${prenotazioniEsterne.length?'<br>A righe = prenotazione da Airbnb, check-in non ancora fatto.':''}<br>Tocca un giorno per vedere ogni casa (chi parte, chi arriva, chi è in casa), poi un nome per aprirlo.</div>
+    <div class="gcal-legenda">Barretta piena = arrivo · vuota = partenza · il colore è la casa.${prenotazioniEsterne.length?'<br>A righe = prenotazione dal portale (Airbnb, Booking…), check-in non ancora fatto.':''}<br>Tocca un giorno per vedere ogni casa (chi parte, chi arriva, chi è in casa), poi un nome per aprirlo.</div>
     ${calendariConfig&&!calendariCollegati()?'<button class="gcal-invito" onclick="apriCalendari()">📅 Vuoi vedere le prenotazioni <b>in anticipo</b>, prima del check-in? <b>Collega il calendario di Airbnb ›</b></button>':''}
     ${calDettaglio(ev)}`;
 }
