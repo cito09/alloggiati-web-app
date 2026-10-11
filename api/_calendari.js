@@ -136,9 +136,11 @@ async function salvaCalendari(conn, stato) {
 
 const gmailConfigurato = () => !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
 // le conferme di Airbnb lette dalla casella Gmail, aggiunte a quelle già lette le volte prima
+// accesa da sola: si spegne solo se l'host lo chiede (attivo:false)
+const emailAccesa = (em) => !em || em.attivo !== false;
 async function aggiornaEmail(email) {
   const e = { ...(email || {}) };
-  if (!e.attivo) return e;
+  if (!emailAccesa(e)) return e;
   if (!gmailConfigurato()) { e.esito = { ok: false, errore: "manca la casella Gmail (GMAIL_USER e GMAIL_APP_PASSWORD)", ts: Date.now() }; return e; }
   try {
     const r = await leggiConfermeAirbnb({ utente: process.env.GMAIL_USER, password: process.env.GMAIL_APP_PASSWORD, stato: e.stato || {} });
@@ -238,9 +240,9 @@ function vistaCalendari(stato) {
     link[id] = (links || []).map((url) => ({ url, fonte: fonteDi(url), esito: (stato.esiti || {})[sorgenteDi(url)] || null }));
   }
   const em = stato.email || {};
-  const prenotazioni = em.attivo ? conNomi(stato.prenotazioni, em.conferme) : (stato.prenotazioni || []);
+  const prenotazioni = emailAccesa(em) ? conNomi(stato.prenotazioni, em.conferme) : (stato.prenotazioni || []);
   return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0,
-    email: { attivo: !!em.attivo, configurato: gmailConfigurato(), casella: process.env.GMAIL_USER || "",
+    email: { attivo: emailAccesa(em), configurato: gmailConfigurato(), casella: process.env.GMAIL_USER || "",
       esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,
       conNome: prenotazioni.filter((p) => p.nome).length },
     // la chiave di ProhostAI non torna mai al telefono: solo l'inizio e la fine, per riconoscerla
