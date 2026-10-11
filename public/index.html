@@ -717,7 +717,7 @@ function doGet() {
   </div>
   <div class="pp-body">
     <div class="muted" style="font-size:12.5px;line-height:1.55">Così il calendario della Home si riempie <b>da solo</b> con le prenotazioni, prima ancora che gli ospiti facciano il check-in. KeyFlow le rilegge ogni volta che apri l'app e ogni mattina.<br>
-      Airbnb nel calendario non dà il nome né il numero degli ospiti: vedrai le date (barrette <b>a righe</b>) e toccandole si apre la prenotazione su Airbnb. Quando l'ospite fa il check-in, al loro posto compare il suo nome.</div>
+      Il calendario di Airbnb dà solo le date (barrette <b>a righe</b>): nome e numero di ospiti si prendono dalle email di conferma di Airbnb, se accendi la lettura qui sotto. Quando l'ospite fa il check-in, al loro posto compaiono i dati del check-in.</div>
     <details style="margin-top:10px">
       <summary style="font-size:12.5px;font-weight:700;cursor:pointer">📖 Dove trovo il link su Airbnb</summary>
       <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:8px 0">
@@ -730,6 +730,14 @@ function doGet() {
         Il link è personale: non condividerlo con altri (chi lo ha vede le date occupate).</div>
     </details>
     <div id="calendariCampi" style="margin-top:6px"></div>
+    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+      <div style="font-weight:700;font-size:13px">👤 Nomi e numero di ospiti dalle email di Airbnb</div>
+      <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Il calendario di Airbnb dà solo le date. Per ogni prenotazione però Airbnb ti manda l'email <i>"Prenotazione confermata - Nome Cognome arriverà il…"</i> con nome, ospiti e lo stesso codice: KeyFlow la legge e mette il nome sulla prenotazione giusta. Legge solo le email che arrivano da Airbnb.</div>
+      <label style="display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer;font-size:13.5px">
+        <input type="checkbox" id="calEmailAttivo" onchange="cambiaEmailCalendari(this.checked)" style="width:22px;height:22px;accent-color:var(--amber)">
+        <span>Leggi i nomi dalle email di Airbnb</span></label>
+      <div id="calEmailStato" class="muted" style="font-size:12px;line-height:1.55;margin-top:6px"></div>
+    </div>
     <button class="btn primary" style="width:100%;margin-top:14px" id="calendariSalvaBtn" onclick="salvaCalendari()">💾 Salva e leggi le prenotazioni</button>
     <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="caricaCalendariEsterni({aggiorna:true,avvisa:true})">🔄 Rileggi adesso</button>
     <div id="calendariEsito" class="muted" style="font-size:12px;margin-top:10px"></div>
@@ -15037,18 +15045,23 @@ function calendariCollegati(){ return !!calendariConfig&&Object.values(calendari
 async function caricaCalendariEsterni(opz={}){
   try{
     const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
-      body:JSON.stringify({azione:'calendari',...(opz.link?{link:opz.link}:{}),...(opz.aggiorna?{aggiorna:true}:{})})});
+      body:JSON.stringify({azione:'calendari',...(opz.link?{link:opz.link}:{}),...(opz.aggiorna?{aggiorna:true}:{}),
+        ...(typeof opz.email==='boolean'?{email:opz.email}:{})})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'errore');
     if(d.configurato===false){ calendariConfig={link:{}}; return; }
-    calendariConfig={link:d.link||{}, aggiornato:d.aggiornato||0};
+    calendariConfig={link:d.link||{}, aggiornato:d.aggiornato||0, email:d.email||{}};
     prenotazioniEsterne=Array.isArray(d.prenotazioni)?d.prenotazioni:[];
     try{ localStorage.setItem('calendari_cache',JSON.stringify({prenotazioni:prenotazioniEsterne})); }catch(e){}
     aggiornaOggi();
     if(opz.campi)renderCalendariCampi(); else renderCalendariEsiti();
+    renderCalendariEmail();
     if(opz.avvisa){
       const ko=Object.values(calendariConfig.link).flat().filter(x=>x.esito&&!x.esito.ok);
-      toast(ko.length?'⚠️ Un calendario non si è letto: guarda il motivo qui sotto':`📅 Calendari letti: ${prenotazioniEsterne.length} prenotazion${prenotazioniEsterne.length===1?'e':'i'}`);
+      const em=calendariConfig.email||{};
+      toast(ko.length?'⚠️ Un calendario non si è letto: guarda il motivo qui sotto'
+        :(em.attivo&&em.esito&&!em.esito.ok)?'⚠️ Email di Airbnb non lette: guarda il motivo qui sotto'
+        :`📅 Calendari letti: ${prenotazioniEsterne.length} prenotazion${prenotazioniEsterne.length===1?'e':'i'}${em.attivo?`, ${em.conNome} con il nome`:''}`);
     }
   }catch(e){
     if(opz.avvisa)toast('Calendari non letti: '+(e.message||'connessione assente'));
@@ -15088,6 +15101,28 @@ function renderCalendariEsiti(){
   });
   const tot=$('#calendariEsito');
   if(tot)tot.textContent=calendariCollegati()?`In calendario: ${prenotazioniEsterne.length} prenotazion${prenotazioniEsterne.length===1?'e':'i'} lette dai portali.`:'';
+}
+// sezione "nomi dalle email": quale casella legge e com'è andata l'ultima lettura
+function renderCalendariEmail(){
+  const box=$('#calEmailStato'), chk=$('#calEmailAttivo'); if(!box)return;
+  const em=(calendariConfig&&calendariConfig.email)||{};
+  if(chk)chk.checked=!!em.attivo;
+  if(!em.configurato){ if(chk)chk.disabled=true;
+    box.innerHTML='Per usarlo serve la casella Gmail collegata a KeyFlow (la stessa che manda le email ISTAT): ora non è impostata.'; return; }
+  if(chk)chk.disabled=false;
+  const casella=escText(em.casella||'la tua casella Gmail');
+  if(!em.attivo){ box.innerHTML=`Spento. Acceso, leggerà le email di Airbnb arrivate a <b>${casella}</b>.`; return; }
+  const e=em.esito;
+  const quando=e&&e.ts?new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+  box.innerHTML=!e?`Leggo le email di Airbnb da <b>${casella}</b>…`
+    :e.ok?`<span style="color:var(--ok)">✓ Casella <b>${casella}</b>: ${em.conferme} conferm${em.conferme===1?'a':'e'} di Airbnb</span> · ${em.conNome} prenotazion${em.conNome===1?'e':'i'} del calendario con il nome · letto il ${escText(quando)}`
+      +(em.conferme===0?`<br>Non trovo email di Airbnb in questa casella. Se ti arrivano a un altro indirizzo, in quel Gmail crea un filtro che <b>inoltra</b> a ${casella} le email da <i>automated@airbnb.com</i>.`
+        :(prenotazioniEsterne.length&&em.conNome<prenotazioniEsterne.length?`<br>Le prenotazioni senza nome hanno l'email di conferma in un'altra casella (o sono di Booking): se vuoi anche quelle, inoltra a ${casella} le email da <i>automated@airbnb.com</i>.`:''))
+    :`<span style="color:var(--err)">⚠️ ${escText(e.errore||'casella non letta')}</span>${quando?' · '+escText(quando):''}`;
+}
+async function cambiaEmailCalendari(acceso){
+  const box=$('#calEmailStato'); if(box)box.innerHTML='<span class="spin"></span> '+(acceso?'Leggo le email di Airbnb…':'Spengo…');
+  await caricaCalendariEsterni({email:acceso, avvisa:true});
 }
 async function salvaCalendari(){
   const link={};
@@ -15136,7 +15171,9 @@ function soggiorniHome(){
       return (!x.struttura||casaCanon(x.struttura)===casa)&&x.arrivo<par&&fine>arr;
     });
     if(giaCe)return;
-    out.push({arrivo:arr, partenza:par, nome:'Prenotazione '+(p.fonte||'Airbnb'), ospiti:null, struttura:casa,
+    out.push({arrivo:arr, partenza:par, nome:p.nome||('Prenotazione '+(p.fonte||'Airbnb')), ospiti:p.ospiti||null, struttura:casa,
+      // nella casella del calendario il cognome (l'email dà "Nome Cognome"; l'Archivio "COGNOME NOME")
+      nomeCorto:p.nome?calNomeCorto(String(p.nome).trim().split(/\s+/).slice(-1)[0]):'',
       colore:strutturaInfo(casa).colore, registrato:false, esterna:true, fonte:p.fonte||'Airbnb',
       uid:p.uid, url:p.url||'', telefono4:p.telefono4||'', codice:p.codice||'', strutturaId:p.strutturaId});
   });
@@ -15162,7 +15199,7 @@ function renderSintesi(){
   const arrivi=delGiorno.filter(e=>e.tipo==='a').length;
   const partenze=delGiorno.filter(e=>e.tipo==='p').length;
   const inCasa=sogg.filter(s=>s.arrivo<=mezzogiorno&&(!s.partenza||s.partenza>mezzogiorno))
-                   .reduce((a,s)=>a+(s.esterna?0:(s.ospiti||1)),0);   // da Airbnb il numero non si sa
+                   .reduce((a,s)=>a+(s.esterna?(s.ospiti||0):(s.ospiti||1)),0);   // da Airbnb solo se l'email lo dice
   const daFare=checkinPending.length;
   const data=maiuscola(oggi.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
   const box=(cls,ico,num,et,click)=>`<button class="kpi ${num?cls:'calmo'}" onclick="${click}"><span class="ico">${ico}</span><b>${num}</b><span class="et">${et}</span></button>`;
@@ -15217,7 +15254,7 @@ function calRigaEvento(e){
     return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore};opacity:.55"></span>
     <span style="flex:1;min-width:0">
       <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
-      <span class="muted" style="display:block;font-size:11.5px">check-in non ancora fatto${quando?' · '+escText(quando):''}${e.telefono4?' · tel. …'+escText(e.telefono4):''}</span>
+      <span class="muted" style="display:block;font-size:11.5px">${e.ospiti?`👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'} · `:''}${e.ospiti||e.nomeCorto?escText(e.fonte)+', ':''}check-in non ancora fatto${quando?' · '+escText(quando):''}${e.telefono4?' · tel. …'+escText(e.telefono4):''}</span>
       ${link&&e.tipo!=='p'?`<button class="btn ghost sm" id="${bid}" style="width:auto;margin-top:7px;padding:7px 11px;font-size:12px" onclick="event.stopPropagation();copiaLinkCheckin('${link}','${bid}')">📋 Copia il link del check-in</button>`:''}</span>
     ${e.url?'<span class="vai">›</span>':''}</div>`;
   }
@@ -15313,7 +15350,7 @@ function renderCalendario(){
   let celle='';
   for(let i=0;i<settimane*7;i++){
     const d=piuGiorni(inizio,i); const k=dataKey(d); const lista=ev[k]||[];
-    const chips=lista.slice(0,maxEv).map(e=>`<span class="gcal-ev ${e.tipo==='a'?'arr':'par'}${e.esterna?' est':''}" style="${e.tipo==='a'?'background-color:'+e.colore:'color:'+e.colore+';border-color:'+e.colore}">${e.tipo==='a'?'→':'←'} ${escText(e.esterna?e.fonte:calNomeCorto(e.nome))}</span>`).join('');
+    const chips=lista.slice(0,maxEv).map(e=>`<span class="gcal-ev ${e.tipo==='a'?'arr':'par'}${e.esterna?' est':''}" style="${e.tipo==='a'?'background-color:'+e.colore:'color:'+e.colore+';border-color:'+e.colore}">${e.tipo==='a'?'→':'←'} ${escText(e.esterna?(e.nomeCorto||e.fonte):calNomeCorto(e.nome))}</span>`).join('');
     const altri=lista.length>maxEv?`<span class="gcal-more">+${lista.length-maxEv}</span>`:'';
     celle+=`<div class="gcal-day${d.getMonth()!==mese?' fuori':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')">
       <span class="num">${d.getDate()}</span>${chips}${altri}</div>`;

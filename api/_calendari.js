@@ -9,9 +9,12 @@
 // In KV (chiave calendari_esterni):
 //   { link: { idStruttura: ["https://…ics", …] },
 //     prenotazioni: [{ uid, strutturaId, sorgente, fonte, arrivo, partenza, notti, codice, telefono4, url }],
-//     esiti: { sorgente: { ok, quante, errore, ts } }, aggiornato: ts }
+//     esiti: { sorgente: { ok, quante, errore, ts } }, aggiornato: ts,
+//     email: { attivo, stato:{casella,uidValidity,ultimoUid}, conferme:{HM…:{nome,ospiti,arrivo,partenza,ts}}, esito } }
+// Con "email" attivo i nomi e il numero di ospiti arrivano dalle email di Airbnb (_airbnbEmail.js).
 const crypto = require("crypto");
 const { redisCmd } = require("./_kv");
+const { leggiConfermeAirbnb, spiegaErroreGmail } = require("./_airbnbEmail");
 
 const KEY = "calendari_esterni";
 const ATTESA_MS = 15000;
@@ -121,17 +124,43 @@ async function leggiCalendari(conn) {
   try {
     const raw = await redisCmd(conn, ["GET", KEY]);
     const s = raw ? JSON.parse(raw) : {};
-    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0 };
-  } catch { return { link: {}, prenotazioni: [], esiti: {}, aggiornato: 0 }; }
+    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {} };
+  } catch { return { link: {}, prenotazioni: [], esiti: {}, aggiornato: 0, email: {} }; }
 }
 async function salvaCalendari(conn, stato) {
   await redisCmd(conn, ["SET", KEY, JSON.stringify(stato)]);
+}
+
+const gmailConfigurato = () => !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
+// le conferme di Airbnb lette dalla casella Gmail, aggiunte a quelle già lette le volte prima
+async function aggiornaEmail(email) {
+  const e = { ...(email || {}) };
+  if (!e.attivo) return e;
+  if (!gmailConfigurato()) { e.esito = { ok: false, errore: "manca la casella Gmail (GMAIL_USER e GMAIL_APP_PASSWORD)", ts: Date.now() }; return e; }
+  try {
+    const r = await leggiConfermeAirbnb({ utente: process.env.GMAIL_USER, password: process.env.GMAIL_APP_PASSWORD, stato: e.stato || {} });
+    const conferme = { ...(e.conferme || {}) };
+    r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts }; });
+    // non tengo per sempre le conferme dei soggiorni finiti da mesi
+    const limite = Date.now() - 120 * 86400000;
+    for (const [k, v] of Object.entries(conferme)) {
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v.partenza || "");
+      if ((m && Date.UTC(+m[3], +m[2] - 1, +m[1]) < limite) || (!m && v.ts < limite - 300 * 86400000)) delete conferme[k];
+    }
+    e.stato = r.stato;
+    e.conferme = conferme;
+    e.esito = { ok: true, ts: Date.now(), nuove: r.nuove.length, totali: Object.keys(conferme).length };
+  } catch (err) {
+    e.esito = { ok: false, errore: spiegaErroreGmail(err), ts: Date.now() };
+  }
+  return e;
 }
 
 // Rilegge tutti i link. Se un link non risponde, le prenotazioni lette l'ultima volta da
 // quel link restano (un portale giù per un'ora non deve svuotare il calendario).
 async function sincronizzaCalendari(conn, stato) {
   stato = stato || (await leggiCalendari(conn));
+  const emailInArrivo = aggiornaEmail(stato.email);   // in parallelo ai calendari
   const lavori = [];
   for (const [strutturaId, links] of Object.entries(stato.link || {})) {
     for (const url of links || []) lavori.push({ strutturaId, url, sorgente: sorgenteDi(url) });
@@ -153,25 +182,50 @@ async function sincronizzaCalendari(conn, stato) {
       : { ok: false, errore: r.errore, ts: Date.now(), strutturaId: r.strutturaId, fonte: fonteDi(r.url),
           quante: (stato.prenotazioni || []).filter((p) => p.sorgente === r.sorgente).length };
   }
-  const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now() };
+  const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now(), email: await emailInArrivo };
   await salvaCalendari(conn, nuovo);
   return nuovo;
 }
 
 // risposta per il gestionale: i link con l'esito di ciascuno (senza ripetere gli indirizzi
 // nell'elenco delle prenotazioni) e le prenotazioni
+// Ogni prenotazione del calendario prende nome e ospiti dalla sua email di conferma: prima
+// per codice (HM…, è lo stesso nei due posti), poi, se manca, per date d'arrivo e partenza
+// uguali (solo se c'è una sola prenotazione con quelle date, sennò meglio non indovinare).
+function conNomi(prenotazioni, conferme) {
+  const lista = Object.entries(conferme || {}).map(([codice, c]) => ({ codice, ...c }));
+  return (prenotazioni || []).map((p) => {
+    let c = p.codice && conferme && conferme[String(p.codice).toUpperCase()];
+    if (!c) {
+      const stesse = lista.filter((x) => x.arrivo && x.arrivo === p.arrivo && x.partenza === p.partenza);
+      const altre = (prenotazioni || []).filter((q) => q.arrivo === p.arrivo && q.partenza === p.partenza);
+      if (stesse.length === 1 && altre.length === 1) c = stesse[0];
+    }
+    return c ? { ...p, nome: c.nome || "", ospiti: c.ospiti || null } : p;
+  });
+}
 function vistaCalendari(stato) {
   const link = {};
   for (const [id, links] of Object.entries(stato.link || {})) {
     link[id] = (links || []).map((url) => ({ url, fonte: fonteDi(url), esito: (stato.esiti || {})[sorgenteDi(url)] || null }));
   }
-  return { ok: true, link, prenotazioni: stato.prenotazioni || [], aggiornato: stato.aggiornato || 0 };
+  const em = stato.email || {};
+  const prenotazioni = em.attivo ? conNomi(stato.prenotazioni, em.conferme) : (stato.prenotazioni || []);
+  return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0,
+    email: { attivo: !!em.attivo, configurato: gmailConfigurato(), casella: process.env.GMAIL_USER || "",
+      esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,
+      conNome: prenotazioni.filter((p) => p.nome).length } };
 }
 
 // azione 'calendari' di /api/promemoria: { link?:{idStruttura:"testo con i link"}, aggiorna?:true }
 async function azioneCalendari(conn, corpo) {
   let stato = await leggiCalendari(conn);
   let cambiati = false;
+  // nomi dalle email di Airbnb: acceso o spento dal gestionale (riaccendendolo si rilegge tutto)
+  if (corpo && typeof corpo.email === "boolean") {
+    stato = { ...stato, email: corpo.email ? { attivo: true } : { attivo: false } };
+    cambiati = true;
+  }
   if (corpo && corpo.link && typeof corpo.link === "object") {
     const link = {};
     for (const [id, testo] of Object.entries(corpo.link)) {
@@ -191,4 +245,4 @@ async function azioneCalendari(conn, corpo) {
   return vistaCalendari(stato);
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari };
+module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari, conNomi };
