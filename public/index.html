@@ -733,7 +733,8 @@ function doGet() {
     <div id="calendariCampi" style="margin-top:6px"></div>
     <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
       <div style="font-weight:700;font-size:13px">👤 Nomi e numero di ospiti dalle email di Airbnb</div>
-      <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Per ogni prenotazione Airbnb manda l'email <i>"Prenotazione confermata - Nome Cognome arriverà il…"</i> con nome e numero di ospiti: KeyFlow la legge dalle caselle qui sotto e mette il nome sulla prenotazione giusta. Legge solo le email di Airbnb.</div>
+      <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Per ogni prenotazione Airbnb manda l'email <i>"Prenotazione confermata - Nome Cognome arriverà il…"</i> con nome e numero di ospiti: KeyFlow la legge dalle caselle qui sotto e mette il nome sulla prenotazione giusta.<br>
+        📁 In ogni casella crea anche da solo le cartelle di archivio <b>KeyFlow → Prenotazioni Airbnb</b> e <b>Contratti ospiti</b> (in quella di Canazei anche <b>APT moduli ISTAT</b>) e ci mette le email giuste: in Gmail le trovi nel menu ☰.</div>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer;font-size:13.5px">
         <input type="checkbox" id="calEmailAttivo" onchange="cambiaEmailCalendari(this.checked)" style="width:22px;height:22px;accent-color:var(--amber)">
         <span>Leggi i nomi dalle email di Airbnb</span></label>
@@ -15177,8 +15178,13 @@ function renderCalendariEmail(){
       :!e?'<span class="muted">da leggere</span>'
       :e.ok?`<span style="color:var(--ok)">✓ ${c.conferme} conferm${c.conferme===1?'a':'e'} di Airbnb</span> <span class="muted">· ${escText(quando(e.ts))}</span>`
       :`<span style="color:var(--err)">⚠️ ${escText(e.errore||'non letta')}</span>`;
+    // cartelle di archivio che KeyFlow tiene in questa casella Gmail (etichette)
+    const NOMI_CARTELLE={prenotazioni:'Prenotazioni Airbnb',contratti:'Contratti ospiti',apt:'APT moduli ISTAT'};
+    const cart=Object.entries(c.cartelle||{}).filter(([,n])=>n>0).map(([k,n])=>`${NOMI_CARTELLE[k]||k} ${n}`);
+    const rigaCartelle=!em.attivo?'':(e&&e.erroreCartelle)?`<br><span style="color:var(--err)">📁 cartelle non aggiornate: ${escText(e.erroreCartelle)}</span>`
+      :cart.length?`<br><span class="muted">📁 in Gmail, cartella KeyFlow → ${escText(cart.join(' · '))}</span>`:'';
     return `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)">
-      <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.45"><b>📬 ${escText(c.utente)}</b><br>${stato}</span>
+      <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.45"><b>📬 ${escText(c.utente)}</b><br>${stato}${rigaCartelle}</span>
       ${c.principale?'':`<button class="btn ghost sm" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px" onclick="togliCasellaEmail('${escText(c.utente)}')">Togli</button>`}</div>`;
   }).join('');
   const totale=em.attivo&&caselle.length?`<div style="font-size:12.5px;margin-top:6px">In calendario <b>${em.conNome}</b> prenotazion${em.conNome===1?'e':'i'} con il nome. Quello che KeyFlow legge resta nel suo archivio: puoi cancellare le email quando vuoi (guarda anche nel Cestino).</div>`:'';

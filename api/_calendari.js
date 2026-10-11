@@ -148,9 +148,26 @@ function caselleEmail(em) {
   }
   return lista;
 }
+// Per le cartelle di archivio di ogni casella: di quali case sono i contratti che ci arrivano
+// (CONTRATTI_STRUTTURE.email = la casella a cui va la copia firmata) e se è quella che manda i
+// moduli ISTAT all'APT (la casella di KeyFlow, GMAIL_USER).
+async function opzioniCartelle(conn, c) {
+  let contratti = [];
+  try { contratti = require("./_contratto").getContrattiStrutture(); } catch { contratti = []; }
+  const strutture = struttureConfigurate();
+  const nomiCasa = contratti.filter((x) => String(x.email || "").toLowerCase() === c.utente.toLowerCase())
+    .map((x) => (strutture.find((s) => s.id === x.id) || {}).nome || x.id).filter(Boolean);
+  let apt = "";
+  if (c.principale && conn) {
+    try { const raw = await redisCmd(conn, ["GET", "istat_config"]); apt = String((raw ? JSON.parse(raw) : {}).email || "").trim(); } catch { apt = ""; }
+  }
+  const fascicolo = c.principale && (!process.env.FASCICOLO_EMAIL || process.env.FASCICOLO_EMAIL.toLowerCase() === c.utente.toLowerCase());
+  return { nomiCasa, apt, fascicolo };
+}
+
 // le conferme di Airbnb lette da tutte le caselle, aggiunte a quelle già lette le volte prima
 // (è l'archivio di KeyFlow: se poi l'email si cancella, nome e ospiti restano)
-async function aggiornaEmail(email) {
+async function aggiornaEmail(email, conn) {
   const e = { ...(email || {}) };
   if (!emailAccesa(e)) return e;
   const caselle = caselleEmail(e);
@@ -162,7 +179,8 @@ async function aggiornaEmail(email) {
   const conferme = { ...(e.conferme || {}) };
   const risultati = await Promise.all(caselle.map(async (c) => {
     try {
-      const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {} });
+      const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {},
+        cartelle: await opzioniCartelle(conn, c) });
       return { c, ok: true, r };
     } catch (err) { return { c, ok: false, errore: spiegaErroreGmail(err) }; }
   }));
@@ -170,9 +188,13 @@ async function aggiornaEmail(email) {
     const prima = stati[x.c.utente] || {};
     if (x.ok) {
       x.r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts, casella: x.c.utente }; });
-      stati[x.c.utente] = { stato: x.r.stato, esito: { ok: true, ts: Date.now(), nuove: x.r.nuove.length } };
+      // quante email sono finite in ogni cartella di archivio (in tutto, da quando è collegata)
+      const tot = { ...(prima.cartelle || {}) };
+      for (const [k, n] of Object.entries(x.r.archiviate || {})) tot[k] = (tot[k] || 0) + n;
+      stati[x.c.utente] = { stato: x.r.stato, cartelle: tot,
+        esito: { ok: true, ts: Date.now(), nuove: x.r.nuove.length, ...(x.r.erroreCartelle ? { erroreCartelle: x.r.erroreCartelle } : {}) } };
     } else {
-      stati[x.c.utente] = { stato: prima.stato, esito: { ok: false, ts: Date.now(), errore: x.errore } };
+      stati[x.c.utente] = { stato: prima.stato, cartelle: prima.cartelle, esito: { ok: false, ts: Date.now(), errore: x.errore } };
     }
   }
   // via le caselle tolte
@@ -216,7 +238,7 @@ const haFonti = (stato) => Object.values(stato.link || {}).some((l) => (l || [])
 // quel link restano (un portale giù per un'ora non deve svuotare il calendario).
 async function sincronizzaCalendari(conn, stato) {
   stato = stato || (await leggiCalendari(conn));
-  const emailInArrivo = aggiornaEmail(stato.email);   // in parallelo ai calendari
+  const emailInArrivo = aggiornaEmail(stato.email, conn);   // in parallelo ai calendari
   const prohostInArrivo = aggiornaProhost(stato.prohost);
   const lavori = [];
   for (const [strutturaId, links] of Object.entries(stato.link || {})) {
@@ -279,6 +301,7 @@ function vistaCalendari(stato) {
       // una riga per casella: indirizzo, com'è andata e quante conferme ha dato (mai la password)
       caselle: caselleEmail(em).map((c) => ({ utente: c.utente, principale: c.principale,
         esito: ((em.caselle || {})[c.utente] || {}).esito || null,
+        cartelle: ((em.caselle || {})[c.utente] || {}).cartelle || {},
         conferme: Object.values(em.conferme || {}).filter((x) => x.casella === c.utente).length })),
       errore: null },
     // la chiave di ProhostAI non torna mai al telefono: solo l'inizio e la fine, per riconoscerla

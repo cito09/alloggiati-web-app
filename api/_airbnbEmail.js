@@ -73,7 +73,7 @@ function conTempoMassimo(promessa, ms, messaggio) {
 // stato = { cartelle: { "<cartella>": { uidValidity, ultimoUid } } }
 // Guarda in "Tutti i messaggi" (anche le email archiviate o spostate da un filtro) e nel
 // Cestino (le email cancellate restano lì 30 giorni). La prima volta, 13 mesi indietro.
-async function leggiConfermeAirbnb({ utente, password, stato = {}, ImapFlow, simpleParser }) {
+async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, ImapFlow, simpleParser }) {
   ImapFlow = ImapFlow || require("imapflow").ImapFlow;
   simpleParser = simpleParser || require("mailparser").simpleParser;
   // stato salvato dalla versione di prima: una cartella sola
@@ -90,8 +90,9 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, ImapFlow, sim
       const tutta = (caselle.find((c) => c.specialUse === "\\All") || {}).path || "INBOX";
       const cestino = (caselle.find((c) => c.specialUse === "\\Trash") || {}).path;
       const nuove = [];
-      const nuovoStato = { cartelle: {} };
+      const nuovoStato = { cartelle: {}, etichette: (stato && stato.etichette) || {} };
       let lette = 0;
+      let archiviate = null, erroreCartelle = null;
       for (const cartella of [tutta, cestino].filter(Boolean)) {
         const lock = await client.getMailboxLock(cartella);
         try {
@@ -124,9 +125,16 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, ImapFlow, sim
           }
           lette += daLeggere.length;
           nuovoStato.cartelle[cartella] = { uidValidity, ultimoUid: Math.max(ultimoUid, minimo) };
+          // cartelle di archivio: solo in "Tutti i messaggi" (il Cestino non si etichetta)
+          if (cartelle && cartella === tutta) {
+            try {
+              const a = await archiviaInCartelle(client, nuovoStato.etichette, cartelle);
+              nuovoStato.etichette = a.stato; archiviate = a.conteggi;
+            } catch (e) { erroreCartelle = String((e && (e.responseText || e.message)) || e).slice(0, 160); }
+          }
         } finally { lock.release(); }
       }
-      return { stato: nuovoStato, nuove, lette };
+      return { stato: nuovoStato, nuove, lette, archiviate, erroreCartelle };
     } finally { await client.logout().catch(() => {}); }
   })();
   try {
@@ -135,6 +143,61 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, ImapFlow, sim
     try { client.close(); } catch { /* già chiusa */ }
     throw e;
   }
+}
+
+/* ===== cartelle di archivio automatico in Gmail (etichette) =====
+   Richiesta dell'utente: in ogni casella una cartella per le prenotazioni di Airbnb e una per i
+   contratti degli ospiti, e in quella di Canazei anche una per i moduli ISTAT mandati all'APT.
+   Ogni volta che KeyFlow legge la casella mette l'etichetta alle email nuove (le email restano
+   anche in Posta in arrivo: l'etichetta è solo un modo in più per ritrovarle). */
+const CARTELLE = {
+  prenotazioni: "KeyFlow/Prenotazioni Airbnb",
+  contratti: "KeyFlow/Contratti ospiti",
+  apt: "KeyFlow/APT moduli ISTAT",
+};
+// oggetti delle email dei contratti (copia all'host e all'ospite, nelle 8 lingue del check-in)
+const OGGETTI_CONTRATTO = ["Contratto firmato", "copia del contratto", "copy of the agreement", "copie du contrat",
+  "copia del contrato", "Vertragskopie", "Copia contractului", "do contrato", "kopia umowy"];
+const unoOPiu = (lista) => (lista.length === 1 ? lista[0] : { or: lista });
+// viaggi fatti dall'host come OSPITE: non sono prenotazioni delle case
+const viaggioDaOspite = (o) => /^(?:\s*(?:fwd?|i|r|re|tr):\s*)*(la tua prenotazione|your reservation|your trip|il tuo viaggio)/i.test(String(o || ""));
+
+// opz = { apt: indirizzo dell'APT (solo nella casella che manda i moduli), nomiCasa: [nomi delle
+// case di questa casella] (per tenere solo i contratti suoi), fascicolo: true se qui arrivano i fascicoli }
+async function archiviaInCartelle(client, stato, opz) {
+  const st = stato || {};
+  const uidValidity = String((client.mailbox && client.mailbox.uidValidity) || "");
+  const fino = Number(client.mailbox && client.mailbox.uidNext) - 1;
+  const daCapo = st.uidValidity !== uidValidity || !st.ultimoUid;
+  const minimo = daCapo ? 0 : Number(st.ultimoUid) || 0;
+  const base = daCapo ? { since: new Date(Date.now() - 400 * 86400000) } : { uid: `${minimo + 1}:*` };
+  const gruppi = {
+    prenotazioni: { or: [{ from: "airbnb", subject: "prenotazion" }, { from: "airbnb", subject: "reservation" }, { subject: "Prenotazione confermata" }] },
+    contratti: unoOPiu([...OGGETTI_CONTRATTO, ...(opz.fascicolo ? ["Fascicolo KeyFlow"] : [])].map((x) => ({ subject: x }))),
+  };
+  if (opz.apt) gruppi.apt = { to: opz.apt };
+  const nomi = (opz.nomiCasa || []).map((n) => String(n).toLowerCase()).filter(Boolean);
+  const conteggi = {};
+  for (const [k, criteri] of Object.entries(gruppi)) {
+    let uids = ((await client.search({ ...criteri, ...base }, { uid: true })) || []).filter((u) => u > minimo);
+    if (!uids.length) continue;
+    if (k === "prenotazioni" || (k === "contratti" && nomi.length)) {
+      const tenere = [];
+      for await (const m of client.fetch(uids, { envelope: true, uid: true }, { uid: true })) {
+        const ogg = String((m.envelope && m.envelope.subject) || "");
+        if (k === "prenotazioni" && viaggioDaOspite(ogg)) continue;
+        // un contratto di un'altra casa (es. la copia mandata all'ospite di Bologna dalla casella di Canazei)
+        if (k === "contratti" && !/fascicolo keyflow/i.test(ogg) && !nomi.some((n) => ogg.toLowerCase().includes(n))) continue;
+        tenere.push(m.uid);
+      }
+      uids = tenere;
+    }
+    if (!uids.length) continue;
+    try { await client.mailboxCreate(CARTELLE[k]); } catch (e) { /* c'è già */ }
+    await client.messageFlagsAdd(uids.join(","), [CARTELLE[k]], { uid: true, useLabels: true });
+    conteggi[k] = uids.length;
+  }
+  return { stato: { uidValidity, ultimoUid: fino > 0 ? Math.max(fino, minimo) : minimo }, conteggi };
 }
 
 // prova che indirizzo e password per le app funzionino (prima di salvarli)
@@ -157,4 +220,4 @@ function spiegaErroreGmail(e) {
   return s.slice(0, 160) || "errore sconosciuto";
 }
 
-module.exports = { eConfermaHost, datiDaEmailAirbnb, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail };
+module.exports = { eConfermaHost, datiDaEmailAirbnb, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail, archiviaInCartelle, CARTELLE };
