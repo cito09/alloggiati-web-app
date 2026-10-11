@@ -16,7 +16,7 @@
 //              ProhostAI (_prohost.js) arrivano tutte le prenotazioni con nome e ospiti (sorgente "prohost")
 const crypto = require("crypto");
 const { redisCmd } = require("./_kv");
-const { leggiConfermeAirbnb, spiegaErroreGmail } = require("./_airbnbEmail");
+const { leggiConfermeAirbnb, provaCasella, spiegaErroreGmail } = require("./_airbnbEmail");
 const { leggiProhost, chiaveMascherata } = require("./_prohost");
 
 const KEY = "calendari_esterni";
@@ -135,29 +135,60 @@ async function salvaCalendari(conn, stato) {
 }
 
 const gmailConfigurato = () => !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
-// le conferme di Airbnb lette dalla casella Gmail, aggiunte a quelle già lette le volte prima
 // accesa da sola: si spegne solo se l'host lo chiede (attivo:false)
 const emailAccesa = (em) => !em || em.attivo !== false;
+// Le caselle da cui leggere: quella di KeyFlow (GMAIL_USER, la stessa che manda le email) più
+// quelle aggiunte dall'host nella pagina Calendari (es. la casella di Bologna), salvate in KV
+// con la loro password per le app. Le password non tornano mai al telefono.
+function caselleEmail(em) {
+  const lista = [];
+  if (gmailConfigurato()) lista.push({ utente: process.env.GMAIL_USER, password: process.env.GMAIL_APP_PASSWORD, principale: true });
+  for (const x of (em && em.extra) || []) {
+    if (x && x.utente && x.password && !lista.some((c) => c.utente.toLowerCase() === x.utente.toLowerCase())) lista.push({ utente: x.utente, password: x.password, principale: false });
+  }
+  return lista;
+}
+// le conferme di Airbnb lette da tutte le caselle, aggiunte a quelle già lette le volte prima
+// (è l'archivio di KeyFlow: se poi l'email si cancella, nome e ospiti restano)
 async function aggiornaEmail(email) {
   const e = { ...(email || {}) };
   if (!emailAccesa(e)) return e;
-  if (!gmailConfigurato()) { e.esito = { ok: false, errore: "manca la casella Gmail (GMAIL_USER e GMAIL_APP_PASSWORD)", ts: Date.now() }; return e; }
-  try {
-    const r = await leggiConfermeAirbnb({ utente: process.env.GMAIL_USER, password: process.env.GMAIL_APP_PASSWORD, stato: e.stato || {} });
-    const conferme = { ...(e.conferme || {}) };
-    r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts }; });
-    // non tengo per sempre le conferme dei soggiorni finiti da mesi
-    const limite = Date.now() - 120 * 86400000;
-    for (const [k, v] of Object.entries(conferme)) {
-      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v.partenza || "");
-      if ((m && Date.UTC(+m[3], +m[2] - 1, +m[1]) < limite) || (!m && v.ts < limite - 300 * 86400000)) delete conferme[k];
+  const caselle = caselleEmail(e);
+  if (!caselle.length) { e.esito = { ok: false, errore: "nessuna casella Gmail collegata", ts: Date.now() }; return e; }
+  const stati = { ...(e.caselle || {}) };
+  // stato salvato dalla versione con una casella sola: era quello di GMAIL_USER
+  if (e.stato && process.env.GMAIL_USER && !stati[process.env.GMAIL_USER]) stati[process.env.GMAIL_USER] = { stato: e.stato };
+  delete e.stato;
+  const conferme = { ...(e.conferme || {}) };
+  const risultati = await Promise.all(caselle.map(async (c) => {
+    try {
+      const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {} });
+      return { c, ok: true, r };
+    } catch (err) { return { c, ok: false, errore: spiegaErroreGmail(err) }; }
+  }));
+  for (const x of risultati) {
+    const prima = stati[x.c.utente] || {};
+    if (x.ok) {
+      x.r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts, casella: x.c.utente }; });
+      stati[x.c.utente] = { stato: x.r.stato, esito: { ok: true, ts: Date.now(), nuove: x.r.nuove.length } };
+    } else {
+      stati[x.c.utente] = { stato: prima.stato, esito: { ok: false, ts: Date.now(), errore: x.errore } };
     }
-    e.stato = r.stato;
-    e.conferme = conferme;
-    e.esito = { ok: true, ts: Date.now(), nuove: r.nuove.length, totali: Object.keys(conferme).length };
-  } catch (err) {
-    e.esito = { ok: false, errore: spiegaErroreGmail(err), ts: Date.now() };
   }
+  // via le caselle tolte
+  for (const k of Object.keys(stati)) if (!caselle.some((c) => c.utente === k)) delete stati[k];
+  // non tengo per sempre le conferme dei soggiorni finiti da mesi
+  const limite = Date.now() - 120 * 86400000;
+  for (const [k, v] of Object.entries(conferme)) {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v.partenza || "");
+    if ((m && Date.UTC(+m[3], +m[2] - 1, +m[1]) < limite) || (!m && v.ts < limite - 300 * 86400000)) delete conferme[k];
+  }
+  e.caselle = stati;
+  e.conferme = conferme;
+  const ko = risultati.filter((x) => !x.ok);
+  e.esito = ko.length === risultati.length
+    ? { ok: false, ts: Date.now(), errore: ko[0].errore }
+    : { ok: true, ts: Date.now(), totali: Object.keys(conferme).length };
   return e;
 }
 
@@ -242,9 +273,14 @@ function vistaCalendari(stato) {
   const em = stato.email || {};
   const prenotazioni = emailAccesa(em) ? conNomi(stato.prenotazioni, em.conferme) : (stato.prenotazioni || []);
   return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0,
-    email: { attivo: emailAccesa(em), configurato: gmailConfigurato(), casella: process.env.GMAIL_USER || "",
+    email: { attivo: emailAccesa(em), configurato: caselleEmail(em).length > 0, casella: process.env.GMAIL_USER || "",
       esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,
-      conNome: prenotazioni.filter((p) => p.nome).length },
+      conNome: prenotazioni.filter((p) => p.nome).length,
+      // una riga per casella: indirizzo, com'è andata e quante conferme ha dato (mai la password)
+      caselle: caselleEmail(em).map((c) => ({ utente: c.utente, principale: c.principale,
+        esito: ((em.caselle || {})[c.utente] || {}).esito || null,
+        conferme: Object.values(em.conferme || {}).filter((x) => x.casella === c.utente).length })),
+      errore: null },
     // la chiave di ProhostAI non torna mai al telefono: solo l'inizio e la fine, per riconoscerla
     prohost: { collegato: !!(stato.prohost && stato.prohost.chiave), chiave: chiaveMascherata(stato.prohost && stato.prohost.chiave),
       annunci: (stato.prohost && stato.prohost.annunci) || [], esito: (stato.prohost && stato.prohost.esito) || null } };
@@ -256,8 +292,42 @@ async function azioneCalendari(conn, corpo) {
   let cambiati = false;
   // nomi dalle email di Airbnb: acceso o spento dal gestionale (riaccendendolo si rilegge tutto)
   if (corpo && typeof corpo.email === "boolean") {
-    stato = { ...stato, email: corpo.email ? { attivo: true } : { attivo: false } };
+    // spenta: via anche i nomi letti; le caselle aggiunte restano collegate
+    stato = { ...stato, email: corpo.email ? { attivo: true, extra: (stato.email || {}).extra } : { attivo: false, extra: (stato.email || {}).extra } };
     cambiati = true;
+  }
+  // un'altra casella Gmail da leggere: { email:{ aggiungi:{utente, password} } } oppure { email:{ togli:"indirizzo" } }
+  let erroreCasella = null;
+  if (corpo && corpo.email && typeof corpo.email === "object") {
+    const em = { ...(stato.email || {}) };
+    const extra = [...(em.extra || [])];
+    const ag = corpo.email.aggiungi;
+    if (ag && ag.utente && ag.password) {
+      const utente = String(ag.utente).trim().toLowerCase();
+      const password = String(ag.password).replace(/\s+/g, "");
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(utente)) erroreCasella = "indirizzo email non valido";
+      else if (password.length < 12) erroreCasella = "la password per le app ha 16 lettere: copiala tutta";
+      else {
+        try {
+          await provaCasella({ utente, password });
+          const i = extra.findIndex((x) => x.utente === utente);
+          if (i >= 0) extra[i] = { utente, password }; else extra.push({ utente, password });
+          if (em.caselle) delete em.caselle[utente];   // si rilegge da capo
+          cambiati = true;
+        } catch (err) { erroreCasella = spiegaErroreGmail(err); }
+      }
+    }
+    if (corpo.email.togli) {
+      const t = String(corpo.email.togli).trim().toLowerCase();
+      const i = extra.findIndex((x) => x.utente === t);
+      if (i >= 0) {
+        extra.splice(i, 1);
+        // via anche i nomi arrivati da quella casella
+        em.conferme = Object.fromEntries(Object.entries(em.conferme || {}).filter(([, v]) => v.casella !== t));
+        cambiati = true;
+      }
+    }
+    stato = { ...stato, email: { ...em, extra } };
   }
   // ProhostAI: { chiave } collega, { scollega:true } toglie tutto, { case:{listingId:idStruttura|"-"} } abbina gli annunci
   if (corpo && corpo.prohost && typeof corpo.prohost === "object") {
@@ -296,7 +366,9 @@ async function azioneCalendari(conn, corpo) {
     stato = { ...stato, prenotazioni: [], esiti: {}, aggiornato: Date.now() };
     await salvaCalendari(conn, stato);
   }
-  return vistaCalendari(stato);
+  const vista = vistaCalendari(stato);
+  if (erroreCasella) vista.email.errore = erroreCasella;
+  return vista;
 }
 
 module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari, conNomi, haFonti };

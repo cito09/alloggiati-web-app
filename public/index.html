@@ -733,7 +733,7 @@ function doGet() {
     <div id="calendariCampi" style="margin-top:6px"></div>
     <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
       <div style="font-weight:700;font-size:13px">👤 Nomi e numero di ospiti dalle email di Airbnb</div>
-      <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Il calendario di Airbnb dà solo le date. Per ogni prenotazione però Airbnb ti manda l'email <i>"Prenotazione confermata - Nome Cognome arriverà il…"</i> con nome, ospiti e lo stesso codice: KeyFlow la legge e mette il nome sulla prenotazione giusta. Legge solo le email che arrivano da Airbnb.</div>
+      <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Per ogni prenotazione Airbnb manda l'email <i>"Prenotazione confermata - Nome Cognome arriverà il…"</i> con nome e numero di ospiti: KeyFlow la legge dalle caselle qui sotto e mette il nome sulla prenotazione giusta. Legge solo le email di Airbnb.</div>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer;font-size:13.5px">
         <input type="checkbox" id="calEmailAttivo" onchange="cambiaEmailCalendari(this.checked)" style="width:22px;height:22px;accent-color:var(--amber)">
         <span>Leggi i nomi dalle email di Airbnb</span></label>
@@ -15052,7 +15052,7 @@ async function caricaCalendariEsterni(opz={}){
   try{
     const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({azione:'calendari',...(opz.link?{link:opz.link}:{}),...(opz.aggiorna?{aggiorna:true}:{}),
-        ...(typeof opz.email==='boolean'?{email:opz.email}:{}),...(opz.prohost?{prohost:opz.prohost}:{})})});
+        ...((typeof opz.email==='boolean'||(opz.email&&typeof opz.email==='object'))?{email:opz.email}:{}),...(opz.prohost?{prohost:opz.prohost}:{})})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'errore');
     if(d.configurato===false){ calendariConfig={link:{}}; return; }
@@ -15164,23 +15164,54 @@ async function scollegaProhost(){
   await caricaCalendariEsterni({prohost:{scollega:true}, avvisa:true});
 }
 
-// sezione "nomi dalle email": quale casella legge e com'è andata l'ultima lettura
+// sezione "nomi dalle email": quali caselle legge, com'è andata, e come aggiungerne un'altra
 function renderCalendariEmail(){
   const box=$('#calEmailStato'), chk=$('#calEmailAttivo'); if(!box)return;
   const em=(calendariConfig&&calendariConfig.email)||{};
-  if(chk)chk.checked=!!em.attivo;
-  if(!em.configurato){ if(chk)chk.disabled=true;
-    box.innerHTML='Per usarlo serve la casella Gmail collegata a KeyFlow (la stessa che manda le email ISTAT): ora non è impostata.'; return; }
-  if(chk)chk.disabled=false;
-  const casella=escText(em.casella||'la tua casella Gmail');
-  if(!em.attivo){ box.innerHTML=`Spento. Acceso, leggerà le email di Airbnb arrivate a <b>${casella}</b>.`; return; }
-  const e=em.esito;
-  const quando=e&&e.ts?new Date(e.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-  box.innerHTML=!e?`Leggo le email di Airbnb da <b>${casella}</b>…`
-    :e.ok?`<span style="color:var(--ok)">✓ Casella <b>${casella}</b>: ${em.conferme} conferm${em.conferme===1?'a':'e'} di Airbnb</span> · ${em.conNome} prenotazion${em.conNome===1?'e':'i'} del calendario con il nome · letto il ${escText(quando)}`
-      +(em.conferme===0?`<br>Non trovo email di Airbnb in questa casella. Se ti arrivano a un altro indirizzo, in quel Gmail crea un filtro che <b>inoltra</b> a ${casella} le email da <i>automated@airbnb.com</i>.`
-        :(prenotazioniEsterne.length&&em.conNome<prenotazioniEsterne.length?`<br>Le prenotazioni senza nome hanno l'email di conferma in un'altra casella (o sono di Booking): se vuoi anche quelle, inoltra a ${casella} le email da <i>automated@airbnb.com</i>.`:''))
-    :`<span style="color:var(--err)">⚠️ ${escText(e.errore||'casella non letta')}</span>${quando?' · '+escText(quando):''}`;
+  if(chk){ chk.checked=!!em.attivo; chk.disabled=!em.configurato; }
+  const caselle=em.caselle||[];
+  const quando=t=>t?new Date(t).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+  const righe=caselle.map(c=>{
+    const e=c.esito;
+    const stato=!em.attivo?'<span class="muted">spenta</span>'
+      :!e?'<span class="muted">da leggere</span>'
+      :e.ok?`<span style="color:var(--ok)">✓ ${c.conferme} conferm${c.conferme===1?'a':'e'} di Airbnb</span> <span class="muted">· ${escText(quando(e.ts))}</span>`
+      :`<span style="color:var(--err)">⚠️ ${escText(e.errore||'non letta')}</span>`;
+    return `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)">
+      <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.45"><b>📬 ${escText(c.utente)}</b><br>${stato}</span>
+      ${c.principale?'':`<button class="btn ghost sm" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px" onclick="togliCasellaEmail('${escText(c.utente)}')">Togli</button>`}</div>`;
+  }).join('');
+  const totale=em.attivo&&caselle.length?`<div style="font-size:12.5px;margin-top:6px">In calendario <b>${em.conNome}</b> prenotazion${em.conNome===1?'e':'i'} con il nome. Quello che KeyFlow legge resta nel suo archivio: puoi cancellare le email quando vuoi (guarda anche nel Cestino).</div>`:'';
+  const aggiungi=`<details style="margin-top:10px"${caselle.length<2?' open':''}><summary style="font-size:12.5px;font-weight:700;cursor:pointer">➕ Collega un'altra casella (es. quella di Bologna)</summary>
+    <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:8px 0">
+      <li>Entra in Google con la casella da collegare (es. <b>bnbfalegnami@gmail.com</b>) e apri <b>myaccount.google.com/apppasswords</b>.</li>
+      <li>Se ti chiede di attivare la <b>Verifica in due passaggi</b>, attivala e poi riapri lo stesso indirizzo.</li>
+      <li>Come nome scrivi <b>KeyFlow</b> e premi <b>Crea</b>: compare una password di 16 lettere. Copiala e incollala qui sotto.</li>
+    </ol>
+    <div class="muted" style="font-size:11.5px;line-height:1.5;margin-bottom:6px">Serve solo a leggere le email di Airbnb; resta sul server e non si vede più. La puoi cancellare quando vuoi dalla stessa pagina di Google.</div>
+    <input type="email" id="calEmailUtente" placeholder="bnbfalegnami@gmail.com" autocomplete="off" spellcheck="false"
+      style="width:100%;font-size:13px;background:var(--surface2);color:var(--ink);border:none;border-radius:12px;padding:11px">
+    <input type="password" id="calEmailPassword" placeholder="password per le app (16 lettere)" autocomplete="off" spellcheck="false"
+      style="width:100%;font-size:13px;background:var(--surface2);color:var(--ink);border:none;border-radius:12px;padding:11px;margin-top:6px">
+    <button class="btn primary sm" style="width:100%;margin-top:8px" id="calEmailAggiungiBtn" onclick="aggiungiCasellaEmail()">📬 Collega questa casella</button>
+    ${em.errore?`<div style="color:var(--err);font-size:12px;margin-top:6px">⚠️ ${escText(em.errore)}</div>`:''}
+  </details>`;
+  box.innerHTML=!em.configurato&&!caselle.length?'Nessuna casella Gmail collegata.'+aggiungi
+    :(righe+totale+aggiungi);
+}
+async function aggiungiCasellaEmail(){
+  const u=(($('#calEmailUtente')||{}).value||'').trim(), pw=(($('#calEmailPassword')||{}).value||'').trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(u)){ toast('Scrivi l\'indirizzo della casella (es. bnbfalegnami@gmail.com)'); return; }
+  if(pw.replace(/\s+/g,'').length<12){ toast('Incolla la password per le app (16 lettere)'); return; }
+  const b=$('#calEmailAggiungiBtn'); if(b){b.disabled=true; b.innerHTML='<span class="spin"></span> Controllo e leggo le email…';}
+  await caricaCalendariEsterni({email:{aggiungi:{utente:u,password:pw}}});
+  const em=(calendariConfig&&calendariConfig.email)||{};
+  if(em.errore)toast('⚠️ Casella non collegata: '+em.errore);
+  else{ toast(`📬 ${u} collegata`); const p=$('#calEmailPassword'); if(p)p.value=''; }
+}
+async function togliCasellaEmail(u){
+  if(!confirm(`Smettere di leggere ${u}? I nomi arrivati da questa casella spariscono dal calendario.`))return;
+  await caricaCalendariEsterni({email:{togli:u}, avvisa:true});
 }
 async function cambiaEmailCalendari(acceso){
   const box=$('#calEmailStato'); if(box)box.innerHTML='<span class="spin"></span> '+(acceso?'Leggo le email di Airbnb…':'Spengo…');
