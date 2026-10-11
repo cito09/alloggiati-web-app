@@ -88,9 +88,12 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, ImapFlow, sim
       try {
         const uidValidity = String((client.mailbox && client.mailbox.uidValidity) || "");
         const daCapo = stato.casella !== tutta || stato.uidValidity !== uidValidity || !stato.ultimoUid;
+        // da Airbnb, oppure inoltrate a mano da un'altra casella (allora il mittente è l'host,
+        // ma l'oggetto resta "Fwd: Prenotazione confermata - …")
+        const quali = { or: [{ from: "airbnb" }, { subject: "Prenotazione confermata" }, { subject: "Reservation confirmed" }] };
         const criteri = daCapo
-          ? { from: "airbnb", since: new Date(Date.now() - 400 * 86400000) }
-          : { from: "airbnb", uid: `${Number(stato.ultimoUid) + 1}:*` };
+          ? { ...quali, since: new Date(Date.now() - 400 * 86400000) }
+          : { ...quali, uid: `${Number(stato.ultimoUid) + 1}:*` };
         const minimo = daCapo ? 0 : Number(stato.ultimoUid) || 0;
         const uids = ((await client.search(criteri, { uid: true })) || []).filter((u) => u > minimo);
         let ultimoUid = minimo;
