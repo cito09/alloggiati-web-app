@@ -30,6 +30,7 @@ const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti } = requi
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
 const KEY_GEIS = "geis_stato";
+const KEY_RECENSIONI = "recensioni_fatte";
 const MAX_PENDENTI = 200;
 
 // FASCICOLO MENSILE: zip con registro CSV + contratti firmati del mese (per arrivo).
@@ -314,6 +315,39 @@ module.exports = async (req, res) => {
         }
         await redisCmd(conn, ["SET", KEY_GEIS, JSON.stringify(stato)]);
         return res.status(200).json(await datiGeis(conn, stato));
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
+    // Home → Recensioni: cosa è già stato copiato (p = pubblica, r = privata) e cosa è segnato
+    // come fatto (ok), così si vede uguale dal telefono e dal computer. Chiave "idCasa|aaaa-mm-gg"
+    // (giorno di partenza). { chiave?, campi?:{p|r|ok: ts | null} } — null toglie il segno.
+    if ((req.body || {}).azione === "recensioni") {
+      try {
+        const raw = await redisCmd(conn, ["GET", KEY_RECENSIONI]);
+        let stato = {};
+        try { stato = raw ? JSON.parse(raw) || {} : {}; } catch { stato = {}; }
+        const { chiave, campi } = req.body || {};
+        const k = String(chiave || "").slice(0, 120);
+        if (k && campi && typeof campi === "object") {
+          const voce = { ...(stato[k] || {}) };
+          for (const c of ["p", "r", "ok"]) {
+            if (!(c in campi)) continue;
+            if (campi[c] === null) delete voce[c];
+            else voce[c] = Number(campi[c]) || Date.now();
+          }
+          if (Object.keys(voce).length) stato[k] = voce;
+          else delete stato[k];
+          // passati 60 giorni dalla partenza su Airbnb non si recensisce più: via
+          const limite = Date.now() - 60 * 864e5;
+          for (const kk of Object.keys(stato)) {
+            const d = Date.parse(String(kk).split("|").pop());
+            if (!isNaN(d) && d < limite) delete stato[kk];
+          }
+          await redisCmd(conn, ["SET", KEY_RECENSIONI, JSON.stringify(stato)]);
+        }
+        return res.status(200).json({ ok: true, stato });
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }

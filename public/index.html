@@ -430,6 +430,23 @@
     border-bottom:1px solid var(--line); cursor:pointer}
   .todo-row:last-child{border-bottom:none; padding-bottom:2px}
   .todo-row:active{background:rgba(255,255,255,.06)}
+  /* Home → Recensioni: una riga per ospite partito, due pulsanti che copiano il testo */
+  .rec-riga{padding:10px 0; border-bottom:1px solid var(--line)}
+  .rec-riga:last-child{border-bottom:none; padding-bottom:2px}
+  .rec-riga.fatta{opacity:.55}
+  .rec-top{display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13.5px; min-width:0}
+  .rec-top .pal{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
+  .rec-top .nm{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .rec-top .qd{flex:0 0 auto; font-size:11.5px; color:var(--muted)}
+  .rec-top .qd.urge{color:#ffb703; font-weight:700}
+  .rec-az{display:flex; gap:6px; margin-top:8px}
+  .rec-az .btn{padding:9px 10px; font-size:12.5px; border-radius:12px}
+  .rec-az .cp{flex:1; color:var(--amber)}
+  .rec-az .cp.fatto{background:rgba(45,198,83,.14); color:var(--ok)}
+  .rec-az .mini{flex:0 0 auto; min-width:42px; color:var(--muted)}
+  .rec-ant{margin-top:9px; font-size:12.5px; line-height:1.5}
+  .rec-ant .et{font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--muted); margin:8px 0 4px; text-transform:uppercase}
+  .rec-ant .tx{background:var(--surface2); border-radius:12px; padding:10px 12px; cursor:pointer}
   .gruppo-head{margin:22px 0 6px; padding:10px 14px; border-radius:12px; background:rgba(90,160,242,.12);
     border:1px solid rgba(90,160,242,.25); font-size:16px; font-weight:800; letter-spacing:.5px;
     display:flex; align-items:center; gap:10px; text-transform:uppercase}
@@ -829,6 +846,10 @@ function doGet() {
     <div class="card" id="oggiTodoCard">
       <h2><span class="n">📌</span> Da fare <span id="oggiTodoBadge" class="pill err" style="display:none"></span></h2>
       <div id="oggiTodo"><div class="muted" style="font-size:13px">…</div></div>
+    </div>
+    <div class="card" id="oggiRecensioniCard" style="display:none">
+      <h2><span class="n">⭐</span> Recensioni <span id="oggiRecBadge" class="pill wait" style="display:none"></span></h2>
+      <div id="oggiRecensioni"></div>
     </div>
     <div class="card" id="oggiCalendarioCard">
       <h2><span class="n">📆</span> Calendario</h2>
@@ -15013,6 +15034,7 @@ function aggiornaOggi(){
     const bd=$('#oggiTodoBadge');
     if(bd){ if(voci.length){bd.textContent=voci.length; bd.style.display='';} else bd.style.display='none'; }
   }
+  if(typeof renderRecensioni==='function')renderRecensioni();
   if(typeof renderCalendario==='function')renderCalendario();
   const ultimo=storico.find(e=>e.tipo==='inviata');
   const ultimoTxt=ultimo
@@ -15050,6 +15072,357 @@ function aggiornaScadenze(){
   const card=$('#oggiScadenzeCard'); if(!card)return;
   const righe=['#oggiRossCoda','#oggiRoss','#oggiGeis'].map(id=>$(id)).filter(el=>el&&el.style.display!=='none');
   card.style.display=righe.length?'':'none';
+}
+
+/* ===== Home → Recensioni agli ospiti (ottobre 2026) =====
+   Dopo il check-out Airbnb chiede all'host una recensione PUBBLICA (va sul profilo dell'ospite)
+   e una nota PRIVATA (la legge solo l'ospite); c'è tempo 14 giorni. Qui, per ogni ospite partito,
+   un testo già pronto, breve, da superhost: personale (nome, con chi viaggiava, la città, i
+   bambini, le notti) ma generale, senza inventare niente di quel soggiorno. Un tocco = copiato,
+   poi si incolla su Airbnb. In italiano agli italiani, in inglese agli altri (si cambia con un
+   tocco); "Un altro testo" rimescola le frasi. Le frasi italiane sono scritte apposta senza
+   maschile/femminile ("una persona gentilissima", "ospite ideale", verbi con avere): vanno bene
+   per chiunque. ⚠️ Niente inviti a "scriverci direttamente" o a prenotare fuori da Airbnb: è
+   vietato dalle loro regole. Cosa è già copiato o fatto sta in KV (azione "recensioni" di
+   /api/promemoria), così si vede uguale da telefono e computer. ===== */
+const REC_GIORNI=14;      // Airbnb: la recensione si può lasciare fino a 14 giorni dal check-out
+const REC_RIGHE=3;        // righe visibili subito: le altre dietro "Altri ospiti"
+// c = contesto (recContesto): nome, chi ("Hannah e la sua famiglia"), P = più persone, casa, città…
+const REC_FRASI={
+  it:{
+    apre:[
+      c=>`È stato un vero piacere ospitare ${c.chi}${c.aCitta}!`,
+      c=>`Che piacere avere ${c.chi} come ospit${c.P?'i':'e'}${c.aCitta}!`,
+      c=>`${c.chi}: ${c.P?'ospiti ideali':'ospite ideale'} sotto ogni punto di vista.`,
+      c=>`Abbiamo avuto il piacere di ospitare ${c.chi}${c.aCitta}${c.perNotti} e non potevamo chiedere di meglio.`,
+      c=>`Ospit${c.P?'i':'e'} da cinque stelle! ${c.chi} ${c.P?'hanno':'ha'} soggiornato da noi${c.aCitta}${c.perNotti} ed è filato tutto liscio.`,
+    ],
+    come:[
+      c=>`${c.P?'Hanno':'Ha'} rispettato tutte le regole della casa e lasciato l'appartamento pulito e in ordine.`,
+      c=>`Comunicazione sempre facile e cordiale, orari rispettati e casa lasciata in perfetto ordine.`,
+      c=>`${c.P?'Persone gentilissime, rispettose':'Una persona gentilissima, rispettosa'} e sempre disponibil${c.P?'i':'e'}: la casa è stata trattata con grande cura.`,
+      c=>`Massimo rispetto per la casa e per le regole, comunicazione chiara e veloce: tutto perfetto.`,
+      c=>`Tutto perfetto dall'arrivo alla partenza: comunicazione chiara, regole rispettate e appartamento lasciato in ordine.`,
+    ],
+    bambini:[
+      c=>`Bravissimi anche i più piccoli: regole rispettate e casa lasciata in perfetto ordine.`,
+      c=>`Gentilezza e rispetto da parte di tutti, bambini compresi: la casa è stata trattata con grande cura.`,
+      c=>`Anche i più piccoli sono stati deliziosi: comunicazione facile e appartamento lasciato in ordine.`,
+    ],
+    saluta:[
+      c=>c.P?`Ospiti che consigliamo a occhi chiusi a tutti gli host!`:`Consigliamo ${c.nome} a occhi chiusi a tutti gli host!`,
+      c=>`Le porte di ${c.casa} sono sempre aperte: speriamo di ${c.P?'rivedervi':'rivederti'} presto!`,
+      c=>`${c.P?'Tornate':'Torna'} quando ${c.P?'volete':'vuoi'}: per ${c.P?'voi':'te'} la porta è sempre aperta!`,
+      c=>`${c.P?'Ospiti così':'Ospiti come '+c.nome} rendono questo lavoro un piacere. A presto!`,
+    ],
+    ciao:c=>`Ciao ${c.nome}!`,
+    grazie:[
+      c=>c.P?`Grazie di cuore a te e ${c.aiTuoi} per aver scelto ${c.casa}: è stato un vero piacere ospitarvi.`
+            :`Grazie di cuore per aver scelto ${c.casa}: è stato un vero piacere ospitarti.`,
+      c=>`Volevamo ringraziar${c.P?'vi':'ti'} per il soggiorno e per la cura con cui ${c.P?'avete':'hai'} trattato la casa.`,
+      c=>`Grazie per aver scelto ${c.casa}: è stato bellissimo avere ospiti come ${c.P?'voi':'te'}.`,
+    ],
+    luogo:{
+      Bologna:[
+        c=>`Speriamo che Bologna sia stata all'altezza delle ${c.P?'vostre':'tue'} aspettative.`,
+        c=>`Speriamo che ${c.P?'abbiate':'tu abbia'} portato a casa un bel ricordo di Bologna.`,
+      ],
+      Canazei:[
+        c=>`Speriamo che le Dolomiti ${c.P?'vi':'ti'} abbiano regalato giornate splendide.`,
+        c=>`Speriamo che ${c.P?'abbiate':'tu abbia'} portato a casa un bel ricordo di Canazei e delle Dolomiti.`,
+      ],
+      '':[
+        c=>`Speriamo che il soggiorno sia stato all'altezza delle ${c.P?'vostre':'tue'} aspettative.`,
+        c=>`Speriamo che ${c.P?'abbiate':'tu abbia'} portato a casa un bel ricordo.`,
+      ],
+    },
+    piccoli:'Un abbraccio ai più piccoli!',
+    fine:[
+      c=>`Se ${c.P?'tornate':'torni'} da queste parti, sarà un piacere ${c.P?'riavervi':'riaverti'}. Buon viaggio!`,
+      c=>`La porta è sempre aperta per ${c.P?'voi':'te'}: alla prossima!`,
+      c=>`Un caro saluto${c.citta?' da '+c.citta:''} e a presto!`,
+    ],
+  },
+  en:{
+    apre:[
+      c=>`It was a real pleasure hosting ${c.chi}${c.aCitta}!`,
+      c=>`What a pleasure to have ${c.chi} as our guest${c.P?'s':''}${c.aCitta}!`,
+      c=>`${c.chi}: ${c.P?'ideal guests':'an ideal guest'} in every way.`,
+      c=>`We had the pleasure of hosting ${c.chi}${c.aCitta}${c.perNotti} and couldn't have asked for ${c.P?'better guests':'a better guest'}.`,
+      c=>`Five-star ${c.P?'guests':'guest'}! ${c.chi} stayed with us${c.aCitta}${c.perNotti} and everything went smoothly.`,
+    ],
+    come:[
+      c=>`All house rules were respected and the apartment was left clean and tidy.`,
+      c=>`Communication was always easy and friendly, timings were respected and the place was left in perfect order.`,
+      c=>`${c.P?'Kind, respectful and considerate people':'A kind, respectful and considerate person'}: the home was treated with great care.`,
+      c=>`Full respect for the house and its rules, clear and quick communication: everything was perfect.`,
+      c=>`Everything was perfect from arrival to departure: clear communication, rules respected and the apartment left spotless.`,
+    ],
+    bambini:[
+      c=>`Lovely little ones too: house rules respected and the apartment left in perfect order.`,
+      c=>`Kindness and respect from everyone, kids included: the home was treated with great care.`,
+      c=>`Even the little ones were delightful: easy communication and the apartment left tidy.`,
+    ],
+    saluta:[
+      c=>c.P?`Guests we'd recommend to any host without hesitation!`:`We'd recommend ${c.nome} to any host without hesitation!`,
+      c=>`The door of ${c.casa} is always open: hope to see you again soon!`,
+      c=>`Come back anytime: you'll always be welcome here!`,
+      c=>`${c.P?'Guests like these':'Guests like '+c.nome} make hosting a joy. See you soon!`,
+    ],
+    ciao:c=>`Hi ${c.nome}!`,
+    grazie:[
+      c=>c.P?`Thank you so much to you and ${c.aiTuoi} for choosing ${c.casa}: it was a real pleasure hosting you.`
+            :`Thank you so much for choosing ${c.casa}: it was a real pleasure hosting you.`,
+      c=>`We wanted to thank you for your stay and for taking such good care of the place.`,
+      c=>`Thanks for choosing ${c.casa}: it was lovely to have ${c.P?'guests':'a guest'} like you.`,
+    ],
+    luogo:{
+      Bologna:[
+        c=>`We hope Bologna lived up to your expectations.`,
+        c=>`We hope you're taking home great memories of Bologna.`,
+      ],
+      Canazei:[
+        c=>`We hope the Dolomites gave you some wonderful days.`,
+        c=>`We hope you're taking home great memories of Canazei and the Dolomites.`,
+      ],
+      '':[
+        c=>`We hope the stay lived up to your expectations.`,
+        c=>`We hope you're taking home great memories.`,
+      ],
+    },
+    piccoli:'A big hug to the little ones!',
+    fine:[
+      c=>`If you're ever back in the area, it would be a pleasure to host you again. Safe travels!`,
+      c=>`Our door is always open for you: see you next time!`,
+      c=>`Warm greetings${c.citta?' from '+c.citta:''} and see you soon!`,
+    ],
+  },
+};
+// chi c'era: dalla schedina registrata (sesso, nascita, cittadinanza, tipo 17 = famiglia, 18 = gruppo),
+// dal check-in in attesa, o solo il nome dall'email di Airbnb
+function recPersone(s){
+  const titolo=x=>String(x||'').trim().toLowerCase().replace(/(^|[\s\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
+  if(s.registrato){
+    const e=storico.find(x=>x.ts===s.ts);
+    return ((e&&e.records)||[]).filter(r=>r&&r.length===168).map(r=>({nome:nomeProprio(r.slice(64,94)),
+      cognome:titolo(r.slice(14,64)), nascita:parseIt(r.slice(95,105).trim()),
+      italiano:r.slice(125,134).trim()===ITALIA_CODE, tipo:r.slice(0,2)}));
+  }
+  if(s.id){
+    const v=checkinPending.find(x=>x.id===s.id);
+    return ((v&&v.ospiti)||[]).map(o=>({nome:nomeProprio(o.nome), cognome:titolo(o.cognome),
+      nascita:parseIt(String(o.dataNascita||'').trim()),
+      italiano:o.cittadinanza?/^\s*(ital|ita\s*$|100000100)/i.test(o.cittadinanza):null, tipo:''}));
+  }
+  return s.nomeBreve?[{nome:s.nomeBreve, cognome:'', nascita:null, italiano:null, tipo:''}]:[];
+}
+// gli ospiti partiti da 0 a 14 giorni fa, uno per soggiorno, i più recenti in cima
+function recensioniDaFare(){
+  const oggi=new Date(); oggi.setHours(0,0,0,0);
+  const per=new Map();
+  soggiorniHome().forEach(s=>{
+    if(!s.partenza)return;
+    const fa=Math.round((oggi-s.partenza)/864e5);
+    if(fa<0||fa>REC_GIORNI)return;
+    const persone=recPersone(s);
+    // senza nome non sappiamo a chi scrivere (prenotazione di Airbnb mai arrivata al check-in)
+    if(!persone.length||!persone[0].nome)return;
+    const casa=nomeStrutturaCanonico(s.struttura)||'';
+    const chiave=(idStrutturaDaNome(casa)||casa.toLowerCase()||'casa')+'|'+dataKey(s.partenza);
+    const voce={chiave, casa, colore:s.colore, arrivo:s.arrivo, partenza:s.partenza, fa, persone,
+      ospiti:Math.max(s.ospiti||0,persone.length), registrato:!!s.registrato, ts:s.ts||0};
+    const prima=per.get(chiave);
+    if(!prima){ per.set(chiave,voce); return; }
+    // stessa casa e stesso giorno di partenza = lo stesso soggiorno (es. "Aggiungi altri ospiti"
+    // dopo il primo check-in): una recensione sola, per chi ha fatto il primo check-in
+    const prec=(a,b)=>(a.arrivo-b.arrivo)||(b.registrato-a.registrato)||((a.ts||9e15)-(b.ts||9e15));
+    const [tit,altri]=prec(voce,prima)<0?[voce,prima]:[prima,voce];
+    // (se è lo stesso check-in visto due volte, la stessa persona non si conta due volte)
+    const chiP=p=>(p.nome+'|'+p.cognome).toUpperCase();
+    const gia=new Set(tit.persone.map(chiP));
+    const nuove=altri.persone.filter(p=>!gia.has(chiP(p)));
+    tit.persone=tit.persone.concat(nuove);
+    tit.ospiti=Math.max(tit.ospiti||0, altri.ospiti||0, (tit.ospiti||0)+nuove.length);
+    per.set(chiave,tit);
+  });
+  return [...per.values()].map(g=>{
+    g.notti=Math.round((g.partenza-g.arrivo)/864e5)||0;
+    g.linguaAuto=(g.persone[0]||{}).italiano===false?'en':'it';
+    return g;
+  }).sort((a,b)=>b.partenza-a.partenza);
+}
+function recContesto(g,lingua){
+  const it=lingua!=='en';
+  const ps=g.persone, t=ps[0]||{}, nome=t.nome||'';
+  const n=Math.max(g.ospiti||0,ps.length,1), P=n>1;
+  const anni=d=>d?(g.partenza-d)/(365.25*864e5):99;
+  const bambini=ps.some(p=>anni(p.nascita)<14);
+  const stessoCognome=!!t.cognome&&ps.filter(p=>p.cognome===t.cognome).length>=2;
+  let tipo='solo';
+  if(P){
+    if(n===2&&!bambini)tipo='coppia';
+    else if(t.tipo==='17'||(t.tipo!=='18'&&(bambini||stessoCognome)))tipo='famiglia';
+    else tipo='gruppo';
+  }
+  const altro=tipo==='coppia'&&ps[1]&&ps[1].nome&&ps[1].nome!==nome?ps[1].nome:'';
+  // "e"/"a" davanti a un nome che inizia con la stessa vocale: "ed Emma", "ad Anna"
+  const ed=x=>(/^e/i.test(x)?'ed ':'e ')+x, ad=x=>(/^a/i.test(x)?'ad ':'a ')+x;
+  const chi=it?{solo:nome, coppia:altro?nome+' '+ed(altro):nome+' e compagnia', famiglia:nome+' e la sua famiglia', gruppo:nome+' e il suo gruppo'}
+              :{solo:nome, coppia:altro?nome+' and '+altro:nome+' and company', famiglia:nome+' and family', gruppo:nome+' and the group'};
+  const aiTuoi=it?{coppia:altro?ad(altro):'a chi era con te', famiglia:'alla tua famiglia', gruppo:'a tutto il gruppo'}
+                 :{coppia:altro||'your travel companion', famiglia:'your family', gruppo:'the whole group'};
+  const citta=/bologna|falegnami/i.test(g.casa)?'Bologna':/canazei|alba/i.test(g.casa)?'Canazei':'';
+  const nt=g.notti||0;
+  return {P, nome, chi:chi[tipo], aiTuoi:aiTuoi[tipo]||'', bambini:tipo==='famiglia'&&bambini,
+    casa:g.casa||(it?'casa nostra':'our home'), citta, aCitta:citta?(it?' a ':' in ')+citta:'',
+    perNotti:nt===1?(it?' per una notte':' for one night'):nt>1?(it?` per ${nt} notti`:` for ${nt} nights`):''};
+}
+function recHash(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+// i due testi di un ospite: le frasi si scelgono dal nome del soggiorno (ospiti diversi = testi
+// diversi) e "Un altro testo" le fa scorrere tutte, senza ripetere la stessa combinazione
+function recTesti(g){
+  const pref=recPref[g.chiave]||{};
+  const lingua=pref.lingua||g.linguaAuto, v=pref.v||0;
+  const F=REC_FRASI[lingua==='en'?'en':'it'], c=recContesto(g,lingua), h=recHash(g.chiave);
+  const scegli=(arr,sh,passo)=>arr[((h>>>sh)%arr.length+v*passo)%arr.length](c);
+  const pub=[scegli(F.apre,0,1), scegli(c.bambini?F.bambini:F.come,4,2), scegli(F.saluta,8,3)].join(' ');
+  const priv=[F.ciao(c), scegli(F.grazie,12,1), scegli(F.luogo[c.citta]||F.luogo[''],16,1),
+    c.bambini?F.piccoli:'', scegli(F.fine,20,2)].filter(Boolean).join(' ');
+  return {pub, priv, lingua:lingua==='en'?'en':'it'};
+}
+// p = pubblica copiata, r = privata copiata, ok = segnata fatta (ts). Copia in localStorage per
+// partire subito, quella vera in KV
+let recStato={};
+try{ recStato=JSON.parse(localStorage.getItem('recensioni_stato')||'{}')||{}; }catch(e){ recStato={}; }
+let recPref={};   // lingua scelta e versione del testo, per soggiorno (solo su questo dispositivo)
+try{ recPref=JSON.parse(localStorage.getItem('recensioni_pref')||'{}')||{}; }catch(e){ recPref={}; }
+let recVoci=[], recTutte=false;
+const recAperte=new Set();      // righe con i testi aperti da leggere
+const recAppenaFatte=new Set(); // segnate fatte adesso: restano (sbiadite, con Annulla) fino a che si riapre l'app
+// fatta = segnata con ✓, oppure tutte e due copiate da più di 3 ore
+function recFatta(k){
+  const s=recStato[k]; if(!s)return false;
+  return !!(s.ok||(s.p&&s.r&&Date.now()-Math.max(s.p,s.r)>3*36e5));
+}
+let recCoda=Promise.resolve();
+function recSegna(k,campi){
+  const s=Object.assign({},recStato[k]||{});
+  Object.keys(campi).forEach(c=>{ if(campi[c]==null)delete s[c]; else s[c]=campi[c]; });
+  if(Object.keys(s).length)recStato[k]=s; else delete recStato[k];
+  try{ localStorage.setItem('recensioni_stato',JSON.stringify(recStato)); }catch(e){}
+  // al server una richiesta per volta: due tocchi veloci non si cancellano a vicenda
+  recCoda=recCoda.then(()=>fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify({azione:'recensioni', chiave:k, campi})})).catch(()=>{});
+}
+async function caricaRecensioniStato(){
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'recensioni'})});
+    const d=await r.json();
+    if(!d||!d.stato||typeof d.stato!=='object')return;
+    // vale quello del server; quello segnato qui mentre ero offline lo rimando
+    const locale=recStato; recStato=d.stato;
+    Object.keys(locale).forEach(k=>{
+      const manca={}; Object.keys(locale[k]||{}).forEach(c=>{ if(!(recStato[k]||{})[c])manca[c]=locale[k][c]; });
+      if(Object.keys(manca).length)recSegna(k,manca);
+    });
+    try{ localStorage.setItem('recensioni_stato',JSON.stringify(recStato)); }catch(e){}
+    renderRecensioni();
+  }catch(e){/* offline: resta la copia locale */}
+}
+function recSalvaPref(){
+  // tengo solo i soggiorni ancora recensibili
+  const vive=new Set(recVoci.map(g=>g.chiave));
+  Object.keys(recPref).forEach(k=>{ if(!vive.has(k))delete recPref[k]; });
+  try{ localStorage.setItem('recensioni_pref',JSON.stringify(recPref)); }catch(e){}
+}
+const recArg=k=>encodeURIComponent(k).replace(/'/g,'%27');
+const recVoce=ke=>recVoci.find(g=>g.chiave===decodeURIComponent(ke));
+function recRiga(g){
+  const k=g.chiave, ke=recArg(k), st=recStato[k]||{}, fatta=recFatta(k);
+  const t0=g.persone[0]||{}, n=Math.max(g.ospiti||0,g.persone.length,1);
+  const restano=REC_GIORNI-g.fa;
+  const quando=fatta?'✓ fatta'
+    :restano<=3?`<span class="qd urge">${restano===0?'ultimo giorno':'scade fra '+restano+' g'}</span>`
+    :g.fa===0?'check-out oggi':g.fa===1?'check-out ieri':`check-out ${g.fa} giorni fa`;
+  const top=`<div class="rec-top" onclick="recApri('${ke}')">
+      <span class="pal" style="background:${g.colore}"></span>
+      <span class="nm"><b>${escText(t0.nome)}</b> <span class="muted">${escText(t0.cognome||'')} · 👤${n}</span></span>
+      <span class="qd">${quando}${fatta?'':' '+(recAperte.has(k)?'▴':'▾')}</span></div>`;
+  if(fatta) return `<div class="rec-riga fatta">${top.replace(`onclick="recApri('${ke}')"`,'')}
+    <div class="rec-az"><button class="btn ghost sm cp" onclick="recAnnulla('${ke}')">↺ Annulla, non è ancora fatta</button></div></div>`;
+  const bt=(campo,et)=>`<button class="btn ghost sm cp${st[campo]?' fatto':''}" onclick="recCopia('${ke}','${campo}')">${st[campo]?'✓':'📋'} ${et}</button>`;
+  let ant='';
+  if(recAperte.has(k)){
+    const t=recTesti(g);
+    ant=`<div class="rec-ant">
+      <div class="et">Pubblica · la vedono tutti</div>
+      <div class="tx" onclick="recCopia('${ke}','p')">${escText(t.pub)}</div>
+      <div class="et">Privata · la legge solo ${escText(t0.nome)}</div>
+      <div class="tx" onclick="recCopia('${ke}','r')">${escText(t.priv)}</div>
+      <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">
+        <button class="btn ghost sm" onclick="recAltro('${ke}')">🔄 Un altro testo</button>
+        <button class="btn ghost sm" onclick="recLingua('${ke}')">${t.lingua==='en'?'🇮🇹 In italiano':'🇬🇧 In inglese'}</button>
+      </div></div>`;
+  }
+  return `<div class="rec-riga">${top}
+    <div class="rec-az">${bt('p','Pubblica')}${bt('r','Privata')}
+      <button class="btn ${st.p&&st.r?'primary':'ghost'} sm mini" onclick="recFatto('${ke}')" title="Fatta: toglila dalla lista">✓ Fatta</button></div>
+    ${ant}</div>`;
+}
+function renderRecensioni(){
+  const card=$('#oggiRecensioniCard'), w=$('#oggiRecensioni'); if(!card||!w)return;
+  recVoci=recensioniDaFare();
+  const vis=recVoci.filter(g=>!recFatta(g.chiave)||recAppenaFatte.has(g.chiave));
+  const daFare=recVoci.filter(g=>!recFatta(g.chiave)).length;
+  card.style.display=vis.length?'':'none';
+  const bd=$('#oggiRecBadge'); if(bd){ bd.textContent=daFare; bd.style.display=daFare?'':'none'; }
+  if(!vis.length){ w.innerHTML=''; return; }
+  const mostra=recTutte?vis:vis.slice(0,REC_RIGHE);
+  w.innerHTML=`<div class="muted" style="font-size:12px;margin:-4px 0 2px">Ospiti partiti: un tocco copia il testo, poi lo incolli su Airbnb. Tocca il nome per leggerlo.</div>`
+    +mostra.map(recRiga).join('')
+    +(vis.length>REC_RIGHE?`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="recTutte=!recTutte;renderRecensioni()">${recTutte?'▴ Mostra meno':'▾ Altri ospiti ('+(vis.length-REC_RIGHE)+')'}</button>`:'');
+}
+function recApri(ke){
+  const k=decodeURIComponent(ke);
+  if(recAperte.has(k))recAperte.delete(k); else recAperte.add(k);
+  renderRecensioni();
+}
+function recCopia(ke,campo){
+  const g=recVoce(ke); if(!g)return;
+  const t=recTesti(g), testo=campo==='p'?t.pub:t.priv;
+  const fatto=()=>{
+    toast(campo==='p'?'⭐ Recensione pubblica copiata: incollala su Airbnb':'🔒 Nota privata copiata: incollala su Airbnb');
+    recSegna(g.chiave,{[campo]:Date.now()}); renderRecensioni();
+  };
+  const aMano=()=>{ recAperte.add(g.chiave); renderRecensioni(); toast('Copia non riuscita: tieni premuto sul testo per copiarlo'); };
+  const riserva=()=>{
+    const ta=document.createElement('textarea'); ta.value=testo; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+    if(ok)fatto(); else aMano();
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(testo).then(fatto).catch(riserva);
+  else riserva();
+}
+function recFatto(ke){
+  const k=decodeURIComponent(ke);
+  recSegna(k,{ok:Date.now()}); recAppenaFatte.add(k); recAperte.delete(k);
+  renderRecensioni();
+}
+function recAnnulla(ke){
+  const k=decodeURIComponent(ke);
+  recSegna(k,{ok:null,p:null,r:null}); recAppenaFatte.delete(k);
+  renderRecensioni();
+}
+function recAltro(ke){
+  const k=decodeURIComponent(ke); const p=recPref[k]=recPref[k]||{};
+  p.v=(p.v||0)+1; recSalvaPref(); renderRecensioni();
+}
+function recLingua(ke){
+  const g=recVoce(ke); if(!g)return; const p=recPref[g.chiave]=recPref[g.chiave]||{};
+  p.lingua=recTesti(g).lingua==='en'?'it':'en'; recSalvaPref(); renderRecensioni();
 }
 
 /* ===== Home come dashboard: sintesi del giorno, calendario e agenda =====
@@ -16356,6 +16729,7 @@ function apriCard(id){
   Promise.all([strutturePronte,storicoPronto]).then(()=>riprovaRossAutomatica()).catch(()=>{});
   strutturePronte.then(()=>caricaCalendariEsterni()).catch(()=>{});   // prenotazioni di Airbnb in anticipo
   caricaRicevuteFatte();
+  caricaRecensioniStato();   // Home → Recensioni: cosa è già copiato/fatto (uguale su tutti i dispositivi)
   caricaIstatConfig();
   isRenderStorico();
   isWireDrop();
