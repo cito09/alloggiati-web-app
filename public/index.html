@@ -444,6 +444,7 @@
   .rec-az .cp{flex:1; color:var(--amber)}
   .rec-az .cp.fatto{background:rgba(45,198,83,.14); color:var(--ok)}
   .rec-az .mini{flex:0 0 auto; min-width:42px; color:var(--muted)}
+  .rec-az .mini.ok{color:var(--ok); font-weight:800}
   .rec-ant{margin-top:9px; font-size:12.5px; line-height:1.5}
   .rec-ant .et{font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--muted); margin:8px 0 4px; text-transform:uppercase}
   .rec-ant .tx{background:var(--surface2); border-radius:12px; padding:10px 12px; cursor:pointer}
@@ -15079,8 +15080,9 @@ function aggiornaScadenze(){
    e una nota PRIVATA (la legge solo l'ospite); c'è tempo 14 giorni. Qui, per ogni ospite partito,
    un testo già pronto, breve, da superhost: personale (nome, con chi viaggiava, la città, i
    bambini, le notti) ma generale, senza inventare niente di quel soggiorno. Un tocco = copiato,
-   poi si incolla su Airbnb. In italiano agli italiani, in inglese agli altri (si cambia con un
-   tocco); "Un altro testo" rimescola le frasi. Le frasi italiane sono scritte apposta senza
+   poi si incolla su Airbnb. SEMPRE in italiano agli italiani e in inglese agli stranieri (lo
+   ha chiesto l'utente: niente scelta a mano); 🔄 fa una versione nuova; un paio di emoji
+   (una all'inizio e una alla fine) con le pastiglie "Con emoji / Senza". Le frasi italiane sono scritte apposta senza
    maschile/femminile ("una persona gentilissima", "ospite ideale", verbi con avere): vanno bene
    per chiunque. ⚠️ Niente inviti a "scriverci direttamente" o a prenotare fuori da Airbnb: è
    vietato dalle loro regole. Cosa è già copiato o fatto sta in KV (azione "recensioni" di
@@ -15198,6 +15200,12 @@ const REC_FRASI={
     ],
   },
 };
+// un paio di emoji per testo, quando sono accese: pubblica = dopo la prima frase e in fondo,
+// privata = dopo il "Ciao" e in fondo (quella della città)
+const REC_EMOJI={apre:['😊','✨','🌟'], fine:['🙌','👏','⭐'], ciao:'👋',
+  citta:{Bologna:'🧡', Canazei:'🏔️', '':'🏡'}};
+function recEmojiAccese(){ try{ return localStorage.getItem('recEmoji')!=='0'; }catch(e){ return true; } }
+function recScegliEmoji(si){ try{ localStorage.setItem('recEmoji',si?'1':'0'); }catch(e){} renderRecensioni(); }
 // chi c'era: dalla schedina registrata (sesso, nascita, cittadinanza, tipo 17 = famiglia, 18 = gruppo),
 // dal check-in in attesa, o solo il nome dall'email di Airbnb
 function recPersone(s){
@@ -15212,7 +15220,7 @@ function recPersone(s){
     const v=checkinPending.find(x=>x.id===s.id);
     return ((v&&v.ospiti)||[]).map(o=>({nome:nomeProprio(o.nome), cognome:titolo(o.cognome),
       nascita:parseIt(String(o.dataNascita||'').trim()),
-      italiano:o.cittadinanza?/^\s*(ital|ita\s*$|100000100)/i.test(o.cittadinanza):null, tipo:''}));
+      italiano:o.cittadinanza?/^\s*(ital|ita?\s*$|100000100)/i.test(o.cittadinanza):null, tipo:''}));
   }
   return s.nomeBreve?[{nome:s.nomeBreve, cognome:'', nascita:null, italiano:null, tipo:''}]:[];
 }
@@ -15281,20 +15289,24 @@ function recHash(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCod
 // i due testi di un ospite: le frasi si scelgono dal nome del soggiorno (ospiti diversi = testi
 // diversi) e "Un altro testo" le fa scorrere tutte, senza ripetere la stessa combinazione
 function recTesti(g){
-  const pref=recPref[g.chiave]||{};
-  const lingua=pref.lingua||g.linguaAuto, v=pref.v||0;
-  const F=REC_FRASI[lingua==='en'?'en':'it'], c=recContesto(g,lingua), h=recHash(g.chiave);
-  const scegli=(arr,sh,passo)=>arr[((h>>>sh)%arr.length+v*passo)%arr.length](c);
-  const pub=[scegli(F.apre,0,1), scegli(c.bambini?F.bambini:F.come,4,2), scegli(F.saluta,8,3)].join(' ');
-  const priv=[F.ciao(c), scegli(F.grazie,12,1), scegli(F.luogo[c.citta]||F.luogo[''],16,1),
-    c.bambini?F.piccoli:'', scegli(F.fine,20,2)].filter(Boolean).join(' ');
-  return {pub, priv, lingua:lingua==='en'?'en':'it'};
+  const v=(recPref[g.chiave]||{}).v||0;
+  const lingua=g.linguaAuto==='en'?'en':'it';   // italiani in italiano, stranieri in inglese, sempre
+  const F=REC_FRASI[lingua], c=recContesto(g,lingua), h=recHash(g.chiave);
+  const indice=(arr,sh,passo)=>((h>>>sh)%arr.length+v*passo)%arr.length;
+  const scegli=(arr,sh,passo)=>arr[indice(arr,sh,passo)](c);
+  const em=recEmojiAccese(), E=(t,e)=>em?t+' '+e:t;
+  const emo=(arr,sh)=>arr[indice(arr,sh,1)];
+  const pub=[E(scegli(F.apre,0,1),emo(REC_EMOJI.apre,24)), scegli(c.bambini?F.bambini:F.come,4,2),
+    E(scegli(F.saluta,8,3),emo(REC_EMOJI.fine,28))].join(' ');
+  const priv=[E(F.ciao(c),REC_EMOJI.ciao), scegli(F.grazie,12,1), scegli(F.luogo[c.citta]||F.luogo[''],16,1),
+    c.bambini?F.piccoli:'', E(scegli(F.fine,20,2),REC_EMOJI.citta[c.citta]||REC_EMOJI.citta[''])].filter(Boolean).join(' ');
+  return {pub, priv, lingua};
 }
 // p = pubblica copiata, r = privata copiata, ok = segnata fatta (ts). Copia in localStorage per
 // partire subito, quella vera in KV
 let recStato={};
 try{ recStato=JSON.parse(localStorage.getItem('recensioni_stato')||'{}')||{}; }catch(e){ recStato={}; }
-let recPref={};   // lingua scelta e versione del testo, per soggiorno (solo su questo dispositivo)
+let recPref={};   // quale versione del testo (🔄), per soggiorno (solo su questo dispositivo)
 try{ recPref=JSON.parse(localStorage.getItem('recensioni_pref')||'{}')||{}; }catch(e){ recPref={}; }
 let recVoci=[], recTutte=false;
 const recAperte=new Set();      // righe con i testi aperti da leggere
@@ -15356,18 +15368,15 @@ function recRiga(g){
   if(recAperte.has(k)){
     const t=recTesti(g);
     ant=`<div class="rec-ant">
-      <div class="et">Pubblica · la vedono tutti</div>
+      <div class="et">Pubblica · la vedono tutti · ${t.lingua==='en'?'in inglese':'in italiano'}</div>
       <div class="tx" onclick="recCopia('${ke}','p')">${escText(t.pub)}</div>
       <div class="et">Privata · la legge solo ${escText(t0.nome)}</div>
-      <div class="tx" onclick="recCopia('${ke}','r')">${escText(t.priv)}</div>
-      <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">
-        <button class="btn ghost sm" onclick="recAltro('${ke}')">🔄 Un altro testo</button>
-        <button class="btn ghost sm" onclick="recLingua('${ke}')">${t.lingua==='en'?'🇮🇹 In italiano':'🇬🇧 In inglese'}</button>
-      </div></div>`;
+      <div class="tx" onclick="recCopia('${ke}','r')">${escText(t.priv)}</div></div>`;
   }
   return `<div class="rec-riga">${top}
     <div class="rec-az">${bt('p','Pubblica')}${bt('r','Privata')}
-      <button class="btn ${st.p&&st.r?'primary':'ghost'} sm mini" onclick="recFatto('${ke}')" title="Fatta: toglila dalla lista">✓ Fatta</button></div>
+      <button class="btn ghost sm mini" onclick="recAltro('${ke}')" title="Rigenera: un'altra versione del testo">🔄</button>
+      <button class="btn ${st.p&&st.r?'primary':'ghost ok'} sm mini" onclick="recFatto('${ke}')" title="Fatta: toglila dalla lista">✓</button></div>
     ${ant}</div>`;
 }
 function renderRecensioni(){
@@ -15379,7 +15388,11 @@ function renderRecensioni(){
   const bd=$('#oggiRecBadge'); if(bd){ bd.textContent=daFare; bd.style.display=daFare?'':'none'; }
   if(!vis.length){ w.innerHTML=''; return; }
   const mostra=recTutte?vis:vis.slice(0,REC_RIGHE);
-  w.innerHTML=`<div class="muted" style="font-size:12px;margin:-4px 0 2px">Ospiti partiti: un tocco copia il testo, poi lo incolli su Airbnb. Tocca il nome per leggerlo.</div>`
+  const em=recEmojiAccese();
+  w.innerHTML=`<div class="gcal-case" style="margin:-2px 0 6px">
+      <button class="${em?'on':''}" onclick="recScegliEmoji(true)">😊 Con emoji</button>
+      <button class="${em?'':'on'}" onclick="recScegliEmoji(false)">Senza emoji</button></div>
+    <div class="muted" style="font-size:12px;margin:0 0 2px">📋 copia, poi incolla su Airbnb · 🔄 nuova versione · ✓ fatta. Tocca il nome per leggere.</div>`
     +mostra.map(recRiga).join('')
     +(vis.length>REC_RIGHE?`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="recTutte=!recTutte;renderRecensioni()">${recTutte?'▴ Mostra meno':'▾ Altri ospiti ('+(vis.length-REC_RIGHE)+')'}</button>`:'');
 }
@@ -15416,13 +15429,15 @@ function recAnnulla(ke){
   recSegna(k,{ok:null,p:null,r:null}); recAppenaFatte.delete(k);
   renderRecensioni();
 }
+// 🔄 rigenera: un'altra versione, aperta subito da leggere. I segni "copiata" valevano per il
+// testo di prima: si tolgono, così si vede cosa resta da copiare
 function recAltro(ke){
   const k=decodeURIComponent(ke); const p=recPref[k]=recPref[k]||{};
-  p.v=(p.v||0)+1; recSalvaPref(); renderRecensioni();
-}
-function recLingua(ke){
-  const g=recVoce(ke); if(!g)return; const p=recPref[g.chiave]=recPref[g.chiave]||{};
-  p.lingua=recTesti(g).lingua==='en'?'it':'en'; recSalvaPref(); renderRecensioni();
+  p.v=(p.v||0)+1; delete p.lingua; recSalvaPref();
+  const st=recStato[k]||{};
+  if(st.p||st.r)recSegna(k,{p:null,r:null});
+  recAperte.add(k); renderRecensioni();
+  toast('🔄 Nuova versione pronta');
 }
 
 /* ===== Home come dashboard: sintesi del giorno, calendario e agenda =====
