@@ -151,7 +151,7 @@ function caselleEmail(em) {
 // Per le cartelle di archivio di ogni casella: di quali case sono i contratti che ci arrivano
 // (CONTRATTI_STRUTTURE.email = la casella a cui va la copia firmata) e se è quella che manda i
 // moduli ISTAT all'APT (la casella di KeyFlow, GMAIL_USER).
-async function opzioniCartelle(conn, c) {
+async function opzioniCartelle(conn, c, em) {
   let contratti = [];
   try { contratti = require("./_contratto").getContrattiStrutture(); } catch { contratti = []; }
   const strutture = struttureConfigurate();
@@ -162,7 +162,9 @@ async function opzioniCartelle(conn, c) {
     try { const raw = await redisCmd(conn, ["GET", "istat_config"]); apt = String((raw ? JSON.parse(raw) : {}).email || "").trim(); } catch { apt = ""; }
   }
   const fascicolo = c.principale && (!process.env.FASCICOLO_EMAIL || process.env.FASCICOLO_EMAIL.toLowerCase() === c.utente.toLowerCase());
-  return { nomiCasa, apt, fascicolo };
+  // cartelle scelte a mano dall'host nella pagina Calendari (sennò si riconoscono dal nome)
+  const scelte = ((em && em.cartelleScelte) || {})[c.utente.toLowerCase()] || {};
+  return { nomiCasa, apt, fascicolo, scelte };
 }
 
 // le conferme di Airbnb lette da tutte le caselle, aggiunte a quelle già lette le volte prima
@@ -180,7 +182,7 @@ async function aggiornaEmail(email, conn) {
   const risultati = await Promise.all(caselle.map(async (c) => {
     try {
       const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {},
-        cartelle: await opzioniCartelle(conn, c) });
+        cartelle: await opzioniCartelle(conn, c, e) });
       return { c, ok: true, r };
     } catch (err) { return { c, ok: false, errore: spiegaErroreGmail(err) }; }
   }));
@@ -191,10 +193,13 @@ async function aggiornaEmail(email, conn) {
       // quante email sono finite in ogni cartella di archivio (in tutto, da quando è collegata)
       const tot = { ...(prima.cartelle || {}) };
       for (const [k, n] of Object.entries(x.r.archiviate || {})) tot[k] = (tot[k] || 0) + n;
-      stati[x.c.utente] = { stato: x.r.stato, cartelle: tot,
+      // e quante sono passate dalle cartelle "KeyFlow/…" a quelle che l'host aveva già
+      const traslochi = [...(prima.traslochi || []), ...(x.r.spostate || []).map((t) => ({ ...t, ts: Date.now() }))].slice(-10);
+      stati[x.c.utente] = { stato: x.r.stato, cartelle: tot, traslochi,
+        etichetteGmail: (x.r.etichetteGmail || []).slice(0, 150), destinazioni: x.r.destinazioni || prima.destinazioni || null,
         esito: { ok: true, ts: Date.now(), nuove: x.r.nuove.length, ...(x.r.erroreCartelle ? { erroreCartelle: x.r.erroreCartelle } : {}) } };
     } else {
-      stati[x.c.utente] = { stato: prima.stato, cartelle: prima.cartelle, esito: { ok: false, ts: Date.now(), errore: x.errore } };
+      stati[x.c.utente] = { ...prima, esito: { ok: false, ts: Date.now(), errore: x.errore } };
     }
   }
   // via le caselle tolte
@@ -302,6 +307,11 @@ function vistaCalendari(stato) {
       caselle: caselleEmail(em).map((c) => ({ utente: c.utente, principale: c.principale,
         esito: ((em.caselle || {})[c.utente] || {}).esito || null,
         cartelle: ((em.caselle || {})[c.utente] || {}).cartelle || {},
+        // in quale cartella Gmail va ogni tipo di email, e tra quali si può scegliere
+        destinazioni: ((em.caselle || {})[c.utente] || {}).destinazioni || null,
+        scelte: (em.cartelleScelte || {})[c.utente.toLowerCase()] || {},
+        etichetteGmail: ((em.caselle || {})[c.utente] || {}).etichetteGmail || [],
+        traslochi: ((em.caselle || {})[c.utente] || {}).traslochi || [],
         conferme: Object.values(em.conferme || {}).filter((x) => x.casella === c.utente).length })),
       errore: null },
     // la chiave di ProhostAI non torna mai al telefono: solo l'inizio e la fine, per riconoscerla
@@ -316,7 +326,8 @@ async function azioneCalendari(conn, corpo) {
   // nomi dalle email di Airbnb: acceso o spento dal gestionale (riaccendendolo si rilegge tutto)
   if (corpo && typeof corpo.email === "boolean") {
     // spenta: via anche i nomi letti; le caselle aggiunte restano collegate
-    stato = { ...stato, email: corpo.email ? { attivo: true, extra: (stato.email || {}).extra } : { attivo: false, extra: (stato.email || {}).extra } };
+    const { extra, cartelleScelte } = stato.email || {};
+    stato = { ...stato, email: { attivo: !!corpo.email, extra, cartelleScelte } };
     cambiati = true;
   }
   // un'altra casella Gmail da leggere: { email:{ aggiungi:{utente, password} } } oppure { email:{ togli:"indirizzo" } }
@@ -339,6 +350,19 @@ async function azioneCalendari(conn, corpo) {
           cambiati = true;
         } catch (err) { erroreCasella = spiegaErroreGmail(err); }
       }
+    }
+    // la cartella Gmail per un tipo di email: { email:{ cartella:{ utente, tipo, nome } } }
+    // nome "" = la riconosce KeyFlow, "-" = non archiviare
+    const cs = corpo.email.cartella;
+    if (cs && cs.utente && ["prenotazioni", "contratti", "apt"].includes(cs.tipo)) {
+      const u = String(cs.utente).trim().toLowerCase();
+      const scelte = { ...(em.cartelleScelte || {}) };
+      const mie = { ...(scelte[u] || {}) };
+      const nome = String(cs.nome == null ? "" : cs.nome).slice(0, 120);
+      if (nome) mie[cs.tipo] = nome; else delete mie[cs.tipo];
+      scelte[u] = mie;
+      em.cartelleScelte = scelte;
+      cambiati = true;
     }
     if (corpo.email.togli) {
       const t = String(corpo.email.togli).trim().toLowerCase();

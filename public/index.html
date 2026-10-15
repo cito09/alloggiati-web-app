@@ -15591,14 +15591,10 @@ function renderCalendariEmail(){
       :!e?'<span class="muted">da leggere</span>'
       :e.ok?`<span style="color:var(--ok)">✓ ${c.conferme} conferm${c.conferme===1?'a':'e'} di Airbnb</span> <span class="muted">· ${escText(quando(e.ts))}</span>`
       :`<span style="color:var(--err)">⚠️ ${escText(e.errore||'non letta')}</span>`;
-    // cartelle di archivio che KeyFlow tiene in questa casella Gmail (etichette)
-    const NOMI_CARTELLE={prenotazioni:'Prenotazioni Airbnb',contratti:'Contratti ospiti',apt:'APT moduli ISTAT'};
-    const cart=Object.entries(c.cartelle||{}).filter(([,n])=>n>0).map(([k,n])=>`${NOMI_CARTELLE[k]||k} ${n}`);
-    const rigaCartelle=!em.attivo?'':(e&&e.erroreCartelle)?`<br><span style="color:var(--err)">📁 cartelle non aggiornate: ${escText(e.erroreCartelle)}</span>`
-      :cart.length?`<br><span class="muted">📁 in Gmail, cartella KeyFlow → ${escText(cart.join(' · '))}</span>`:'';
-    return `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)">
-      <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.45"><b>📬 ${escText(c.utente)}</b><br>${stato}${rigaCartelle}</span>
-      ${c.principale?'':`<button class="btn ghost sm" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px" onclick="togliCasellaEmail('${escText(c.utente)}')">Togli</button>`}</div>`;
+    return `<div style="padding:8px 0;border-top:1px solid var(--line)"><div style="display:flex;gap:8px;align-items:center">
+      <span style="flex:1;min-width:0;font-size:12.5px;line-height:1.45"><b>📬 ${escText(c.utente)}</b><br>${stato}</span>
+      ${c.principale?'':`<button class="btn ghost sm" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px" onclick="togliCasellaEmail('${escText(c.utente)}')">Togli</button>`}</div>
+      ${em.attivo?calCartelleCasella(c):''}</div>`;
   }).join('');
   const totale=em.attivo&&caselle.length?`<div style="font-size:12.5px;margin-top:6px">In calendario <b>${em.conNome}</b> prenotazion${em.conNome===1?'e':'i'} con il nome. Quello che KeyFlow legge resta nel suo archivio: puoi cancellare le email quando vuoi (guarda anche nel Cestino).</div>`:'';
   const aggiungi=`<details style="margin-top:10px"${caselle.length<2?' open':''}><summary style="font-size:12.5px;font-weight:700;cursor:pointer">➕ Collega un'altra casella (es. quella di Bologna)</summary>
@@ -15617,6 +15613,41 @@ function renderCalendariEmail(){
   </details>`;
   box.innerHTML=!em.configurato&&!caselle.length?'Nessuna casella Gmail collegata.'+aggiungi
     :(righe+totale+aggiungi);
+}
+/* Cartelle di archivio in Gmail di una casella. L'utente (ottobre 2026): "avevo già la cartella
+   contratti ospiti, sia a Bologna sia a Canazei (e l'APT a Canazei): non farne di nuove, mettile
+   in quelle che ci sono". Il server sceglie da solo la cartella che l'host ha già (es. "CONTRATTI
+   LT") e ci sposta anche le email messe prima in "KeyFlow/…"; qui si vede dove va ogni tipo e si
+   può cambiare dal menu (la scelta vale per quella casella). */
+const CAL_TIPI_CARTELLA={prenotazioni:'🏠 Prenotazioni Airbnb',contratti:'📝 Contratti degli ospiti',apt:'📊 Moduli ISTAT all\'APT'};
+function calCartelleCasella(c){
+  const e=c.esito||{};
+  if(e.erroreCartelle)return `<div style="color:var(--err);font-size:12px;margin-top:4px">📁 cartelle non aggiornate: ${escText(e.erroreCartelle)}</div>`;
+  const dest=c.destinazioni; if(!dest)return '';
+  // i moduli all'APT li manda solo la casella principale
+  const tipi=Object.keys(CAL_TIPI_CARTELLA).filter(k=>k!=='apt'||c.principale);
+  const ue=encodeURIComponent(c.utente).replace(/'/g,'%27');
+  const righe=tipi.map(k=>{
+    const d=dest[k]||'', scelta=(c.scelte||{})[k]||'', n=(c.cartelle||{})[k]||0;
+    const kf=/^keyflow(\/|$)/i.test(d);
+    const opz=[`<option value="" ${!scelta?'selected':''}>Automatica</option>`]
+      .concat((c.etichetteGmail||[]).map(x=>`<option value="${escText(x)}" ${scelta===x?'selected':''}>📁 ${escText(x)}</option>`))
+      .concat([`<option value="-" ${scelta==='-'?'selected':''}>Nessuna cartella</option>`]);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px">
+      <span style="flex:1;min-width:0">${CAL_TIPI_CARTELLA[k]}${n?` <span class="muted">· ${n}</span>`:''}<br>
+        <b style="color:${d==='-'?'var(--muted)':kf?'#ffb703':'var(--ok)'}">${d==='-'?'non archiviate':'📁 '+escText(d)}</b>
+        ${kf?'<br><span class="muted" style="font-size:11px">cartella creata da KeyFlow: se ne hai già una tua, sceglila qui a destra</span>':''}</span>
+      <select onchange="scegliCartellaEmail('${ue}','${k}',this.value)" aria-label="Cartella per ${escText(CAL_TIPI_CARTELLA[k])}"
+        style="flex:0 0 auto;max-width:42%;font-size:12px;background:var(--surface2);color:var(--ink);border:none;border-radius:10px;padding:7px 8px">${opz.join('')}</select></div>`;
+  }).join('');
+  const tr=(c.traslochi||[]).slice(-3).map(t=>`✓ ${t.email} email spostate da «${escText(t.da)}» a «${escText(t.a)}» (cartella doppia tolta)`).join('<br>');
+  return `<div style="margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:12px">
+    <div class="muted" style="font-size:11.5px">📁 In Gmail le email finiscono in queste cartelle (restano anche in Posta in arrivo):</div>${righe}
+    ${tr?`<div class="muted" style="font-size:11.5px;margin-top:6px">${tr}</div>`:''}</div>`;
+}
+async function scegliCartellaEmail(ue,tipo,nome){
+  toast('📁 Sistemo le cartelle in Gmail…');
+  await caricaCalendariEsterni({email:{cartella:{utente:decodeURIComponent(ue),tipo,nome}}, avvisa:true});
 }
 async function aggiungiCasellaEmail(){
   const u=(($('#calEmailUtente')||{}).value||'').trim(), pw=(($('#calEmailPassword')||{}).value||'').trim();

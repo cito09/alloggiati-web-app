@@ -89,6 +89,9 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
       const caselle = (await client.list()) || [];
       const tutta = (caselle.find((c) => c.specialUse === "\\All") || {}).path || "INBOX";
       const cestino = (caselle.find((c) => c.specialUse === "\\Trash") || {}).path;
+      // le cartelle (etichette) che l'host ha già in questa casella: le email vanno lì
+      const etichetteGmail = etichetteUtente(caselle);
+      const dest = cartelle ? destinazioni(etichetteGmail, cartelle.scelte) : null;
       const nuove = [];
       const nuovoStato = { cartelle: {}, etichette: (stato && stato.etichette) || {} };
       let lette = 0;
@@ -128,13 +131,20 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
           // cartelle di archivio: solo in "Tutti i messaggi" (il Cestino non si etichetta)
           if (cartelle && cartella === tutta) {
             try {
-              const a = await archiviaInCartelle(client, nuovoStato.etichette, cartelle);
+              const a = await archiviaInCartelle(client, nuovoStato.etichette, { ...cartelle, destinazioni: dest });
               nuovoStato.etichette = a.stato; archiviate = a.conteggi;
             } catch (e) { erroreCartelle = String((e && (e.responseText || e.message)) || e).slice(0, 160); }
           }
         } finally { lock.release(); }
       }
-      return { stato: nuovoStato, nuove, lette, archiviate, erroreCartelle };
+      // le email finite nelle cartelle "KeyFlow/…" create le prime volte passano nelle cartelle
+      // dell'host, e le cartelle doppie si tolgono (fuori dal lock di "Tutti i messaggi")
+      let spostate = [];
+      if (dest && !erroreCartelle) {
+        try { spostate = await traslocaCartelleKeyFlow(client, caselle.map((c) => c.path), dest); }
+        catch (e) { erroreCartelle = String((e && (e.responseText || e.message)) || e).slice(0, 160); }
+      }
+      return { stato: nuovoStato, nuove, lette, archiviate, erroreCartelle, etichetteGmail, destinazioni: dest, spostate };
     } finally { await client.logout().catch(() => {}); }
   })();
   try {
@@ -149,12 +159,52 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
    Richiesta dell'utente: in ogni casella una cartella per le prenotazioni di Airbnb e una per i
    contratti degli ospiti, e in quella di Canazei anche una per i moduli ISTAT mandati all'APT.
    Ogni volta che KeyFlow legge la casella mette l'etichetta alle email nuove (le email restano
-   anche in Posta in arrivo: l'etichetta è solo un modo in più per ritrovarle). */
+   anche in Posta in arrivo: l'etichetta è solo un modo in più per ritrovarle).
+   ⚠️ Ottobre 2026, l'utente: "avevo già la cartella contratti ospiti, sia a Bologna sia a
+   Canazei (e l'APT a Canazei): non farne di nuove, mettile in quelle che ci sono". Quindi si usa
+   la cartella che l'host HA GIÀ (riconosciuta dal nome, es. "CONTRATTI LT", o scelta a mano nella
+   pagina Calendari); "KeyFlow/…" si crea solo se in quella casella non c'è niente di adatto. */
 const CARTELLE = {
   prenotazioni: "KeyFlow/Prenotazioni Airbnb",
   contratti: "KeyFlow/Contratti ospiti",
   apt: "KeyFlow/APT moduli ISTAT",
 };
+// come riconosco tra le cartelle dell'host quella giusta per ogni tipo: il nome deve contenere
+// la parola chiave; a parità vince quella con più parole "di contorno" (es. "CONTRATTI LT" =
+// locazione turistica, "Contratti ospiti")
+const REGOLE_CARTELLE = {
+  prenotazioni: { serve: /prenotazion/i, bonus: [/airbnb/i, /ospit/i] },
+  contratti: { serve: /contratt/i, bonus: [/ospit/i, /\blt\b/i, /locaz/i, /turist/i, /check.?in/i, /airbnb/i] },
+  apt: { serve: /\bapt\b|istat/i, bonus: [/\bapt\b/i, /istat/i, /modul/i] },
+};
+const eKeyFlow = (n) => /^keyflow(\/|$)/i.test(String(n || ""));
+// le etichette create dall'host: niente cartelle di sistema ([Gmail]/…, Posta in arrivo) né quelle di KeyFlow
+function etichetteUtente(caselle) {
+  return (caselle || [])
+    .filter((c) => c && c.path && !c.specialUse && !/^inbox$/i.test(c.path) && !/^\[(gmail|google mail)\]/i.test(c.path)
+      && !((c.flags && (c.flags.has ? c.flags.has("\\Noselect") : [].concat(c.flags).includes("\\Noselect")))) && !eKeyFlow(c.path))
+    .map((c) => c.path);
+}
+function cartellaEsistente(tipo, nomi) {
+  const r = REGOLE_CARTELLE[tipo]; if (!r) return "";
+  let meglio = "", punti = -1;
+  for (const n of nomi || []) {
+    if (eKeyFlow(n) || !r.serve.test(n)) continue;
+    const p = r.bonus.filter((b) => b.test(n)).length;
+    if (p > punti || (p === punti && n.length < meglio.length)) { meglio = n; punti = p; }
+  }
+  return meglio;
+}
+// dove va ogni tipo: la scelta a mano (se la cartella c'è ancora; "-" = non archiviare), sennò
+// la cartella dell'host riconosciuta dal nome, sennò "KeyFlow/…"
+function destinazioni(nomi, scelte) {
+  const d = {};
+  for (const k of Object.keys(CARTELLE)) {
+    const s = String((scelte || {})[k] || "");
+    d[k] = s === "-" ? "-" : (s && (nomi || []).includes(s)) ? s : (cartellaEsistente(k, nomi) || CARTELLE[k]);
+  }
+  return d;
+}
 // oggetti delle email dei contratti (copia all'host e all'ospite, nelle 8 lingue del check-in)
 const OGGETTI_CONTRATTO = ["Contratto firmato", "copia del contratto", "copy of the agreement", "copie du contrat",
   "copia del contrato", "Vertragskopie", "Copia contractului", "do contrato", "kopia umowy"];
@@ -163,14 +213,17 @@ const unoOPiu = (lista) => (lista.length === 1 ? lista[0] : { or: lista });
 const viaggioDaOspite = (o) => /^(?:\s*(?:fwd?|i|r|re|tr):\s*)*(la tua prenotazione|your reservation|your trip|il tuo viaggio)/i.test(String(o || ""));
 
 // opz = { apt: indirizzo dell'APT (solo nella casella che manda i moduli), nomiCasa: [nomi delle
-// case di questa casella] (per tenere solo i contratti suoi), fascicolo: true se qui arrivano i fascicoli }
+// case di questa casella] (per tenere solo i contratti suoi), fascicolo: true se qui arrivano i fascicoli,
+// destinazioni: {tipo: cartella} (vedi destinazioni()) }
 async function archiviaInCartelle(client, stato, opz) {
   const st = stato || {};
+  const dest = { ...CARTELLE, ...((opz && opz.destinazioni) || {}) };
+  const destPrima = { ...CARTELLE, ...(st.dest || {}) };
   const uidValidity = String((client.mailbox && client.mailbox.uidValidity) || "");
   const fino = Number(client.mailbox && client.mailbox.uidNext) - 1;
   const daCapo = st.uidValidity !== uidValidity || !st.ultimoUid;
   const minimo = daCapo ? 0 : Number(st.ultimoUid) || 0;
-  const base = daCapo ? { since: new Date(Date.now() - 400 * 86400000) } : { uid: `${minimo + 1}:*` };
+  const daCapoBase = { since: new Date(Date.now() - 400 * 86400000) };
   const gruppi = {
     prenotazioni: { or: [{ from: "airbnb", subject: "prenotazion" }, { from: "airbnb", subject: "reservation" }, { subject: "Prenotazione confermata" }] },
     contratti: unoOPiu([...OGGETTI_CONTRATTO, ...(opz.fascicolo ? ["Fascicolo KeyFlow"] : [])].map((x) => ({ subject: x }))),
@@ -179,7 +232,12 @@ async function archiviaInCartelle(client, stato, opz) {
   const nomi = (opz.nomiCasa || []).map((n) => String(n).toLowerCase()).filter(Boolean);
   const conteggi = {};
   for (const [k, criteri] of Object.entries(gruppi)) {
-    let uids = ((await client.search({ ...criteri, ...base }, { uid: true })) || []).filter((u) => u > minimo);
+    if (dest[k] === "-") continue;   // l'host ha scelto di non archiviare questo tipo
+    // cartella cambiata (es. da "KeyFlow/Contratti ospiti" a "CONTRATTI LT"): rifaccio questo tipo
+    // da capo, così ci finiscono anche le email di prima
+    const tuttoDaCapo = daCapo || destPrima[k] !== dest[k];
+    const min = tuttoDaCapo ? 0 : minimo;
+    let uids = ((await client.search({ ...criteri, ...(tuttoDaCapo ? daCapoBase : { uid: `${minimo + 1}:*` }) }, { uid: true })) || []).filter((u) => u > min);
     if (!uids.length) continue;
     if (k === "prenotazioni" || (k === "contratti" && nomi.length)) {
       const tenere = [];
@@ -193,11 +251,39 @@ async function archiviaInCartelle(client, stato, opz) {
       uids = tenere;
     }
     if (!uids.length) continue;
-    try { await client.mailboxCreate(CARTELLE[k]); } catch (e) { /* c'è già */ }
-    await client.messageFlagsAdd(uids.join(","), [CARTELLE[k]], { uid: true, useLabels: true });
+    // la cartella si crea solo se è quella di KeyFlow: quelle dell'host ci sono già
+    if (eKeyFlow(dest[k])) { try { await client.mailboxCreate(dest[k]); } catch (e) { /* c'è già */ } }
+    await client.messageFlagsAdd(uids.join(","), [dest[k]], { uid: true, useLabels: true });
     conteggi[k] = uids.length;
   }
-  return { stato: { uidValidity, ultimoUid: fino > 0 ? Math.max(fino, minimo) : minimo }, conteggi };
+  return { stato: { uidValidity, ultimoUid: fino > 0 ? Math.max(fino, minimo) : minimo, dest }, conteggi };
+}
+
+// Trasloco: le email che KeyFlow aveva messo in "KeyFlow/Contratti ospiti" (ecc.) ricevono
+// l'etichetta della cartella dell'host, poi la cartella "KeyFlow/…" si cancella. Le email NON si
+// cancellano mai: in Gmail togliere una cartella toglie solo l'etichetta. Si tocca solo una
+// cartella di KeyFlow, e solo dopo che tutte le sue email sono già nell'altra.
+async function traslocaCartelleKeyFlow(client, percorsi, dest) {
+  const fatti = [];
+  const esiste = new Set(percorsi || []);
+  for (const [k, vecchia] of Object.entries(CARTELLE)) {
+    const nuova = dest && dest[k];
+    if (!esiste.has(vecchia) || !nuova || nuova === "-" || eKeyFlow(nuova) || !esiste.has(nuova)) continue;
+    let uids = [];
+    const lock = await client.getMailboxLock(vecchia);
+    try {
+      uids = (await client.search({ all: true }, { uid: true })) || [];
+      if (uids.length) await client.messageFlagsAdd(uids.join(","), [nuova], { uid: true, useLabels: true });
+    } finally { lock.release(); }
+    await client.mailboxDelete(vecchia);
+    esiste.delete(vecchia);
+    fatti.push({ tipo: k, da: vecchia, a: nuova, email: uids.length });
+  }
+  // "KeyFlow" senza più niente dentro: via anche quella
+  if (fatti.length && esiste.has("KeyFlow") && ![...esiste].some((p) => /^keyflow\//i.test(p))) {
+    try { await client.mailboxDelete("KeyFlow"); } catch (e) { /* non c'era come cartella vera */ }
+  }
+  return fatti;
 }
 
 // prova che indirizzo e password per le app funzionino (prima di salvarli)
@@ -220,4 +306,5 @@ function spiegaErroreGmail(e) {
   return s.slice(0, 160) || "errore sconosciuto";
 }
 
-module.exports = { eConfermaHost, datiDaEmailAirbnb, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail, archiviaInCartelle, CARTELLE };
+module.exports = { eConfermaHost, datiDaEmailAirbnb, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail,
+  archiviaInCartelle, traslocaCartelleKeyFlow, destinazioni, cartellaEsistente, etichetteUtente, CARTELLE };
