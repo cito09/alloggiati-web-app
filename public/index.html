@@ -15622,8 +15622,8 @@ function renderCalendariEmail(){
 const CAL_TIPI_CARTELLA={prenotazioni:'🏠 Prenotazioni Airbnb',contratti:'📝 Contratti degli ospiti',apt:'📊 Moduli ISTAT all\'APT'};
 function calCartelleCasella(c){
   const e=c.esito||{};
-  if(e.erroreCartelle)return `<div style="color:var(--err);font-size:12px;margin-top:4px">📁 cartelle non aggiornate: ${escText(e.erroreCartelle)}</div>`;
-  const dest=c.destinazioni; if(!dest)return '';
+  const errore=e.erroreCartelle?`<div style="color:var(--err);font-size:12px;margin-top:4px">📁 cartelle non aggiornate: ${escText(e.erroreCartelle)} · riprovo alla prossima lettura</div>`:'';
+  const dest=c.destinazioni; if(!dest)return errore;
   // i moduli all'APT li manda solo la casella principale
   const tipi=Object.keys(CAL_TIPI_CARTELLA).filter(k=>k!=='apt'||c.principale);
   const ue=encodeURIComponent(c.utente).replace(/'/g,'%27');
@@ -15643,7 +15643,7 @@ function calCartelleCasella(c){
   const tr=(c.traslochi||[]).slice(-3).map(t=>`✓ ${t.email} email spostate da «${escText(t.da)}» a «${escText(t.a)}» (cartella doppia tolta)`).join('<br>');
   return `<div style="margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:12px">
     <div class="muted" style="font-size:11.5px">📁 In Gmail le email finiscono in queste cartelle (restano anche in Posta in arrivo):</div>${righe}
-    ${tr?`<div class="muted" style="font-size:11.5px;margin-top:6px">${tr}</div>`:''}</div>`;
+    ${tr?`<div class="muted" style="font-size:11.5px;margin-top:6px">${tr}</div>`:''}${errore}</div>`;
 }
 async function scegliCartellaEmail(ue,tipo,nome){
   toast('📁 Sistemo le cartelle in Gmail…');

@@ -321,8 +321,39 @@ function vistaCalendari(stato) {
       annunci: (stato.prohost && stato.prohost.annunci) || [], esito: (stato.prohost && stato.prohost.esito) || null } };
 }
 
+/* Una lettura alla volta. Caso reale (15/10/2026): due richieste a 4 secondi di distanza
+   (apertura dell'app + pagina Calendari) hanno letto le caselle insieme; la seconda ha cercato di
+   traslocare una cartella "KeyFlow/…" che la prima aveva appena tolto ("Unknown Mailbox"), e il
+   suo risultato con l'errore ha sovrascritto quello buono. Ora chi arriva mentre un'altra lettura
+   è in corso aspetta che finisca e riparte dallo stato aggiornato (di solito non deve più
+   rileggere niente). Se l'archivio non risponde o l'attesa supera 25 s si va avanti lo stesso. */
+const CHIAVE_TURNO = "calendari_lettura_in_corso";
+async function conTurno(conn, lavoro, attesaMax = 25000) {
+  const token = crypto.randomBytes(6).toString("hex");
+  let mio = false;
+  if (conn) {
+    const inizio = Date.now();
+    for (;;) {
+      let r = null;
+      try { r = await redisCmd(conn, ["SET", CHIAVE_TURNO, token, "NX", "EX", "58"]); } catch { break; }
+      if (r === "OK") { mio = true; break; }
+      if (Date.now() - inizio > attesaMax) break;
+      await new Promise((ok) => setTimeout(ok, 800));
+    }
+  }
+  try { return await lavoro(); }
+  finally {
+    if (mio) {
+      try { if ((await redisCmd(conn, ["GET", CHIAVE_TURNO])) === token) await redisCmd(conn, ["DEL", CHIAVE_TURNO]); } catch { /* scade da solo */ }
+    }
+  }
+}
+
 // azione 'calendari' di /api/promemoria: { link?:{idStruttura:"testo con i link"}, aggiorna?:true }
-async function azioneCalendari(conn, corpo) {
+function azioneCalendari(conn, corpo) {
+  return conTurno(conn, () => azioneCalendariInTurno(conn, corpo));
+}
+async function azioneCalendariInTurno(conn, corpo) {
   let stato = await leggiCalendari(conn);
   let cambiati = false;
   // nomi dalle email di Airbnb: acceso o spento dal gestionale (riaccendendolo si rilegge tutto)
@@ -428,4 +459,4 @@ async function azioneCalendari(conn, corpo) {
   return vista;
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari, conNomi, haFonti };
+module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari, conNomi, haFonti, conTurno };

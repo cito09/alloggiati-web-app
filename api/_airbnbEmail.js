@@ -259,6 +259,7 @@ async function archiviaInCartelle(client, stato, opz) {
   return { stato: { uidValidity, ultimoUid: fino > 0 ? Math.max(fino, minimo) : minimo, dest }, conteggi };
 }
 
+const cartellaSparita = (e) => /unknown mailbox|nonexistent|doesn'?t exist|does not exist|not found/i.test(String((e && (e.responseText || e.message)) || e));
 // Trasloco: le email che KeyFlow aveva messo in "KeyFlow/Contratti ospiti" (ecc.) ricevono
 // l'etichetta della cartella dell'host, poi la cartella "KeyFlow/…" si cancella. Le email NON si
 // cancellano mai: in Gmail togliere una cartella toglie solo l'etichetta. Si tocca solo una
@@ -270,12 +271,16 @@ async function traslocaCartelleKeyFlow(client, percorsi, dest) {
     const nuova = dest && dest[k];
     if (!esiste.has(vecchia) || !nuova || nuova === "-" || eKeyFlow(nuova) || !esiste.has(nuova)) continue;
     let uids = [];
-    const lock = await client.getMailboxLock(vecchia);
+    let lock;
+    // già tolta (da un'altra lettura, o Gmail la elenca ancora per qualche istante): niente da fare
+    try { lock = await client.getMailboxLock(vecchia); }
+    catch (e) { if (cartellaSparita(e)) { esiste.delete(vecchia); continue; } throw e; }
     try {
       uids = (await client.search({ all: true }, { uid: true })) || [];
       if (uids.length) await client.messageFlagsAdd(uids.join(","), [nuova], { uid: true, useLabels: true });
     } finally { lock.release(); }
-    await client.mailboxDelete(vecchia);
+    try { await client.mailboxDelete(vecchia); }
+    catch (e) { if (!cartellaSparita(e)) throw e; }
     esiste.delete(vecchia);
     fatti.push({ tipo: k, da: vecchia, a: nuova, email: uids.length });
   }
