@@ -16,7 +16,7 @@
 //              ProhostAI (_prohost.js) arrivano tutte le prenotazioni con nome e ospiti (sorgente "prohost")
 const crypto = require("crypto");
 const { redisCmd } = require("./_kv");
-const { leggiConfermeAirbnb, provaCasella, spiegaErroreGmail } = require("./_airbnbEmail");
+const { leggiConfermeAirbnb, provaCasella, spiegaErroreGmail, VERSIONE_ARCHIVIO } = require("./_airbnbEmail");
 const { leggiProhost, chiaveMascherata } = require("./_prohost");
 
 const KEY = "calendari_esterni";
@@ -195,9 +195,12 @@ async function aggiornaEmail(email, conn) {
       for (const [k, n] of Object.entries(x.r.archiviate || {})) tot[k] = (tot[k] || 0) + n;
       // e quante sono passate dalle cartelle "KeyFlow/…" a quelle che l'host aveva già
       const traslochi = [...(prima.traslochi || []), ...(x.r.spostate || []).map((t) => ({ ...t, ts: Date.now() }))].slice(-10);
+      // quante sono uscite da Posta in arrivo (spostate davvero nella loro cartella), in tutto
+      const fuori = { ...(prima.fuori || {}) };
+      for (const [k, n] of Object.entries(x.r.fuoriInbox || {})) fuori[k] = (fuori[k] || 0) + n;
       console.log("cartelle gmail", JSON.stringify({ principale: x.c.principale, destinazioni: x.r.destinazioni,
-        archiviate: x.r.archiviate, spostate: x.r.spostate, errore: x.r.erroreCartelle || null }));
-      stati[x.c.utente] = { stato: x.r.stato, cartelle: tot, traslochi,
+        archiviate: x.r.archiviate, fuoriInbox: x.r.fuoriInbox, spostate: x.r.spostate, errore: x.r.erroreCartelle || null }));
+      stati[x.c.utente] = { stato: x.r.stato, cartelle: tot, traslochi, fuori,
         etichetteGmail: (x.r.etichetteGmail || []).slice(0, 150), destinazioni: x.r.destinazioni || prima.destinazioni || null,
         esito: { ok: true, ts: Date.now(), nuove: x.r.nuove.length, ...(x.r.erroreCartelle ? { erroreCartelle: x.r.erroreCartelle } : {}) } };
     } else {
@@ -314,6 +317,7 @@ function vistaCalendari(stato) {
         scelte: (em.cartelleScelte || {})[c.utente.toLowerCase()] || {},
         etichetteGmail: ((em.caselle || {})[c.utente] || {}).etichetteGmail || [],
         traslochi: ((em.caselle || {})[c.utente] || {}).traslochi || [],
+        fuori: ((em.caselle || {})[c.utente] || {}).fuori || {},
         conferme: Object.values(em.conferme || {}).filter((x) => x.casella === c.utente).length })),
       errore: null },
     // la chiave di ProhostAI non torna mai al telefono: solo l'inizio e la fine, per riconoscerla
@@ -440,7 +444,9 @@ async function azioneCalendariInTurno(conn, corpo) {
   const emS = stato.email || {};
   const cartelleDaSistemare = emailAccesa(emS) && caselleEmail(emS).some((c) => {
     const x = (emS.caselle || {})[c.utente] || {};
-    return !x.destinazioni && !(x.esito && Date.now() - (x.esito.ts || 0) < 5 * 60000);
+    // mai letta con le cartelle dell'host, o mai fatto il controllo generale (tutte le email, spostate davvero)
+    const versione = (((x.stato || {}).etichette) || {}).versione || 1;
+    return (!x.destinazioni || versione < VERSIONE_ARCHIVIO) && !(x.esito && Date.now() - (x.esito.ts || 0) < 5 * 60000);
   });
   if (haFonti(stato) && (cambiati || cartelleDaSistemare || (corpo && corpo.aggiorna) || Date.now() - (stato.aggiornato || 0) > VECCHIO_MS)) {
     stato = await sincronizzaCalendari(conn, stato);
