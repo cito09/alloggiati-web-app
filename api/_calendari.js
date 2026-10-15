@@ -195,6 +195,8 @@ async function aggiornaEmail(email, conn) {
       for (const [k, n] of Object.entries(x.r.archiviate || {})) tot[k] = (tot[k] || 0) + n;
       // e quante sono passate dalle cartelle "KeyFlow/…" a quelle che l'host aveva già
       const traslochi = [...(prima.traslochi || []), ...(x.r.spostate || []).map((t) => ({ ...t, ts: Date.now() }))].slice(-10);
+      console.log("cartelle gmail", JSON.stringify({ principale: x.c.principale, destinazioni: x.r.destinazioni,
+        archiviate: x.r.archiviate, spostate: x.r.spostate, errore: x.r.erroreCartelle || null }));
       stati[x.c.utente] = { stato: x.r.stato, cartelle: tot, traslochi,
         etichetteGmail: (x.r.etichetteGmail || []).slice(0, 150), destinazioni: x.r.destinazioni || prima.destinazioni || null,
         esito: { ok: true, ts: Date.now(), nuove: x.r.nuove.length, ...(x.r.erroreCartelle ? { erroreCartelle: x.r.erroreCartelle } : {}) } };
@@ -401,7 +403,15 @@ async function azioneCalendari(conn, corpo) {
     cambiati = true;
   }
   const chiaveNuova = !!(corpo && corpo.prohost && typeof corpo.prohost.chiave === "string" && corpo.prohost.chiave.trim());
-  if (haFonti(stato) && (cambiati || (corpo && corpo.aggiorna) || Date.now() - (stato.aggiornato || 0) > VECCHIO_MS)) {
+  // una casella mai letta con le cartelle dell'host (versione di prima: tutto in "KeyFlow/…"):
+  // la rileggo subito, senza aspettare la mezz'ora, così le cartelle doppie spariscono appena si
+  // apre l'app. Se la lettura fallisce si riprova al massimo ogni 5 minuti.
+  const emS = stato.email || {};
+  const cartelleDaSistemare = emailAccesa(emS) && caselleEmail(emS).some((c) => {
+    const x = (emS.caselle || {})[c.utente] || {};
+    return !x.destinazioni && !(x.esito && Date.now() - (x.esito.ts || 0) < 5 * 60000);
+  });
+  if (haFonti(stato) && (cambiati || cartelleDaSistemare || (corpo && corpo.aggiorna) || Date.now() - (stato.aggiornato || 0) > VECCHIO_MS)) {
     stato = await sincronizzaCalendari(conn, stato);
     // una chiave appena incollata che ProhostAI rifiuta non si tiene: si mostra l'errore e basta
     const e = stato.prohost && stato.prohost.esito;
