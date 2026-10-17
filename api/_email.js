@@ -9,7 +9,8 @@ const nodemailer = require("nodemailer");
 
 // Accetta un allegato solo (allegatoNome + allegatoBuffer) oppure più allegati
 // (allegati: [{nome, buffer}]), come quando si mandano insieme più moduli ISTAT.
-async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegatoBuffer, allegati, mittente }) {
+// html (facoltativo): la versione colorata dell'email; il testo semplice resta per chi non la vede.
+async function inviaEmailConAllegato({ to, subject, testo, html, allegatoNome, allegatoBuffer, allegati, mittente }) {
   if (!to) return { ok: false, error: "Nessun indirizzo email di destinazione" };
   const lista = (allegati && allegati.length)
     ? allegati.map((a) => ({ filename: a.nome, content: a.buffer }))
@@ -34,6 +35,7 @@ async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegat
         to,
         subject,
         text: testo,
+        ...(html ? { html } : {}),
         attachments: lista,
       });
       return { ok: true };
@@ -55,6 +57,7 @@ async function inviaEmailConAllegato({ to, subject, testo, allegatoNome, allegat
         to: [to],
         subject,
         text: testo,
+        ...(html ? { html } : {}),
         attachments: lista.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })),
       }),
     });

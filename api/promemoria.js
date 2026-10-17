@@ -6,6 +6,8 @@
 //        1) è il giorno di arrivo (o un giorno successivo) di una prenotazione NON ancora
 //           registrata in Questura — con pallino colorato per struttura (🟢 Canazei/Alba,
 //           🔴 Bologna/Falegnami); si ripete ogni giorno finché non viene registrata
+//        2) EMAIL "🚨 da registrare" (api/_promemoriaEmail.js) se qualcuno è arrivato IERI o
+//           prima e non è ancora registrato: ogni mattina finché non è fatto, anche senza ntfy
 //        3) è il giorno 3 del mese e c'è almeno una struttura Ross1000 (file da caricare entro il 5)
 //        Prima ancora rimanda a Ross1000 gli invii rimasti in coda perché la Regione non
 //        rispondeva (api/_ross.js) e avvisa quando sono arrivati.
@@ -26,6 +28,7 @@ const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = req
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
 const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno } = require("./_calendari");
+const { mandaPromemoriaEmail } = require("./_promemoriaEmail");
 
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
@@ -128,6 +131,32 @@ function oggiRomaUtc() {
   const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" })
     .formatToParts(new Date()).reduce((a, x) => ((a[x.type] = x.value), a), {});
   return Date.UTC(+p.year, +p.month - 1, +p.day);
+}
+// Ospiti arrivati (oggi o prima) e NON ancora registrati in Questura. Fonti: prenotazioni
+// accettate ma non inviate (bookings_pending, sincronizzate dal gestionale) + check-in degli
+// ospiti non ancora aggiunti a una prenotazione (checkin_pending non "presa"). g = giorni
+// dall'arrivo (0 = oggi). Lo usano l'email "🚨 da registrare" e le notifiche del mattino.
+async function elencoDaRegistrare(conn) {
+  const out = [];
+  const visti = new Set();
+  const aggiungi = (arrivo, strutturaNome, strutturaId, nomi, ospiti) => {
+    const lista = (nomi || []).filter(Boolean);
+    const key = `${strutturaNome || ""}|${arrivo || ""}|${(lista[0] || "").toUpperCase()}`;
+    if (visti.has(key)) return;
+    visti.add(key);
+    const g = giorniDaArrivoOggi(arrivo);
+    if (g === null || g < 0) return;   // data non valida o arrivo ancora futuro
+    out.push({ arrivo, strutturaNome, strutturaId, nomi: lista, ospiti: Math.max(ospiti || 0, lista.length), g });
+  };
+  const rawB = await redisCmd(conn, ["GET", KEY_PENDENTI]);
+  (rawB ? JSON.parse(rawB) : []).forEach((b) => aggiungi(b.arrivo, b.strutturaNome, "", b.ospiti || [], (b.ospiti || []).length));
+  const rawC = await redisCmd(conn, ["GET", "checkin_pending"]);
+  (rawC ? JSON.parse(rawC) : []).filter((v) => !v.presa).forEach((v) =>
+    aggiungi(v.arrivo, v.strutturaNome, v.strutturaId, (v.ospiti || []).map((o) => `${o.cognome || ""} ${o.nome || ""}`.trim()), (v.ospiti || []).length));
+  return out;
+}
+function oggiIsoRoma() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 // nomi brevi per le notifiche: "ROSSI MARIO e altri 2"
 function nomiBrevi(ospiti) {
@@ -418,49 +447,35 @@ module.exports = async (req, res) => {
     }
   } catch (e) { /* portale o archivio non raggiungibili: si riprova all'apertura dell'app */ }
 
+  // 0-ter) ospiti arrivati IERI o prima e non ancora registrati: EMAIL "🚨 da registrare"
+  //        (ogni mattina finché non è fatto, una per casella). Va mandata anche senza le
+  //        notifiche ntfy configurate: per questo sta prima del controllo su NTFY_TOPIC.
+  let daRegistrare = [];
+  try { if (conn) daRegistrare = await elencoDaRegistrare(conn); } catch (e) { /* archivio non raggiungibile */ }
+  let promemoriaEmail = null;
+  try { if (conn) promemoriaEmail = await mandaPromemoriaEmail(conn, daRegistrare, oggiIsoRoma()); }
+  catch (e) { promemoriaEmail = { errore: String((e && e.message) || e) }; }
+
   const topic = process.env.NTFY_TOPIC;
-  if (!topic) return res.status(200).json({ ok: true, nota: "NTFY_TOPIC non configurato: nessun promemoria", rinvioRoss });
+  if (!topic) return res.status(200).json({ ok: true, nota: "NTFY_TOPIC non configurato: nessun promemoria", rinvioRoss, promemoriaEmail });
 
   const avvisi = [...avvisiRoss];
 
   // 1) PROMEMORIA CHECK-IN per struttura: dal giorno di arrivo in poi, per ogni prenotazione
   //    NON ancora registrata in Questura. Il giorno dell'arrivo avvisa "oggi è il check-in";
-  //    se resta da registrare, ripete l'avviso ogni giorno successivo finché non è fatta.
-  //    Fonti: prenotazioni accettate ma non inviate (bookings_pending) + check-in self-service
-  //    non ancora aggiunti a una prenotazione (checkin_pending non "presa").
-  try {
-    if (conn) {
-      const daRegistrare = [];
-      const visti = new Set();
-      const aggiungi = (arrivo, strutturaNome, strutturaId, nomi) => {
-        const lista = (nomi || []).filter(Boolean);
-        const key = `${strutturaNome || ""}|${arrivo || ""}|${(lista[0] || "").toUpperCase()}`;
-        if (visti.has(key)) return;
-        visti.add(key);
-        daRegistrare.push({ arrivo, strutturaNome, strutturaId, nomi: lista });
-      };
-      // a) prenotazioni accettate ma non ancora inviate (sincronizzate dal gestionale)
-      const rawB = await redisCmd(conn, ["GET", KEY_PENDENTI]);
-      (rawB ? JSON.parse(rawB) : []).forEach((b) => aggiungi(b.arrivo, b.strutturaNome, "", b.ospiti || []));
-      // b) check-in self-service non ancora aggiunti a una prenotazione
-      const rawC = await redisCmd(conn, ["GET", "checkin_pending"]);
-      (rawC ? JSON.parse(rawC) : []).filter((v) => !v.presa).forEach((v) =>
-        aggiungi(v.arrivo, v.strutturaNome, v.strutturaId, (v.ospiti || []).map((o) => `${o.cognome || ""} ${o.nome || ""}`.trim())));
-
-      for (const r of daRegistrare) {
-        const g = giorniDaArrivoOggi(r.arrivo);
-        if (g === null || g < 0) continue; // data non valida o arrivo ancora futuro
-        const emoji = emojiStruttura(r.strutturaNome, r.strutturaId);
-        const struttura = r.strutturaNome || "struttura da verificare";
-        const nomi = r.nomi.join(", ") || "ospiti senza nome";
-        if (g === 0) {
-          avvisi.push(`${emoji} ${struttura} — OGGI è il check-in di ${nomi}. Ricordati di registrarli in Questura.`);
-        } else {
-          avvisi.push(`⚠️ ${emoji} ${struttura} — ${nomi} (arrivo ${r.arrivo}) non ancora registrati in Questura. Fallo appena puoi.`);
-        }
-      }
+  //    il giorno dopo "va registrato OGGI" (entro 24 ore); poi "IN RITARDO" finché non è fatta.
+  for (const r of daRegistrare) {
+    const emoji = emojiStruttura(r.strutturaNome, r.strutturaId);
+    const struttura = r.strutturaNome || "struttura da verificare";
+    const nomi = r.nomi.join(", ") || "ospiti senza nome";
+    if (r.g === 0) {
+      avvisi.push(`${emoji} ${struttura} — OGGI è il check-in di ${nomi}. Ricordati di registrarli in Questura.`);
+    } else if (r.g === 1) {
+      avvisi.push(`🚨 ${emoji} ${struttura} — ${nomi} è arrivato IERI e non è ancora registrato: va fatto OGGI (entro 24 ore).`);
+    } else {
+      avvisi.push(`🚨 ${emoji} ${struttura} — ${nomi} (arrivo ${r.arrivo}) IN RITARDO: non ancora registrati in Questura. Fallo subito.`);
     }
-  } catch (e) { /* archivio non configurato: nessun avviso su questa parte */ }
+  }
 
   // 3) scadenza Ross1000: promemoria il giorno 3 del mese (file del mese scorso entro il 5)
   try {
@@ -507,5 +522,5 @@ module.exports = async (req, res) => {
       });
     } catch (e) { /* notifica non riuscita: riproverà domani */ }
   }
-  return res.status(200).json({ ok: true, inviati: avvisi.length, fascicolo, rinvioRoss });
+  return res.status(200).json({ ok: true, inviati: avvisi.length, fascicolo, rinvioRoss, promemoriaEmail });
 };

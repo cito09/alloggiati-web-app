@@ -245,6 +245,10 @@
   .kpi span.et{display:block; font-size:9.5px; color:var(--muted); font-weight:700; line-height:1.25; margin-top:2px}
   .kpi.alert b{color:var(--err)}
   .kpi.calmo b{color:var(--muted)}
+  /* qualcuno è arrivato ieri (o prima) e non è ancora registrato: il riquadro "da fare" lampeggia */
+  .kpi.urgente{box-shadow:inset 0 0 0 2px var(--err); animation:urgenzaPulsa 1.6s ease-in-out infinite}
+  .kpi.urgente span.et{color:var(--err)}
+  @keyframes urgenzaPulsa{0%,100%{box-shadow:inset 0 0 0 2px rgba(239,71,111,.95)}50%{box-shadow:inset 0 0 0 2px rgba(239,71,111,.25)}}
   .gcal-head{display:flex; align-items:center; gap:7px; margin-bottom:10px}
   .gcal-head .mese{flex:1; font-size:15.5px; font-weight:800; text-transform:capitalize; letter-spacing:-.01em}
   .gcal-nav{background:var(--surface2); border:none; color:var(--ink); width:32px; height:32px; border-radius:11px;
@@ -430,6 +434,25 @@
     border-bottom:1px solid var(--line); cursor:pointer}
   .todo-row:last-child{border-bottom:none; padding-bottom:2px}
   .todo-row:active{background:rgba(255,255,255,.06)}
+  /* "Da fare" in scadenza: arrivato ieri = va registrato OGGI (entro 24 ore), prima = in ritardo */
+  .todo-row.urgente{background:rgba(239,71,111,.10); box-shadow:inset 0 0 0 1.5px rgba(239,71,111,.55); margin:4px -6px; padding-right:8px; flex-wrap:wrap}
+  .todo-row .urg-riga{flex-basis:100%; margin-top:-4px}
+  .urg-pill{display:inline-block; margin-top:5px; padding:3px 10px; border-radius:999px; background:var(--err); color:#fff;
+    font-weight:800; font-size:12px; letter-spacing:.01em; line-height:1.4}
+  .urg-pill.ritardo{animation:urgenzaLampo 1.2s ease-in-out infinite}
+  @keyframes urgenzaLampo{0%,100%{opacity:1}50%{opacity:.55}}
+  /* avviso in primo piano all'apertura dell'app (allarmeDaFare) */
+  #allarmeDaFare{position:fixed; inset:0; z-index:800; display:none; align-items:flex-end; justify-content:center;
+    background:rgba(0,0,0,.62); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px)}
+  #allarmeDaFare.open{display:flex}
+  #allarmeDaFare .box{width:100%; max-width:540px; max-height:86vh; overflow-y:auto; background:var(--surface);
+    border-radius:26px 26px 0 0; border-top:3px solid var(--err); padding:20px 18px calc(18px + env(safe-area-inset-bottom));
+    animation:allarmeSu .25s ease-out}
+  @media (min-width:700px){ #allarmeDaFare{align-items:center} #allarmeDaFare .box{border-radius:26px; border:2px solid var(--err)} }
+  @keyframes allarmeSu{from{transform:translateY(40px); opacity:0}to{transform:none; opacity:1}}
+  #allarmeDaFare .sirena{font-size:40px; text-align:center; animation:urgenzaLampo 1.2s ease-in-out infinite}
+  #allarmeDaFare h3{margin:4px 0 2px; text-align:center; font-size:20px; font-weight:800; color:var(--err)}
+  #allarmeDaFare .sotto{text-align:center; color:var(--muted); font-size:13px; margin-bottom:12px}
   /* Home → Recensioni: una riga per ospite partito, due pulsanti che copiano il testo */
   .rec-riga{padding:10px 0; border-bottom:1px solid var(--line)}
   .rec-riga:last-child{border-bottom:none; padding-bottom:2px}
@@ -982,6 +1005,15 @@ function doGet() {
   <button data-tab="archivio" onclick="mostraTab('archivio')"><span class="tico">🗂️</span>Archivio</button>
 </div>
 <div class="toast" id="toast"></div>
+<div id="allarmeDaFare" role="dialog" aria-modal="true" aria-labelledby="allarmeTitolo" onclick="if(event.target===this)chiudiAllarmeDaFare()">
+  <div class="box">
+    <div class="sirena">🚨</div>
+    <h3 id="allarmeTitolo">Check-in da registrare!</h3>
+    <div class="sotto">La Questura va avvisata <b>entro 24 ore</b> dall'arrivo.</div>
+    <div id="allarmeLista"></div>
+    <button class="btn ghost" style="margin-top:12px" onclick="chiudiAllarmeDaFare()">Più tardi</button>
+  </div>
+</div>
 
 <div id="fotoLightbox">
   <div class="lb-scena" id="lbScena"><img id="fotoLightboxImg" src="" alt="" draggable="false"></div>
@@ -13586,7 +13618,7 @@ let checkinPending=[];
 async function loadCheckinPending(){
   try{
     const r=await fetch('/api/checkin-pending',{headers:adminHeaders()}); const data=await r.json();
-    if(data.configurato){ checkinPending=data.coda||[]; renderCheckinPending(); }
+    if(data.configurato){ checkinPending=data.coda||[]; renderCheckinPending(); controllaAllarmeDaFare(); }
   }catch(e){/* offline o archivio non configurato: la coda resta vuota, nessun errore mostrato */}
 }
 let checkinSort=localStorage.getItem('checkinSort')||'arrivo';
@@ -14955,6 +14987,7 @@ document.addEventListener('visibilitychange',()=>{
   appNascostaDa=0;
   riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
+  allarmeGiaVisto=false;                    // check-in in scadenza: l'avviso si rivede al rientro
   try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); caricaCalendariEsterni(); }catch(e){}
   if(registrazioneAMeta()){ aggiornaOggi(); return; }
   tornaAllaHome();
@@ -14965,6 +14998,9 @@ document.addEventListener('visibilitychange',()=>{
    Indietro, chiudiamo prima i pannelli aperti, poi torniamo alla scheda Oggi, e solo
    alla fine (Oggi senza pannelli) lasciamo davvero uscire dall'app. */
 function keyflowBack(){
+  // 0) avviso dei check-in in scadenza
+  const al=document.getElementById('allarmeDaFare');
+  if(al&&al.classList.contains('open')){ chiudiAllarmeDaFare(); return true; }
   // 1) lightbox foto aperta
   const lb=document.getElementById('fotoLightbox');
   if(lb&&getComputedStyle(lb).display!=='none'){ if(typeof chiudiFoto==='function')chiudiFoto(); else {lb.style.display='none';document.body.style.overflow='';} return true; }
@@ -15005,6 +15041,55 @@ function pendingAzione(v,stile){
   if(inLavorazione)return `<button class="btn ghost sm" ${st} onclick="event.stopPropagation();mostraTab('registra')">📤 Da inviare</button>`;
   return `<button class="btn ghost sm" ${st} onclick="event.stopPropagation();accettaCheckin('${v.id}')">↺ Riaggiungi</button>`;
 }
+/* ===== check-in in scadenza (ottobre 2026, l'utente: "un arrivo di ieri lo vorrei più evidente,
+   urgente, in rosso; se apro l'app il giorno dopo e non è fatto, mi si deve aprire un alert in
+   primo piano"). La Questura va avvisata entro 24 ore: chi è arrivato IERI va registrato OGGI,
+   chi è arrivato prima è IN RITARDO. Lo stesso avviso arriva per email ogni mattina
+   (api/_promemoriaEmail.js). ===== */
+// diff = giorni dall'oggi all'arrivo (ieri = -1); null se non è urgente
+function urgenzaArrivo(diff){
+  if(diff===null||diff===undefined||!isFinite(diff)||diff>=0||diff<-30)return null;
+  return diff===-1?{testo:'🚨 Arrivato IERI · registra OGGI', ritardo:false}
+    :{testo:`🚨 Arrivato ${-diff} giorni fa · IN RITARDO`, ritardo:true};
+}
+function giorniAllArrivo(arrivo){
+  const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(arrivo||''); if(!m)return null;
+  const oggi0=new Date(); oggi0.setHours(0,0,0,0);
+  return Math.round((new Date(+m[3],+m[2]-1,+m[1]).getTime()-oggi0)/864e5);
+}
+// i check-in arrivati ieri o prima e non ancora registrati, i più in ritardo per primi
+function pendingUrgenti(){
+  return checkinPending.map(v=>({v, diff:giorniAllArrivo(v.arrivo)}))
+    .filter(x=>urgenzaArrivo(x.diff)).sort((a,b)=>a.diff-b.diff);
+}
+// l'avviso in primo piano: una volta quando si apre l'app (e di nuovo se ci si rientra dopo
+// più di mezz'ora), solo se c'è davvero qualcosa in scadenza
+let allarmeGiaVisto=false;
+function controllaAllarmeDaFare(){
+  if(allarmeGiaVisto)return;
+  const urg=pendingUrgenti(); if(!urg.length)return;
+  const lista=$('#allarmeLista'), box=$('#allarmeDaFare'); if(!lista||!box)return;
+  allarmeGiaVisto=true;
+  lista.innerHTML=urg.map(({v,diff})=>{
+    const primo=(v.ospiti||[])[0]||{};
+    const titolare=[primo.cognome,primo.nome].filter(Boolean).join(' ')||'(senza nome)';
+    const u=urgenzaArrivo(diff), sIn=v.strutturaNome?strutturaInfo(v.strutturaNome):null;
+    return `<div class="todo-row urgente" onclick="chiudiAllarmeDaFare();apriDettaglioCheckin('${v.id}')"${sIn?` style="border-left:3px solid ${sIn.colore};padding-left:9px"`:''}>
+      <div style="flex:1;font-size:13.5px;line-height:1.45;min-width:0"><b>${escText(titolare)}</b> <span class="muted" style="white-space:nowrap">👤 ${(v.ospiti||[]).length}</span><br>
+        <span class="muted">${sIn?`<span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span></div>
+      ${pendingAzione(v,'padding:10px 14px')}
+      <div class="urg-riga"><span class="urg-pill${u.ritardo?' ritardo':''}">${u.testo}</span></div></div>`;
+  }).join('');
+  $('#allarmeTitolo').textContent=urg.some(x=>urgenzaArrivo(x.diff).ritardo)
+    ?(urg.length===1?'Check-in IN RITARDO!':`${urg.length} check-in IN RITARDO!`)
+    :(urg.length===1?'Check-in da registrare OGGI!':`${urg.length} check-in da registrare OGGI!`);
+  box.classList.add('open');
+}
+function chiudiAllarmeDaFare(){ const b=$('#allarmeDaFare'); if(b)b.classList.remove('open'); }
+// un tocco su Registra/Da inviare dentro l'avviso: prima si chiude l'avviso, poi parte il pulsante
+document.addEventListener('click',e=>{
+  if(e.target.closest&&e.target.closest('#allarmeLista button'))chiudiAllarmeDaFare();
+},true);
 function aggiornaOggi(){
   const w=$('#oggiStato'); if(!w)return;
   // "Da fare": i check-in arrivati, ordinati per data di arrivo (chi arriva prima in cima),
@@ -15020,20 +15105,25 @@ function aggiornaOggi(){
       const titolare=[primo.cognome,primo.nome].filter(Boolean).join(' ')||'(senza nome)';
       const ts=parseArr(v.arrivo);
       const diff=isFinite(ts)?Math.round((ts-oggi0)/864e5):null;
-      const quando=diff===0?'<b style="color:var(--amber)">🔔 arriva OGGI</b>'
+      // arrivato ieri o prima: non "arrivato il 16/10" (non si capisce al volo che è ieri), ma un
+      // avviso rosso: ieri = va registrato OGGI (entro 24 ore), prima = in ritardo
+      const urg=urgenzaArrivo(diff);
+      const quando=urg?`<span class="urg-pill${urg.ritardo?' ritardo':''}">${urg.testo}</span>`
+        :diff===0?'<b style="color:var(--amber)">🔔 arriva OGGI</b>'
         :diff===1?'<b>arriva domani</b>'
-        :diff!==null&&diff<0?('arrivato il '+escText(v.arrivo))
         :v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare';
       const azione=pendingAzione(v);   // Registra / Da inviare / Riaggiungi
       // stesso colore-struttura usato in Ospiti in attesa e Storico, per riconoscerla al volo
       const sIn=v.strutturaNome?strutturaInfo(v.strutturaNome):null;
-      return `<div class="todo-row" onclick="apriDettaglioCheckin('${v.id}')"${sIn?` style="border-left:3px solid ${sIn.colore};padding-left:9px"`:''}>
+      return `<div class="todo-row${urg?' urgente':''}" onclick="apriDettaglioCheckin('${v.id}')"${sIn?` style="border-left:3px solid ${sIn.colore};padding-left:9px"`:''}>
         <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(titolare)}</b> <span class="muted" style="white-space:nowrap">👤 ${(v.ospiti||[]).length}</span><br>
-          <span class="muted">${quando}${v.strutturaNome?` · <span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span></div>
-        ${azione}</div>`;
+          ${urg?`<span class="muted">${v.strutturaNome?`<span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span>`
+            :`<span class="muted">${quando}${v.strutturaNome?` · <span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span>`}</div>
+        ${azione}${urg?`<div class="urg-riga">${quando}</div>`:''}</div>`;
     }).join(''):'<div class="muted" style="font-size:13px">✅ Tutto fatto: nessun check-in da gestire.</div>';
     const bd=$('#oggiTodoBadge');
-    if(bd){ if(voci.length){bd.textContent=voci.length; bd.style.display='';} else bd.style.display='none'; }
+    const nUrg=pendingUrgenti().length;
+    if(bd){ if(voci.length){bd.textContent=(nUrg?'🚨 ':'')+voci.length; bd.style.display='';} else bd.style.display='none'; }
   }
   if(typeof renderRecensioni==='function')renderRecensioni();
   if(typeof renderCalendario==='function')renderCalendario();
@@ -15752,6 +15842,7 @@ function renderSintesi(){
   const inCasa=sogg.filter(s=>s.arrivo<=mezzogiorno&&(!s.partenza||s.partenza>mezzogiorno))
                    .reduce((a,s)=>a+(s.esterna?(s.ospiti||0):(s.ospiti||1)),0);   // da Airbnb solo se l'email lo dice
   const daFare=checkinPending.length;
+  const urgenti=pendingUrgenti().length;
   const data=maiuscola(oggi.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
   const box=(cls,ico,num,et,click)=>`<button class="kpi ${num?cls:'calmo'}" onclick="${click}"><span class="ico">${ico}</span><b>${num}</b><span class="et">${et}</span></button>`;
   w.innerHTML=`<div class="dash-data">${escText(data)} · oggi in casa e in arrivo</div>
@@ -15759,7 +15850,8 @@ function renderSintesi(){
       ${box('','➡️',arrivi,'arrivi','calVaiOggi()')}
       ${box('','⬅️',partenze,'partenze','calVaiOggi()')}
       ${box('','🛏️',inCasa,'in casa','calVaiOggi()')}
-      ${box('alert','📌',daFare,'da fare','vaiDaFare()')}
+      ${urgenti?`<button class="kpi alert urgente" onclick="vaiDaFare()"><span class="ico">🚨</span><b>${daFare}</b><span class="et">${urgenti===1?'1 urgente':urgenti+' urgenti'}</span></button>`
+        :box('alert','📌',daFare,'da fare','vaiDaFare()')}
     </div>`;
 }
 function vaiDaFare(){
