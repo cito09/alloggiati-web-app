@@ -179,6 +179,7 @@ async function aggiornaEmail(email, conn) {
   if (e.stato && process.env.GMAIL_USER && !stati[process.env.GMAIL_USER]) stati[process.env.GMAIL_USER] = { stato: e.stato };
   delete e.stato;
   const conferme = { ...(e.conferme || {}) };
+  const cancellate = { ...(e.cancellate || {}) };   // codice HM… → {ts, nome, arrivo, partenza}
   const risultati = await Promise.all(caselle.map(async (c) => {
     try {
       const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {},
@@ -190,6 +191,7 @@ async function aggiornaEmail(email, conn) {
     const prima = stati[x.c.utente] || {};
     if (x.ok) {
       x.r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts, casella: x.c.utente }; });
+      (x.r.cancellate || []).forEach((c) => { if (!cancellate[c.codice] || cancellate[c.codice].ts < c.ts) cancellate[c.codice] = { ts: c.ts, casella: x.c.utente }; });
       // quante email sono finite in ogni cartella di archivio (in tutto, da quando è collegata)
       const tot = { ...(prima.cartelle || {}) };
       for (const [k, n] of Object.entries(x.r.archiviate || {})) tot[k] = (tot[k] || 0) + n;
@@ -215,8 +217,17 @@ async function aggiornaEmail(email, conn) {
     const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v.partenza || "");
     if ((m && Date.UTC(+m[3], +m[2] - 1, +m[1]) < limite) || (!m && v.ts < limite - 300 * 86400000)) delete conferme[k];
   }
+  // prenotazione cancellata: il nome esce dall'archivio (resta solo nella voce della cancellazione,
+  // per dire CHI ha cancellato). Una conferma arrivata DOPO la cancellazione vince (rifatta uguale).
+  for (const [codice, c] of Object.entries(cancellate)) {
+    const conf = conferme[codice];
+    if (conf && conf.ts > c.ts) { delete cancellate[codice]; continue; }
+    if (conf) { cancellate[codice] = { ...c, nome: conf.nome, arrivo: conf.arrivo, partenza: conf.partenza, ospiti: conf.ospiti }; delete conferme[codice]; }
+    if (c.ts < Date.now() - 120 * 86400000) delete cancellate[codice];
+  }
   e.caselle = stati;
   e.conferme = conferme;
+  e.cancellate = cancellate;
   const ko = risultati.filter((x) => !x.ok);
   e.esito = ko.length === risultati.length
     ? { ok: false, ts: Date.now(), errore: ko[0].errore }
@@ -276,6 +287,7 @@ async function sincronizzaCalendari(conn, stato) {
   prenotazioni.push(...(ph.pren || (stato.prenotazioni || []).filter((p) => p.sorgente === "prohost")));
   const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost };
   await salvaCalendari(conn, nuovo);
+  await avvisaCancellazioni(stato, nuovo);
   return nuovo;
 }
 
@@ -303,11 +315,18 @@ function vistaCalendari(stato) {
     link[id] = (links || []).map((url) => ({ url, fonte: fonteDi(url), esito: (stato.esiti || {})[sorgenteDi(url)] || null }));
   }
   const em = stato.email || {};
-  const prenotazioni = emailAccesa(em) ? conNomi(stato.prenotazioni, em.conferme) : (stato.prenotazioni || []);
+  // una prenotazione cancellata (email di Airbnb) sparisce subito, anche se il calendario .ics
+  // non si è ancora aggiornato
+  const canc = emailAccesa(em) ? (em.cancellate || {}) : {};
+  const attive = (stato.prenotazioni || []).filter((p) => !(p.codice && canc[String(p.codice).toUpperCase()]));
+  const prenotazioni = emailAccesa(em) ? conNomi(attive, em.conferme) : attive;
   return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0,
     email: { attivo: emailAccesa(em), configurato: caselleEmail(em).length > 0, casella: process.env.GMAIL_USER || "",
       esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,
       conNome: prenotazioni.filter((p) => p.nome).length,
+      // le ultime cancellazioni lette dalle email (per la pagina Calendari)
+      cancellate: Object.values(canc).sort((a, b) => b.ts - a.ts).slice(0, 5)
+        .map((c) => ({ nome: c.nome || "", arrivo: c.arrivo || "", partenza: c.partenza || "", ts: c.ts })),
       // una riga per casella: indirizzo, com'è andata e quante conferme ha dato (mai la password)
       caselle: caselleEmail(em).map((c) => ({ utente: c.utente, principale: c.principale,
         esito: ((em.caselle || {})[c.utente] || {}).esito || null,
@@ -323,6 +342,24 @@ function vistaCalendari(stato) {
     // la chiave di ProhostAI non torna mai al telefono: solo l'inizio e la fine, per riconoscerla
     prohost: { collegato: !!(stato.prohost && stato.prohost.chiave), chiave: chiaveMascherata(stato.prohost && stato.prohost.chiave),
       annunci: (stato.prohost && stato.prohost.annunci) || [], esito: (stato.prohost && stato.prohost.esito) || null } };
+}
+
+// Notifica sul telefono (ntfy) per ogni prenotazione cancellata appena arrivata: solo email delle
+// ultime 48 ore (la prima volta si ripassano 13 mesi di email: niente valanga di avvisi vecchi).
+async function avvisaCancellazioni(prima, dopo) {
+  const topic = process.env.NTFY_TOPIC;
+  const vecchie = ((prima && prima.email) || {}).cancellate || {};
+  const nuove = Object.entries(((dopo && dopo.email) || {}).cancellate || {})
+    .filter(([k, c]) => !vecchie[k] && c.ts > Date.now() - 48 * 3600000);
+  if (!topic || !nuove.length) return;
+  const strutture = struttureConfigurate();
+  for (const [codice, c] of nuove) {
+    const p = ((prima && prima.prenotazioni) || []).find((x) => String(x.codice || "").toUpperCase() === codice) || {};
+    const casa = ((strutture.find((s) => s.id === p.strutturaId) || {}).nome) || "";
+    const arr = c.arrivo || p.arrivo || "", par = c.partenza || p.partenza || "";
+    const testo = `❌ Prenotazione cancellata${casa ? " · " + casa : ""}: ${c.nome || "ospite Airbnb"}${arr ? ` (${arr.slice(0, 5)}${par ? "–" + par.slice(0, 5) : ""})` : ""}. Tolta dal calendario di KeyFlow.`;
+    try { await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, { method: "POST", headers: { Title: "Cancellazione Airbnb" }, body: testo }); } catch { /* si vede comunque nel calendario */ }
+  }
 }
 
 /* Una lettura alla volta. Caso reale (15/10/2026): due richieste a 4 secondi di distanza

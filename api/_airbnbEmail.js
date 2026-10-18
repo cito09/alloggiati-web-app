@@ -10,6 +10,7 @@
 const MESI = { gen: 1, feb: 2, mar: 3, apr: 4, mag: 5, giu: 6, lug: 7, ago: 8, set: 9, ott: 10, nov: 11, dic: 12,
   jan: 1, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, dec: 12 };
 const ATTESA_MS = 28000;
+const VERSIONE_LETTURA = 2;   // 2 = si leggono anche le email di cancellazione
 
 // solo le conferme che arrivano a chi OSPITA ("Prenotazione confermata - Anna Rossi arriverà
 // il …"); non quelle dei viaggi fatti come ospite ("La tua prenotazione … è confermata"),
@@ -18,6 +19,25 @@ function eConfermaHost(oggetto) {
   const s = String(oggetto || "");
   return /(prenotazione confermata|reservation confirmed|booking confirmed)\s*[-–—:]/i.test(s)
     && !/cancell|annull|richiesta|request|pre-?approv/i.test(s);
+}
+
+// Cancellazioni (ottobre 2026, l'utente: "se arriva una cancellazione si aggiorna in automatico il
+// calendario?"). Il calendario .ics di Airbnb toglie da solo la prenotazione cancellata, ma solo
+// alla lettura dopo; l'email di Airbnb arriva subito e ha lo STESSO codice HM…: appena KeyFlow la
+// legge, la prenotazione sparisce dal calendario e il nome esce dall'archivio. Non contano le
+// richieste di cancellazione (non ancora cancellata) né le email sulle regole di cancellazione.
+function eCancellazione(oggetto) {
+  const s = String(oggetto || "");
+  return /cancellat|annullat|cancel+ed\b|cancel+ation/i.test(s)
+    && !/richiesta|request|politic|policy|termini|terms/i.test(s);
+}
+function datiCancellazione({ subject, text, date }) {
+  if (!eCancellazione(subject)) return null;
+  const t = `${subject || ""}\n${String(text || "")}`;
+  const codice = ((/(?:codice di conferma|confirmation code)\s*:?\s*([A-Z0-9]{6,14})\b/i.exec(t))
+    || (/reservations\/details\/([A-Z0-9]{6,14})/i.exec(t)) || (/\b(HM[A-Z0-9]{8})\b/.exec(t)) || [])[1];
+  if (!codice) return null;
+  return { codice: codice.toUpperCase(), ts: date instanceof Date && !isNaN(date) ? date.getTime() : Date.now() };
 }
 
 const due = (n) => String(n).padStart(2, "0");
@@ -92,7 +112,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
       // le cartelle (etichette) che l'host ha già in questa casella: le email vanno lì
       const etichetteGmail = etichetteUtente(caselle);
       const dest = cartelle ? destinazioni(etichetteGmail, cartelle.scelte) : null;
-      const nuove = [];
+      const nuove = [], cancellate = [];
       const nuovoStato = { cartelle: {}, etichette: (stato && stato.etichette) || {} };
       let lette = 0;
       let archiviate = null, erroreCartelle = null, fuoriInbox = null;
@@ -101,23 +121,34 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
         try {
           const st = cartelleStato[cartella] || {};
           const uidValidity = String((client.mailbox && client.mailbox.uidValidity) || "");
-          const daCapo = st.uidValidity !== uidValidity || !st.ultimoUid;
+          // v2 = si leggono anche le cancellazioni: la prima volta si ripassano tutte le email
+          const daCapo = st.uidValidity !== uidValidity || !st.ultimoUid || (st.v || 1) < VERSIONE_LETTURA;
           // da Airbnb, oppure inoltrate a mano da un'altra casella (allora il mittente è l'host,
           // ma l'oggetto resta "Fwd: Prenotazione confermata - …")
-          const quali = { or: [{ from: "airbnb" }, { subject: "Prenotazione confermata" }, { subject: "Reservation confirmed" }] };
+          const quali = { or: [{ from: "airbnb" }, { subject: "Prenotazione confermata" }, { subject: "Reservation confirmed" },
+            { subject: "cancellat" }, { subject: "canceled" }, { subject: "cancelled" }] };
           const criteri = daCapo
             ? { ...quali, since: new Date(Date.now() - 400 * 86400000) }
             : { ...quali, uid: `${Number(st.ultimoUid) + 1}:*` };
           const minimo = daCapo ? 0 : Number(st.ultimoUid) || 0;
           const uids = ((await client.search(criteri, { uid: true })) || []).filter((u) => u > minimo);
           let ultimoUid = minimo;
-          const daLeggere = [];
+          const daLeggere = [], daCancellare = [];
           if (uids.length) {
-            // prima solo l'oggetto (leggero), poi il testo intero solo delle conferme
+            // prima solo l'oggetto (leggero), poi il testo intero solo delle conferme e delle cancellazioni
             for await (const m of client.fetch(uids, { envelope: true, uid: true }, { uid: true })) {
               ultimoUid = Math.max(ultimoUid, m.uid);
-              if (eConfermaHost(m.envelope && m.envelope.subject)) daLeggere.push(m.uid);
+              const ogg = m.envelope && m.envelope.subject;
+              if (eConfermaHost(ogg)) daLeggere.push(m.uid);
+              else if (eCancellazione(ogg)) daCancellare.push(m.uid);
             }
+          }
+          for (const uid of daCancellare.slice(-100)) {
+            const m = await client.fetchOne(String(uid), { source: true }, { uid: true });
+            if (!m || !m.source) continue;
+            const p = await simpleParser(m.source);
+            const d = datiCancellazione({ subject: p.subject, text: p.text || "", date: p.date });
+            if (d) cancellate.push(d);
           }
           for (const uid of daLeggere.slice(-200)) {
             const m = await client.fetchOne(String(uid), { source: true }, { uid: true });
@@ -127,7 +158,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
             if (d) nuove.push(d);
           }
           lette += daLeggere.length;
-          nuovoStato.cartelle[cartella] = { uidValidity, ultimoUid: Math.max(ultimoUid, minimo) };
+          nuovoStato.cartelle[cartella] = { uidValidity, ultimoUid: Math.max(ultimoUid, minimo), v: VERSIONE_LETTURA };
           // cartelle di archivio: solo in "Tutti i messaggi" (il Cestino non si etichetta)
           if (cartelle && cartella === tutta) {
             try {
@@ -144,7 +175,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
         try { spostate = await traslocaCartelleKeyFlow(client, caselle.map((c) => c.path), dest); }
         catch (e) { erroreCartelle = String((e && (e.responseText || e.message)) || e).slice(0, 160); }
       }
-      return { stato: nuovoStato, nuove, lette, archiviate, fuoriInbox, erroreCartelle, etichetteGmail, destinazioni: dest, spostate };
+      return { stato: nuovoStato, nuove, cancellate, lette, archiviate, fuoriInbox, erroreCartelle, etichetteGmail, destinazioni: dest, spostate };
     } finally { await client.logout().catch(() => {}); }
   })();
   try {
@@ -336,5 +367,5 @@ function spiegaErroreGmail(e) {
   return s.slice(0, 160) || "errore sconosciuto";
 }
 
-module.exports = { eConfermaHost, datiDaEmailAirbnb, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail,
+module.exports = { eConfermaHost, datiDaEmailAirbnb, eCancellazione, datiCancellazione, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail,
   archiviaInCartelle, traslocaCartelleKeyFlow, destinazioni, cartellaEsistente, etichetteUtente, CARTELLE, VERSIONE_ARCHIVIO };

@@ -15687,6 +15687,11 @@ function renderCalendariEmail(){
       ${em.attivo?calCartelleCasella(c):''}</div>`;
   }).join('');
   const totale=em.attivo&&caselle.length?`<div style="font-size:12.5px;margin-top:6px">In calendario <b>${em.conNome}</b> prenotazion${em.conNome===1?'e':'i'} con il nome. Quello che KeyFlow legge resta nel suo archivio: puoi cancellare le email quando vuoi (guarda anche nel Cestino).</div>`:'';
+  // prenotazioni cancellate lette dalle email di Airbnb: tolte subito dal calendario
+  const canc=(em.attivo&&em.cancellate)||[];
+  const righeCanc=canc.length?`<div style="font-size:12px;margin-top:8px;padding:8px 10px;background:var(--surface2);border-radius:12px;line-height:1.55">
+      <b>❌ Cancellazioni lette dalle email</b> <span class="muted">· tolte subito dal calendario</span><br>
+      ${canc.map(c=>`<span class="muted">${escText(c.nome||'Ospite Airbnb')}${c.arrivo?` · ${escText(c.arrivo.slice(0,5))}${c.partenza?'–'+escText(c.partenza.slice(0,5)):''}`:''} · email del ${escText(new Date(c.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}))}</span>`).join('<br>')}</div>`:'';
   const aggiungi=`<details style="margin-top:10px"${caselle.length<2?' open':''}><summary style="font-size:12.5px;font-weight:700;cursor:pointer">➕ Collega un'altra casella (es. quella di Bologna)</summary>
     <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:8px 0">
       <li>Entra in Google con la casella da collegare (es. <b>bnbfalegnami@gmail.com</b>) e apri <b>myaccount.google.com/apppasswords</b>.</li>
@@ -15702,7 +15707,7 @@ function renderCalendariEmail(){
     ${em.errore?`<div style="color:var(--err);font-size:12px;margin-top:6px">⚠️ ${escText(em.errore)}</div>`:''}
   </details>`;
   box.innerHTML=!em.configurato&&!caselle.length?'Nessuna casella Gmail collegata.'+aggiungi
-    :(righe+totale+aggiungi);
+    :(righe+totale+righeCanc+aggiungi);
 }
 /* Cartelle di archivio in Gmail di una casella. L'utente (ottobre 2026): "avevo già la cartella
    contratti ospiti, sia a Bologna sia a Canazei (e l'APT a Canazei): non farne di nuove, mettile
