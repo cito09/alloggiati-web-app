@@ -15738,9 +15738,35 @@ function calCartelleCasella(c){
   const fuoriTot=Object.values(c.fuori||{}).reduce((a,n)=>a+(Number(n)||0),0);
   const tr=(c.traslochi||[]).slice(-3).map(t=>`✓ ${t.email} email spostate da «${escText(t.da)}» a «${escText(t.a)}» (cartella doppia tolta)`).join('<br>');
   return `<div style="margin-top:6px;padding:8px 10px;background:var(--surface2);border-radius:12px">
-    <div class="muted" style="font-size:11.5px">📁 In Gmail le email vengono spostate in queste cartelle ed escono da Posta in arrivo (quelle non ancora lette restano lì 3 giorni, per non perderle):</div>${righe}
+    <div class="muted" style="font-size:11.5px">📁 In Gmail le email vengono spostate in queste cartelle ed escono da Posta in arrivo (i messaggi degli ospiti restano in Posta in arrivo):</div>${righe}
     ${fuoriTot?`<div class="muted" style="font-size:11.5px;margin-top:6px">📥 ${fuoriTot} email tolte da Posta in arrivo e lasciate solo nella loro cartella</div>`:''}
-    ${tr?`<div class="muted" style="font-size:11.5px;margin-top:6px">${tr}</div>`:''}${errore}</div>`;
+    ${tr?`<div class="muted" style="font-size:11.5px;margin-top:6px">${tr}</div>`:''}${errore}
+    <details style="margin-top:8px"><summary style="font-size:12.5px;font-weight:700;cursor:pointer;color:var(--amber)">⚡ Falle cadere SUBITO nelle cartelle (filtri di Gmail)</summary>
+      <div class="muted" style="font-size:12px;line-height:1.6;margin-top:6px">KeyFlow sistema la posta quando lo apri e ogni mattina. Per farle finire nella cartella <b>nell'istante in cui arrivano</b> servono i filtri di Gmail: si mettono una volta sola, <b>dal computer</b>.</div>
+      <ol style="font-size:12px;color:var(--muted);line-height:1.7;padding-left:18px;margin:6px 0">
+        <li>Dal computer, apri KeyFlow e tocca qui sotto <b>📥 Scarica i filtri</b>.</li>
+        <li>Apri Gmail con <b>${escText(c.utente)}</b> → ⚙️ in alto a destra → <b>Visualizza tutte le impostazioni</b> → scheda <b>Filtri e indirizzi bloccati</b>.</li>
+        <li>In fondo alla pagina: <b>Importa filtri</b> → <b>Scegli file</b> → il file appena scaricato → <b>Apri file</b>.</li>
+        <li>Spunta <b>«Applica i nuovi filtri alle conversazioni esistenti»</b> e premi <b>Crea filtri</b>.</li>
+      </ol>
+      <button class="btn ghost sm" style="width:100%" onclick="scaricaFiltriGmail('${ue}')">📥 Scarica i filtri per ${escText(c.utente)}</button>
+    </details></div>`;
+}
+// il file dei filtri di Gmail di una casella, preparato dal server con le sue cartelle
+async function scaricaFiltriGmail(ue){
+  const u=decodeURIComponent(ue);
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'calendari',filtriGmail:u})});
+    const d=await r.json();
+    if(!d.ok||!d.xml)throw new Error(d.error||'non riuscito');
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([d.xml],{type:'application/xml'}));
+    a.download=d.nomeFile||'filtri-gmail.xml';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500);
+    toast('📥 Filtri scaricati: ora importali in Gmail ('+u+')');
+  }catch(e){ toast('Filtri non scaricati: '+(e.message||'connessione assente')); }
 }
 async function scegliCartellaEmail(ue,tipo,nome){
   toast('📁 Sistemo le cartelle in Gmail…');

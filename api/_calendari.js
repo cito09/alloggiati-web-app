@@ -16,7 +16,7 @@
 //              ProhostAI (_prohost.js) arrivano tutte le prenotazioni con nome e ospiti (sorgente "prohost")
 const crypto = require("crypto");
 const { redisCmd } = require("./_kv");
-const { leggiConfermeAirbnb, provaCasella, spiegaErroreGmail, VERSIONE_ARCHIVIO } = require("./_airbnbEmail");
+const { leggiConfermeAirbnb, provaCasella, spiegaErroreGmail, VERSIONE_ARCHIVIO, destinazioni, filtriGmailXml } = require("./_airbnbEmail");
 const { leggiProhost, chiaveMascherata } = require("./_prohost");
 
 const KEY = "calendari_esterni";
@@ -396,6 +396,17 @@ function azioneCalendari(conn, corpo) {
 }
 async function azioneCalendariInTurno(conn, corpo) {
   let stato = await leggiCalendari(conn);
+  // il file dei filtri di Gmail di una casella: { filtriGmail:"indirizzo" } → { ok, nomeFile, xml }
+  if (corpo && corpo.filtriGmail) {
+    const em = stato.email || {};
+    const c = caselleEmail(em).find((x) => x.utente.toLowerCase() === String(corpo.filtriGmail).trim().toLowerCase());
+    if (!c) return { ok: false, error: "Casella non collegata a KeyFlow" };
+    const opz = await opzioniCartelle(conn, c, em);
+    const st = (em.caselle || {})[c.utente] || {};
+    const dest = st.destinazioni || destinazioni(st.etichetteGmail || [], opz.scelte);
+    return { ok: true, nomeFile: `filtri-gmail-${c.utente.split("@")[0]}.xml`,
+      xml: filtriGmailXml({ utente: c.utente, dest, mittente: process.env.GMAIL_USER || "", apt: opz.apt, nomiCasa: opz.nomiCasa, fascicolo: opz.fascicolo }) };
+  }
   let cambiati = false;
   // nomi dalle email di Airbnb: acceso o spento dal gestionale (riaccendendolo si rilegge tutto)
   if (corpo && typeof corpo.email === "boolean") {

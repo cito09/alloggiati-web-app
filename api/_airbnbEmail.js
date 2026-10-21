@@ -257,7 +257,10 @@ const viaggioDaOspite = (o) => /^(?:\s*(?:fwd?|i|r|re|tr):\s*)*(la tua prenotazi
 // - si tocca solo ciò che KeyFlow riconosce (stesse regole di sempre): le altre email che l'host ha
 //   messo nelle sue cartelle restano dove sono.
 const VERSIONE_ARCHIVIO = 2;
-const GIORNI_NON_LETTE = 3;
+// 21/10/2026, l'utente: "voglio che cadano direttamente in quell'etichetta" → niente più attesa
+// per le non lette (prima restavano 3 giorni in Posta in arrivo). Si vedono comunque in grassetto,
+// col numero accanto alla cartella.
+const GIORNI_NON_LETTE = 0;
 async function archiviaInCartelle(client, stato, opz) {
   const st = stato || {};
   const dest = { ...CARTELLE, ...((opz && opz.destinazioni) || {}) };
@@ -292,6 +295,9 @@ async function archiviaInCartelle(client, stato, opz) {
     for await (const m of client.fetch(uids, { envelope: true, uid: true, flags: true, labels: true, internalDate: true }, { uid: true })) {
       const ogg = String((m.envelope && m.envelope.subject) || "");
       if (k === "prenotazioni" && viaggioDaOspite(ogg)) continue;
+      // i messaggi degli ospiti ("RE: Prenotazione per Elegante Suite…") restano in Posta in arrivo:
+      // sono conversazioni a cui rispondere, non avvisi da archiviare
+      if (k === "prenotazioni" && /^\s*(re|r|aw|sv)\s*:/i.test(ogg)) continue;
       // un contratto di un'altra casa (es. la copia mandata all'ospite di Bologna dalla casella di Canazei)
       if (k === "contratti" && nomi.length && !/fascicolo keyflow/i.test(ogg) && !nomi.some((n) => ogg.toLowerCase().includes(n))) continue;
       const etichette = m.labels instanceof Set ? m.labels : new Set(m.labels || []);
@@ -313,6 +319,54 @@ async function archiviaInCartelle(client, stato, opz) {
     }
   }
   return { stato: { uidValidity, ultimoUid: fino > 0 ? Math.max(fino, minimo) : minimo, dest, versione: VERSIONE_ARCHIVIO }, conteggi, fuori };
+}
+
+/* Filtri di Gmail (21/10/2026, l'utente: "perché non le categorizza? voglio che cadano DIRETTAMENTE
+   in quell'etichetta"). KeyFlow sistema la posta solo quando la legge (apertura dell'app, cron del
+   mattino): per farle finire nella cartella nell'istante in cui arrivano serve un filtro di Gmail.
+   Con la password per le app i filtri non si possono creare (serve l'API di Gmail con un altro
+   permesso), quindi KeyFlow prepara il FILE da importare in Gmail (Impostazioni → Filtri e indirizzi
+   bloccati → Importa filtri), con le stesse regole e le stesse cartelle di archiviaInCartelle. */
+function filtriGmailXml({ utente, dest, mittente, apt, nomiCasa, fascicolo }) {
+  const x = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+  const ora = new Date().toISOString().replace(/\.\d+Z$/, "Z");
+  const filtri = [];
+  const metti = (criteri, cartella) => { if (cartella && cartella !== "-") filtri.push({ ...criteri, label: cartella }); };
+  const d = dest || {};
+  // prenotazioni: le conferme (anche inoltrate a mano) e i promemoria/cancellazioni di Airbnb;
+  // NON i messaggi degli ospiti né i viaggi fatti da ospite ("La tua prenotazione … è confermata")
+  metti({ hasTheWord: 'subject:("prenotazione confermata" OR "reservation confirmed")' }, d.prenotazioni);
+  metti({ from: "airbnb.com", hasTheWord: 'subject:("promemoria di prenotazione" OR "prenotazione cancellata" OR "prenotazione annullata" OR "reservation reminder" OR "reservation canceled" OR "reservation cancelled")' }, d.prenotazioni);
+  // contratti firmati che KeyFlow manda a questa casella (uno per casa, così non entrano quelli delle altre)
+  const case_ = (nomiCasa || []).filter(Boolean);
+  if (case_.length) case_.forEach((n) => metti({ ...(mittente ? { from: mittente } : {}), hasTheWord: `subject:("contratto firmato" "${n}")` }, d.contratti));
+  else metti({ ...(mittente ? { from: mittente } : {}), hasTheWord: 'subject:("contratto firmato")' }, d.contratti);
+  if (fascicolo) metti({ ...(mittente ? { from: mittente } : {}), hasTheWord: 'subject:("fascicolo keyflow")' }, d.contratti);
+  // APT: le risposte dell'ufficio (i moduli mandati stanno già in Posta inviata)
+  if (apt) metti({ from: apt }, d.apt);
+  const voce = (f, i) => `  <entry>
+    <category term='filter'></category>
+    <title>Mail Filter</title>
+    <id>tag:mail.google.com,2008:filter:keyflow${i + 1}</id>
+    <updated>${ora}</updated>
+    <content></content>
+${f.from ? `    <apps:property name='from' value='${x(f.from)}'/>\n` : ""}${f.hasTheWord ? `    <apps:property name='hasTheWord' value='${x(f.hasTheWord)}'/>\n` : ""}    <apps:property name='label' value='${x(f.label)}'/>
+    <apps:property name='shouldArchive' value='true'/>
+    <apps:property name='sizeOperator' value='s_sl'/>
+    <apps:property name='sizeUnit' value='s_smb'/>
+  </entry>`;
+  return `<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns='http://www.w3.org/2005/Atom' xmlns:apps='http://schemas.google.com/apps/2006'>
+  <title>Mail Filters</title>
+  <id>tag:mail.google.com,2008:filters:keyflow</id>
+  <updated>${ora}</updated>
+  <author>
+    <name>KeyFlow</name>
+    <email>${x(utente || "")}</email>
+  </author>
+${filtri.map(voce).join("\n")}
+</feed>
+`;
 }
 
 const cartellaSparita = (e) => /unknown mailbox|nonexistent|doesn'?t exist|does not exist|not found/i.test(String((e && (e.responseText || e.message)) || e));
@@ -368,4 +422,4 @@ function spiegaErroreGmail(e) {
 }
 
 module.exports = { eConfermaHost, datiDaEmailAirbnb, eCancellazione, datiCancellazione, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail,
-  archiviaInCartelle, traslocaCartelleKeyFlow, destinazioni, cartellaEsistente, etichetteUtente, CARTELLE, VERSIONE_ARCHIVIO };
+  archiviaInCartelle, traslocaCartelleKeyFlow, destinazioni, filtriGmailXml, cartellaEsistente, etichetteUtente, CARTELLE, VERSIONE_ARCHIVIO };
