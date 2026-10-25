@@ -1,7 +1,7 @@
 // api/checkin-pending.js — coda ospiti in attesa di verifica (self check-in), uso lato admin
 // GET -> { configurato, coda }
 // DELETE { id } -> rimuove una voce (dopo l'invio ufficiale alla Questura, o se scartata)
-// POST { azione:'date', id, arrivo, partenza } -> corregge le date sbagliate dall'ospite
+// POST { azione:'modifica', id, arrivo, partenza, ospiti:[…] } -> l'host corregge date e ospiti
 // POST { azione:'presa', id } -> segna una voce come "già aggiunta alla prenotazione" (resta
 //        in coda finché non viene inviata: se l'app si chiude prima dell'invio, nulla si perde)
 // POST { azione:'ripristina' } -> RECUPERO: ricostruisce le voci perse ripescando dall'archivio
@@ -169,21 +169,30 @@ module.exports = async (req, res) => {
       const raw = await redisCmd(conn, ["GET", KEY]);
       let coda = raw ? JSON.parse(raw) : [];
 
-      // date sbagliate dall'ospite (es. partenza il 26 invece del 27): l'host le corregge prima di
-      // registrarlo. Si ricorda cosa aveva scritto l'ospite la prima volta (dateCorrette).
-      if (azione === "date") {
-        const { arrivo, partenza } = req.body || {};
+      // MODIFICA di un check-in non ancora registrato (25/10/2026, l'utente: "vorrei una modifica che
+      // posso modificare tutto se necessario"): date e ospiti come li ha corretti l'host nel modulo.
+      // Si ricorda la versione dell'ospite della prima volta (modificato.prima).
+      if (azione === "modifica") {
+        const { arrivo, partenza, ospiti } = req.body || {};
         const re = /^(\d{2})\/(\d{2})\/(\d{4})$/;
         const a = re.exec(arrivo || ""), p = re.exec(partenza || "");
         if (!a || !p) return res.status(400).json({ error: "Date non valide (gg/mm/aaaa)" });
         const notti = Math.round((Date.UTC(+p[3], +p[2] - 1, +p[1]) - Date.UTC(+a[3], +a[2] - 1, +a[1])) / 86400000);
         if (notti < 1 || notti > 30) return res.status(400).json({ error: "La partenza deve essere da 1 a 30 notti dopo l'arrivo" });
+        if (!Array.isArray(ospiti) || !ospiti.length || ospiti.length > 20) return res.status(400).json({ error: "Serve almeno un ospite" });
+        const CAMPI = ["cognome", "nome", "sesso", "dataNascita", "comuneNascita", "statoNascita", "cittadinanza", "tipoDoc", "numeroDoc", "luogoRilascio"];
+        const puliti = ospiti.map((o) => {
+          const x = {};
+          for (const k of CAMPI) x[k] = String((o && o[k]) || "").slice(0, 100);
+          x.fotoUrls = (Array.isArray(o && o.fotoUrls) ? o.fotoUrls : []).filter((u) => typeof u === "string" && /^https?:\/\//.test(u)).slice(0, 10);
+          return x;
+        });
         let trovata = false;
         coda = coda.map((v) => {
           if (v.id !== id) return v;
           trovata = true;
-          const prima = v.dateCorrette || { arrivo: v.arrivo || "", partenza: v.partenza || "" };
-          return { ...v, arrivo, partenza, notti, dateCorrette: { ...prima, ts: Date.now() } };
+          const prima = (v.modificato && v.modificato.prima) || { arrivo: v.arrivo || "", partenza: v.partenza || "", ospiti: v.ospiti || [] };
+          return { ...v, arrivo, partenza, notti, ospiti: puliti, modificato: { ts: Date.now(), prima } };
         });
         if (!trovata) return res.status(404).json({ error: "Check-in non trovato" });
         await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);

@@ -434,6 +434,13 @@
     border-bottom:1px solid var(--line); cursor:pointer}
   .todo-row:last-child{border-bottom:none; padding-bottom:2px}
   .todo-row:active{background:rgba(255,255,255,.06)}
+  /* modulo Registra in MODIFICA di un soggiorno: niente "Carica tutto", invio, .txt né "Svuota" */
+  #modificaBanner,#salvaModBtn,#annullaModBtn{display:none}
+  body.in-modifica #modificaBanner{display:block}
+  body.in-modifica #salvaModBtn,body.in-modifica #annullaModBtn{display:inline-flex}
+  body.in-modifica #intakeCard,body.in-modifica #invioCard,body.in-modifica #dlBtn,body.in-modifica #sendBtn2,
+  body.in-modifica #step1lbl,body.in-modifica #bookings .bhead .btn{display:none!important}
+  #modificaBanner{background:rgba(132,227,211,.10); box-shadow:inset 0 0 0 1.5px rgba(132,227,211,.5); border-radius:20px; padding:14px 16px; margin-bottom:14px}
   /* "Da fare" in scadenza: arrivato ieri = va registrato OGGI (entro 24 ore), prima = in ritardo */
   .todo-row.urgente{background:rgba(239,71,111,.10); box-shadow:inset 0 0 0 1.5px rgba(239,71,111,.55); margin:4px -6px; padding-right:8px; flex-wrap:wrap}
   .todo-row .urg-riga{flex-basis:100%; margin-top:-4px}
@@ -442,15 +449,9 @@
   .urg-pill.ritardo{animation:urgenzaLampo 1.2s ease-in-out infinite}
   @keyframes urgenzaLampo{0%,100%{opacity:1}50%{opacity:.55}}
   /* avviso in primo piano all'apertura dell'app (allarmeDaFare) */
-  #allarmeDaFare,#modDate{position:fixed; inset:0; z-index:800; display:none; align-items:flex-end; justify-content:center;
+  #allarmeDaFare{position:fixed; inset:0; z-index:800; display:none; align-items:flex-end; justify-content:center;
     background:rgba(0,0,0,.62); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px)}
-  #allarmeDaFare.open,#modDate.open{display:flex}
-  #modDate .box{width:100%; max-width:540px; background:var(--surface); border-radius:26px 26px 0 0; border-top:3px solid var(--amber);
-    padding:20px 18px calc(18px + env(safe-area-inset-bottom)); animation:allarmeSu .25s ease-out}
-  @media (min-width:700px){ #modDate{align-items:center} #modDate .box{border-radius:26px} }
-  #modDate label{display:block; font-size:12px; color:var(--muted); font-weight:700; margin:12px 0 5px}
-  #modDate input[type=date]{width:100%; font-size:16px; background:var(--surface2); color:var(--ink); border:none; border-radius:12px; padding:12px; font-family:inherit; color-scheme:dark}
-  #modDate input[disabled]{opacity:.6}
+  #allarmeDaFare.open{display:flex}
   #allarmeDaFare .box{width:100%; max-width:540px; max-height:86vh; overflow-y:auto; background:var(--surface);
     border-radius:26px 26px 0 0; border-top:3px solid var(--err); padding:20px 18px calc(18px + env(safe-area-inset-bottom));
     animation:allarmeSu .25s ease-out}
@@ -902,6 +903,7 @@ function doGet() {
   </div><!-- /page-oggi -->
 
   <div class="page" id="page-registra">
+  <div id="modificaBanner"></div>
 
   <div class="card" id="intakeCard">
     <h2><span class="n">1</span> Carica tutto</h2>
@@ -1002,6 +1004,8 @@ function doGet() {
 <div class="actionbar" id="actionbar"><div class="inner">
   <div class="stat"><b id="statValid">0</b> valide · <span id="statBad">0</span> da sistemare</div>
   <button class="btn primary sm" id="sendBtn2" onclick="invia()" disabled style="width:auto;padding:12px 18px">Invia</button>
+  <button class="btn ghost sm" id="annullaModBtn" onclick="annullaModifica()" style="width:auto;padding:12px 14px">Annulla</button>
+  <button class="btn primary sm" id="salvaModBtn" onclick="salvaModifica()" style="width:auto;padding:12px 16px">💾 Salva</button>
 </div></div>
 
 <div class="tabbar">
@@ -1011,21 +1015,6 @@ function doGet() {
   <button data-tab="archivio" onclick="mostraTab('archivio')"><span class="tico">🗂️</span>Archivio</button>
 </div>
 <div class="toast" id="toast"></div>
-<div id="modDate" role="dialog" aria-modal="true" aria-labelledby="modDateTitolo" onclick="if(event.target===this)chiudiModificaDate()">
-  <div class="box">
-    <h3 id="modDateTitolo" style="margin:0 0 2px;font-size:19px;font-weight:800">✏️ Correggi le date</h3>
-    <div id="modDateChi" class="muted" style="font-size:13px"></div>
-    <label for="mdArrivo">➡️ Arrivo</label><input type="date" id="mdArrivo" oninput="modDateNotti()">
-    <div id="mdArrivoNota" class="muted" style="font-size:11.5px;margin-top:4px"></div>
-    <label for="mdPartenza">⬅️ Partenza (check-out)</label><input type="date" id="mdPartenza" oninput="modDateNotti()">
-    <div id="mdNotti" style="font-size:14px;font-weight:700;margin-top:10px"></div>
-    <div id="mdNota" class="muted" style="font-size:12px;line-height:1.5;margin-top:8px"></div>
-    <div style="display:flex;gap:8px;margin-top:14px">
-      <button class="btn ghost" style="flex:1" onclick="chiudiModificaDate()">Annulla</button>
-      <button class="btn primary" style="flex:1" id="mdSalva" onclick="salvaModificaDate()">💾 Salva</button>
-    </div>
-  </div>
-</div>
 <div id="allarmeDaFare" role="dialog" aria-modal="true" aria-labelledby="allarmeTitolo" onclick="if(event.target===this)chiudiAllarmeDaFare()">
   <div class="box">
     <div class="sirena">🚨</div>
@@ -12827,7 +12816,9 @@ function scheduleSyncPrenotazioniPendenti(){
   bookingsSyncTimer=setTimeout(sincronizzaPrenotazioniPendenti,1500);
 }
 function sincronizzaPrenotazioniPendenti(){
-  const lista=bookings.filter(b=>!b._inviata&&/^\d{2}\/\d{2}\/\d{4}$/.test(b.arrivo||'')&&b.guests.some(g=>g.cognome||g.nome))
+  // in modifica conta la registrazione messa da parte, non il soggiorno riaperto
+  const fonte=inModifica?inModifica.salvati.bookings:bookings;
+  const lista=fonte.filter(b=>!b._inviata&&!b._modifica&&/^\d{2}\/\d{2}\/\d{4}$/.test(b.arrivo||'')&&b.guests.some(g=>g.cognome||g.nome))
     .map(b=>({id:b.id, arrivo:b.arrivo, strutturaNome:currentStrutturaNome(),
       ospiti:b.guests.filter(g=>g.cognome||g.nome).map(g=>`${g.cognome||''} ${g.nome||''}`.trim())}));
   fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({lista})})
@@ -12985,8 +12976,8 @@ function renderStorico(){
     const pReg=partenzaRegistrata(e);
     const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null, pReg?('partenza '+pReg.partenza):null].filter(Boolean).map(escText).join(' · ');
     const rigaDate=pReg?`<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
-        ${e.partenzaCorretta?`<span class="pill wait">✏️ partenza corretta (era ${escText(String(e.partenzaCorretta.da||'').slice(0,5))})</span>`:''}
-        <button class="btn ghost sm" style="width:auto;padding:6px 11px;font-size:12px" onclick="apriModificaDate('reg',${e.ts})">✏️ Correggi la partenza</button></div>`:'';
+        ${e.modificato||e.partenzaCorretta?`<span class="pill wait">✏️ modificato il ${escText(new Date((e.modificato||e.partenzaCorretta).ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}))}</span>`:''}
+        <button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px" onclick="apriModifica('reg',${e.ts})">✏️ Modifica</button></div>`:'';
     const aperto=storicoAperto.has(e.ts);
     const dettaglio=(e.records&&e.records.length)?`
       <button class="btn ghost sm" style="width:100%;margin-top:6px" onclick="toggleStoricoDettaglio(${e.ts})">${aperto?'▲ Nascondi dettaglio':'🔍 Dettaglio schedine'}</button>
@@ -13741,8 +13732,8 @@ function apriDettaglioCheckin(id){
       </div>
       <div class="storico-meta" style="margin-top:8px">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-        ${v.dateCorrette?`<span class="pill wait">✏️ date corrette (l'ospite aveva scritto ${escText([v.dateCorrette.arrivo,v.dateCorrette.partenza].filter(Boolean).map(x=>String(x).slice(0,5)).join(' → '))})</span>`:''}
-        <button class="btn ghost sm" style="width:auto;padding:6px 11px;font-size:12px" onclick="apriModificaDate('pend','${v.id}')">✏️ Correggi le date</button></div>
+        ${v.modificato?`<span class="pill wait">✏️ modificato da te il ${escText(new Date(v.modificato.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}))}</span>`:''}
+        <button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px" onclick="chiudiDettaglioCheckin();apriModifica('pend','${v.id}')">✏️ Modifica</button></div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:12px;margin-top:6px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${v.uploadErrori&&v.uploadErrori.length?`<div style="color:var(--err);font-size:12px;margin-top:6px">⚠️ Alcune foto NON sono state salvate (${v.uploadErrori.length}): ${escText(v.uploadErrori[0])}${v.uploadErrori.length>1?' …':''} — chiedi all'ospite di rimandarle.</div>`:''}
       ${nomi?`<div class="storico-ospiti" style="margin-top:8px;font-size:13.5px">${escText(nomi)}</div>`:''}
@@ -13772,6 +13763,7 @@ function rimuoviCheckinPendingLocal(id,definitivo){
     .catch(()=>{/* offline: resta comunque rimossa in locale */});
 }
 function accettaCheckin(id,dalDettaglio){
+  if(bloccatoDaModifica())return;
   const v=checkinPending.find(x=>x.id===id); if(!v)return;
   const b=bookingAttivo();
   if((b._pendingIds||[]).includes(id)){ toast('Già aggiunta alla prenotazione corrente'); mostraTab('registra'); if(dalDettaglio)chiudiDettaglioCheckin(); return; }
@@ -13815,6 +13807,7 @@ function scartaCheckin(id,dalDettaglio){
   if(dalDettaglio)chiudiDettaglioCheckin();
 }
 async function runIntake(){
+  if(bloccatoDaModifica())return;
   const testoEl=$('#intakeText'); const testo=testoEl?testoEl.value.trim():'';
   if(!intakeFiles.length&&!testo){toast('Aggiungi prima screenshot, foto o un messaggio di testo');return;}
   const btn=$('#intakeBtn'); if(btn)btn.disabled=true;
@@ -15027,10 +15020,7 @@ document.addEventListener('visibilitychange',()=>{
    Indietro, chiudiamo prima i pannelli aperti, poi torniamo alla scheda Oggi, e solo
    alla fine (Oggi senza pannelli) lasciamo davvero uscire dall'app. */
 function keyflowBack(){
-  // 0) finestra "correggi le date"
-  const md=document.getElementById('modDate');
-  if(md&&md.classList.contains('open')){ chiudiModificaDate(); return true; }
-  // 0-bis) avviso dei check-in in scadenza
+  // 0) avviso dei check-in in scadenza
   const al=document.getElementById('allarmeDaFare');
   if(al&&al.classList.contains('open')){ chiudiAllarmeDaFare(); return true; }
   // 1) lightbox foto aperta
@@ -15117,89 +15107,146 @@ function controllaAllarmeDaFare(){
     :(urg.length===1?'Check-in da registrare OGGI!':`${urg.length} check-in da registrare OGGI!`);
   box.classList.add('open');
 }
-/* ===== correggere le date di un soggiorno (25/10/2026, l'utente: "Roberto ha sbagliato a mettere
-   il check-out il 26 ma era il 27, dammi la possibilità di modificare se uno sbaglia").
-   - check-in ANCORA IN ATTESA: arrivo e partenza (azione 'date' di /api/checkin-pending), così si
-     registra già giusto;
-   - soggiorno GIÀ REGISTRATO: solo la partenza (l'arrivo è quello mandato in Questura). Si
-     riscrivono le notti (caratteri 13-14) nelle schedine dell'Archivio, che sono la fonte di
-     calendario, imposta di soggiorno (GEIS), statistiche e arretrati Ross1000; sulla voce resta
-     partenzaCorretta {da, a, ts}. Quello già mandato a Questura e Ross1000 NON cambia. ===== */
-let modDateCtx=null;   // {tipo:'reg', ts, notti} | {tipo:'pend', id}
-const isoDaIt=s=>{ const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||''); return m?`${m[3]}-${m[2]}-${m[1]}`:''; };
-const itDaIso=s=>{ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); return m?`${m[3]}/${m[2]}/${m[1]}`:''; };
+/* ===== MODIFICA di un soggiorno (25/10/2026). Prima c'era solo "Correggi le date" (caso Roberto:
+   check-out 26 invece del 27); l'utente: "non mi piace lì come funzione in più, vorrei una modifica
+   che posso modificare TUTTO se necessario". Il soggiorno si riapre nel modulo Registra (tutti i
+   campi, stessi controlli e suggerimenti di comuni/Stati/documenti), con "💾 Salva le modifiche" al
+   posto di "Invia":
+   - GIÀ REGISTRATO (voce dell'Archivio) → schedine ricostruite con buildRecord e PATCH /api/storico
+     (records, ospiti, arrivo, valide + modificato:{ts, prima}); calendario, GEIS, statistiche e
+     arretrati Ross1000 leggono da lì. Questura e Ross1000 hanno già ricevuto i dati: NON si rimandano;
+   - CHECK-IN IN ATTESA → azione 'modifica' di /api/checkin-pending (date + ospiti).
+   L'eventuale registrazione a metà viene messa da parte (inModifica.salvati) e torna com'era. ===== */
+let inModifica=null;   // {tipo:'reg', ts} | {tipo:'pend', id}, + titolo, salvati:{bookings, struttura}
 const itDaData=d=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 function partenzaRegistrata(e){
   const rec=(e.records||[]).find(r=>r&&r.length===168); if(!rec)return null;
   const arr=parseIt(rec.slice(2,12).trim()), n=parseInt(rec.slice(12,14),10)||0;
   return arr&&n?{arrivo:itDaData(arr), partenza:itDaData(piuGiorni(arr,n)), notti:n}:null;
 }
-function apriModificaDate(tipo,chiave){
-  let chi='', arrivo='', partenza='';
+function bloccatoDaModifica(){
+  if(!inModifica)return false;
+  toast('✏️ Stai modificando un soggiorno: prima premi Salva o Annulla');
+  mostraTab('registra'); return true;
+}
+// una schedina da 168 caratteri → un ospite del modulo, con i codici ufficiali già pronti
+function ospiteDaRecord(r,bid){
+  const f=(a,z)=>r.slice(a,z).trim();
+  const comune=f(105,114), stato=f(116,125), citt=f(125,134), doc=f(134,139), luogo=f(159,168), sx=f(94,95);
+  return {id:uid(), _bid:bid, imgs:[], _touched:true,
+    cognome:f(14,64), nome:f(64,94), sesso:sx==='1'?'M':sx==='2'?'F':'', dataNascita:f(95,105),
+    comuneNascita:comune?nomeComuneOStato(comune):'', comuneNascitaCode:comune, provinciaNascita:f(114,116),
+    statoNascita:nomeStato(stato), statoNascitaCode:stato,
+    cittadinanza:nomeStato(citt), cittadinanzaCode:citt,
+    tipoDoc:doc?nomeDoc(doc):'', tipoDocCode:doc, numeroDoc:f(139,159),
+    luogoRilascio:luogo?nomeComuneOStato(luogo):'', luogoRilascioCode:luogo};
+}
+function apriModifica(tipo,chiave){
+  if(inModifica){ bloccatoDaModifica(); return; }
+  const b={id:uid(), arrivo:'', notti:'', soggiorno:'singolo', guests:[], bookingImgs:[], _modifica:true};
+  let strutturaId='', titolo='', casa='';
   if(tipo==='reg'){
-    const e=storico.find(x=>x.ts===Number(chiave)); const p=e&&partenzaRegistrata(e);
-    if(!p){ toast('Qui non ci sono le schedine: le date non si possono correggere'); return; }
-    arrivo=p.arrivo; partenza=p.partenza; chi=[(e.ospiti||[])[0],e.struttura].filter(Boolean).join(' · ');
-    modDateCtx={tipo, ts:e.ts};
+    const e=storico.find(x=>x.ts===Number(chiave));
+    const recs=((e&&e.records)||[]).filter(r=>r&&r.length===168);
+    if(!recs.length){ toast('Qui non ci sono le schedine: non si può modificare'); return; }
+    b.arrivo=recs[0].slice(2,12).trim(); b.notti=parseInt(recs[0].slice(12,14),10)||'';
+    const t=recs[0].slice(0,2); b.soggiorno=t==='17'?'famiglia':t==='18'?'gruppo':'singolo';
+    b.guests=recs.map(r=>ospiteDaRecord(r,b.id));
+    casa=e.struttura||''; strutturaId=idStrutturaDaNome(casa);
+    titolo=`${(e.ospiti||[])[0]||'Soggiorno'} · inviato in Questura il ${new Date(e.ts).toLocaleDateString('it-IT')}`;
+    inModifica={tipo, ts:e.ts};
   }else{
     const v=checkinPending.find(x=>x.id===chiave); if(!v){ toast('Check-in non trovato'); return; }
-    const a=parseIt(v.arrivo);
-    arrivo=v.arrivo||''; partenza=v.partenza||(a&&v.notti?itDaData(piuGiorni(a,Number(v.notti))):'');
+    const a=parseIt(v.arrivo), p=parseIt(v.partenza);
+    b.arrivo=v.arrivo||''; b.notti=Number(v.notti)||(a&&p?Math.round((p-a)/864e5):'')||'';
+    b.guests=(v.ospiti||[]).map(o=>{
+      const g={id:uid(), _bid:b.id, imgs:o.fotoUrls||[], _touched:true,
+        cognome:o.cognome||'', nome:o.nome||'', sesso:o.sesso||'', dataNascita:o.dataNascita||'',
+        comuneNascita:o.comuneNascita||'', statoNascita:o.statoNascita||'', cittadinanza:o.cittadinanza||'',
+        tipoDoc:o.tipoDoc||'', numeroDoc:o.numeroDoc||'', luogoRilascio:o.luogoRilascio||''};
+      if(g.comuneNascita){ const c=lookupComune(g.comuneNascita); if(c)g.provinciaNascita=c.p; }
+      return g;
+    });
+    b.soggiorno=inferSoggiorno(b.guests);
+    casa=v.strutturaNome||''; strutturaId=v.strutturaId||idStrutturaDaNome(casa);
     const primo=(v.ospiti||[])[0]||{};
-    chi=[[primo.cognome,primo.nome].filter(Boolean).join(' '),v.strutturaNome].filter(Boolean).join(' · ');
-    modDateCtx={tipo, id:v.id};
+    titolo=`${[primo.cognome,primo.nome].filter(Boolean).join(' ')||'Check-in'} · check-in non ancora registrato`;
+    inModifica={tipo, id:v.id};
   }
-  $('#modDateChi').textContent=chi;
-  const ia=$('#mdArrivo'), ip=$('#mdPartenza');
-  ia.value=isoDaIt(arrivo); ip.value=isoDaIt(partenza); ia.disabled=(tipo==='reg');
-  $('#mdArrivoNota').textContent=tipo==='reg'?'L\'arrivo resta quello già mandato in Questura.':'';
-  $('#mdNota').innerHTML=tipo==='reg'
-    ?'Si corregge in KeyFlow: <b>calendario, Archivio, imposta di soggiorno e statistiche</b>. La schedina già mandata in Questura (e a Ross1000 per Bologna) non cambia.'
-    :'L\'ospite non è ancora registrato: con le date giuste lo registri già corretto.';
-  modDateNotti();
-  $('#modDate').classList.add('open');
-  setTimeout(()=>ip.focus(),150);
+  inModifica.titolo=titolo; inModifica.casa=casa;
+  inModifica.salvati={bookings, struttura:currentStruttura()};
+  bookings=[b];
+  // la casa del soggiorno (senza cambiare quella preferita)
+  const sel=$('#strutturaSel'); if(sel&&strutturaId&&[...sel.options].some(o=>o.value===strutturaId))sel.value=strutturaId;
+  document.body.classList.add('in-modifica');
+  renderBannerModifica(); render(); mostraTab('registra');
+  setTimeout(()=>window.scrollTo(0,0),50);
 }
-function chiudiModificaDate(){ $('#modDate').classList.remove('open'); modDateCtx=null; }
-// quante notti fanno le date scelte (null se non vanno bene)
-function modDateNotti(){
-  const a=parseIt(itDaIso($('#mdArrivo').value)), p=parseIt(itDaIso($('#mdPartenza').value));
-  const n=a&&p?Math.round((p-a)/864e5):null, ok=n!==null&&n>=1&&n<=30;
-  const out=$('#mdNotti');
-  out.textContent=n===null?'Scegli le date':ok?`🛏️ ${n} nott${n===1?'e':'i'}`:'⚠️ La partenza deve essere da 1 a 30 notti dopo l\'arrivo';
-  out.style.color=ok?'var(--ink)':'var(--err)';
-  $('#mdSalva').disabled=!ok;
-  return ok?{arrivo:itDaData(a), partenza:itDaData(p), notti:n}:null;
+function renderBannerModifica(){
+  const w=$('#modificaBanner'); if(!w)return;
+  if(!inModifica){ w.innerHTML=''; return; }
+  const reg=inModifica.tipo==='reg';
+  w.innerHTML=`<div style="font-size:16px;font-weight:800">✏️ Stai modificando</div>
+    <div style="font-size:13.5px;margin-top:3px"><b>${escText(inModifica.titolo)}</b>${inModifica.casa?` · ${escText(inModifica.casa)}`:''}</div>
+    <div class="muted" style="font-size:12px;line-height:1.5;margin-top:6px">Correggi quello che serve (date, ospiti, documenti) e premi <b>💾 Salva</b>.
+      ${reg?'Si aggiornano calendario, Archivio, imposta di soggiorno e statistiche. La Questura (e Ross1000 per Bologna) ha già ricevuto i dati di prima: KeyFlow non li rimanda.'
+        :'L\'ospite non è ancora registrato: quando lo registri partirà con i dati corretti.'}</div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn ghost sm" style="flex:1" onclick="annullaModifica()">Annulla</button>
+      <button class="btn primary sm" style="flex:1" onclick="salvaModifica()">💾 Salva le modifiche</button></div>`;
 }
-async function salvaModificaDate(){
-  const d=modDateNotti(), ctx=modDateCtx; if(!d||!ctx)return;
-  const btn=$('#mdSalva'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> Salvo…';
+function esciModifica(){
+  const salvati=inModifica?inModifica.salvati:{bookings:[]};
+  inModifica=null;
+  bookings=salvati.bookings||[];
+  if(!bookings.length)bookings.push({id:uid(),arrivo:'',notti:'',soggiorno:'singolo',guests:[],bookingImgs:[]});
+  const sel=$('#strutturaSel'); if(sel&&salvati.struttura)sel.value=salvati.struttura;
+  document.body.classList.remove('in-modifica');
+  renderBannerModifica(); render();
+}
+function annullaModifica(){
+  if(!inModifica)return;
+  if(!confirm('Annullare la modifica? Le correzioni fatte adesso non vengono salvate.'))return;
+  const prima=inModifica; esciModifica();
+  if(prima.tipo==='reg')calApriRegistrato(prima.ts); else mostraTab('oggi');
+}
+async function salvaModifica(){
+  if(!inModifica||!bookings[0])return;
+  const b=bookings[0];
+  const guests=b.guests.filter(g=>g.cognome||g.nome);
+  if(!guests.length){ toast('Serve almeno un ospite'); return; }
+  const built=guests.map((g,i)=>buildRecord(b,g,i));
+  if(built.some(x=>x.bad.length||x.len!==168)){ toast('Sistema prima i campi in rosso'); render(); return; }
+  const btn=$('#salvaModBtn'); if(btn){ btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
   try{
-    if(ctx.tipo==='reg'){
-      const e=storico.find(x=>x.ts===ctx.ts); const prima=e&&partenzaRegistrata(e);
-      if(!e||!prima)throw new Error('soggiorno non trovato');
-      const nn=String(d.notti).padStart(2,'0');
-      const campi={records:e.records.map(r=>r&&r.length===168?r.slice(0,12)+nn+r.slice(14):r),
-        partenzaCorretta:{da:(e.partenzaCorretta&&e.partenzaCorretta.da)||prima.partenza, a:d.partenza, ts:Date.now()}};
+    if(inModifica.tipo==='reg'){
+      const e=storico.find(x=>x.ts===inModifica.ts); if(!e)throw new Error('voce dell\'Archivio non trovata');
+      const campi={records:built.map(x=>x.rec), arrivo:b.arrivo, valide:built.length,
+        ospiti:guests.map(g=>`${g.cognome||''} ${g.nome||''}`.trim().toUpperCase()),
+        modificato:{ts:Date.now(), prima:(e.modificato&&e.modificato.prima)||{arrivo:e.arrivo||'', ospiti:e.ospiti||[], records:e.records||[]}},
+        partenzaCorretta:null};
       const r=await fetch('/api/storico',{method:'PATCH',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ts:e.ts,campi})});
       const j=await r.json(); if(!r.ok)throw new Error(j.error||'errore del server');
       if(j.configurato&&Array.isArray(j.storico))storico=j.storico; else Object.assign(e,campi);
-      salvaStorico(); renderStorico();
+      salvaStorico();
+      const ts=e.ts; esciModifica(); renderStorico(); aggiornaOggi();
+      toast('✓ Modifiche salvate'); calApriRegistrato(ts);
     }else{
+      const a=parseIt(b.arrivo); const partenza=itDaData(piuGiorni(a,Number(b.notti)));
+      const ospiti=guests.map(g=>({cognome:g.cognome||'', nome:g.nome||'', sesso:g.sesso||'', dataNascita:g.dataNascita||'',
+        comuneNascita:g.comuneNascita||'', statoNascita:g.statoNascita||'', cittadinanza:g.cittadinanza||'',
+        tipoDoc:g.tipoDoc||'', numeroDoc:g.numeroDoc||'', luogoRilascio:g.luogoRilascio||'',
+        fotoUrls:(g.imgs||[]).filter(u=>typeof u==='string'&&/^https?:/.test(u))}));
+      const id=inModifica.id;
       const r=await fetch('/api/checkin-pending',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
-        body:JSON.stringify({azione:'date', id:ctx.id, arrivo:d.arrivo, partenza:d.partenza})});
+        body:JSON.stringify({azione:'modifica', id, arrivo:b.arrivo, partenza, ospiti})});
       const j=await r.json(); if(!r.ok)throw new Error(j.error||'errore del server');
-      checkinPending=j.coda||checkinPending; renderCheckinPending();
-      // se è già nella prenotazione in lavorazione, lì le date si aggiornano insieme
-      const b=bookings.find(x=>(x._pendingIds||[]).includes(ctx.id));
-      if(b&&!b._inviata){ b.arrivo=d.arrivo; b.notti=d.notti; if(typeof render==='function')render(); }
-      const det=$('#checkinDettaglioOverlay'); if(det&&det.classList.contains('open'))apriDettaglioCheckin(ctx.id);
+      checkinPending=j.coda||checkinPending;
+      esciModifica(); renderCheckinPending(); aggiornaOggi();
+      toast('✓ Modifiche salvate'); apriDettaglioCheckin(id);
     }
-    aggiornaOggi();
-    chiudiModificaDate();
-    toast(`✓ Date corrette: partenza ${d.partenza.slice(0,5)} · ${d.notti} nott${d.notti===1?'e':'i'}`);
-  }catch(err){ toast('Date non salvate: '+(err.message||'connessione assente')); }
-  finally{ btn.innerHTML='💾 Salva'; btn.disabled=false; }
+  }catch(err){ toast('Modifiche non salvate: '+(err.message||'connessione assente')); }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML='💾 Salva'; } }
 }
 function chiudiAllarmeDaFare(){ const b=$('#allarmeDaFare'); if(b)b.classList.remove('open'); }
 // un tocco su Registra/Da inviare dentro l'avviso: prima si chiude l'avviso, poi parte il pulsante
@@ -16053,12 +16100,10 @@ function calRigaEvento(e){
       ${link&&e.tipo!=='p'?`<button class="btn ghost sm" id="${bid}" style="width:auto;margin-top:7px;padding:7px 11px;font-size:12px" onclick="event.stopPropagation();copiaLinkCheckin('${link}','${bid}')">📋 Copia il link del check-in</button>`:''}</span>
     ${e.url?'<span class="vai">›</span>':''}</div>`;
   }
-  const modifica=e.registrato?`apriModificaDate('reg',${e.ts||0})`:e.id?`apriModificaDate('pend','${e.id}')`:'';
   return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore}"></span>
     <span style="flex:1;min-width:0">
       <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
-      <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${quando?' · '+escText(quando):''}</span>
-      ${modifica?`<button class="btn ghost sm" style="width:auto;margin-top:6px;padding:5px 10px;font-size:11.5px" onclick="event.stopPropagation();${modifica}">✏️ Correggi le date</button>`:''}</span>
+      <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${quando?' · '+escText(quando):''}</span></span>
     ${pend?pendingAzione(pend,'padding:8px 12px;font-size:12.5px')
           :'<span class="vai">›</span>'}</div>`;
 }
