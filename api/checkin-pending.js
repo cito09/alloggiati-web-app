@@ -1,6 +1,7 @@
 // api/checkin-pending.js — coda ospiti in attesa di verifica (self check-in), uso lato admin
 // GET -> { configurato, coda }
 // DELETE { id } -> rimuove una voce (dopo l'invio ufficiale alla Questura, o se scartata)
+// POST { azione:'date', id, arrivo, partenza } -> corregge le date sbagliate dall'ospite
 // POST { azione:'presa', id } -> segna una voce come "già aggiunta alla prenotazione" (resta
 //        in coda finché non viene inviata: se l'app si chiude prima dell'invio, nulla si perde)
 // POST { azione:'ripristina' } -> RECUPERO: ricostruisce le voci perse ripescando dall'archivio
@@ -167,6 +168,27 @@ module.exports = async (req, res) => {
       const { azione, id } = req.body || {};
       const raw = await redisCmd(conn, ["GET", KEY]);
       let coda = raw ? JSON.parse(raw) : [];
+
+      // date sbagliate dall'ospite (es. partenza il 26 invece del 27): l'host le corregge prima di
+      // registrarlo. Si ricorda cosa aveva scritto l'ospite la prima volta (dateCorrette).
+      if (azione === "date") {
+        const { arrivo, partenza } = req.body || {};
+        const re = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+        const a = re.exec(arrivo || ""), p = re.exec(partenza || "");
+        if (!a || !p) return res.status(400).json({ error: "Date non valide (gg/mm/aaaa)" });
+        const notti = Math.round((Date.UTC(+p[3], +p[2] - 1, +p[1]) - Date.UTC(+a[3], +a[2] - 1, +a[1])) / 86400000);
+        if (notti < 1 || notti > 30) return res.status(400).json({ error: "La partenza deve essere da 1 a 30 notti dopo l'arrivo" });
+        let trovata = false;
+        coda = coda.map((v) => {
+          if (v.id !== id) return v;
+          trovata = true;
+          const prima = v.dateCorrette || { arrivo: v.arrivo || "", partenza: v.partenza || "" };
+          return { ...v, arrivo, partenza, notti, dateCorrette: { ...prima, ts: Date.now() } };
+        });
+        if (!trovata) return res.status(404).json({ error: "Check-in non trovato" });
+        await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
+        return res.status(200).json({ configurato: true, coda });
+      }
 
       if (azione === "presa") {
         coda = coda.map((v) => (v.id === id ? { ...v, presa: true } : v));
