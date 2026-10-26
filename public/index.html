@@ -12952,6 +12952,8 @@ function renderStorico(){
     return blob.includes(q);
   }):storico;
   if(storicoF)lista=lista.filter(filtroStorico);
+  // link alla prenotazione su Airbnb dei soggiorni che sono ancora nel calendario del portale
+  const portali=new Map(soggiorniHome().filter(x=>x.registrato&&x.urlEst).map(x=>[x.ts,{url:x.urlEst,fonte:x.fonteEst}]));
   const banner=storicoF?`<div class="storico-filtro">
       <span>🔎 ${escText(storicoF.label||'filtro dalle statistiche')} — ${lista.length} prenotazion${lista.length===1?'e':'i'}</span>
       <button class="btn ghost sm" style="width:auto;padding:4px 10px;font-size:11.5px" onclick="azzeraFiltroStorico()">✕ mostra tutto</button>
@@ -12977,7 +12979,8 @@ function renderStorico(){
     const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null, pReg?('partenza '+pReg.partenza):null].filter(Boolean).map(escText).join(' · ');
     const rigaDate=pReg?`<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
         ${e.modificato||e.partenzaCorretta?`<span class="pill wait">✏️ modificato il ${escText(new Date((e.modificato||e.partenzaCorretta).ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}))}</span>`:''}
-        <button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px" onclick="apriModifica('reg',${e.ts})">✏️ Modifica</button></div>`:'';
+        <button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px" onclick="apriModifica('reg',${e.ts})">✏️ Modifica</button>
+        ${bottonePortale(portali.get(e.ts))}</div>`:'';
     const aperto=storicoAperto.has(e.ts);
     const dettaglio=(e.records&&e.records.length)?`
       <button class="btn ghost sm" style="width:100%;margin-top:6px" onclick="toggleStoricoDettaglio(${e.ts})">${aperto?'▲ Nascondi dettaglio':'🔍 Dettaglio schedine'}</button>
@@ -13733,7 +13736,8 @@ function apriDettaglioCheckin(id){
       <div class="storico-meta" style="margin-top:8px">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
         ${v.modificato?`<span class="pill wait">✏️ modificato da te il ${escText(new Date(v.modificato.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}))}</span>`:''}
-        <button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px" onclick="chiudiDettaglioCheckin();apriModifica('pend','${v.id}')">✏️ Modifica</button></div>
+        <button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px" onclick="chiudiDettaglioCheckin();apriModifica('pend','${v.id}')">✏️ Modifica</button>
+        ${bottonePortale(linkPortale('pend',v.id))}</div>
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:12px;margin-top:6px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${v.uploadErrori&&v.uploadErrori.length?`<div style="color:var(--err);font-size:12px;margin-top:6px">⚠️ Alcune foto NON sono state salvate (${v.uploadErrori.length}): ${escText(v.uploadErrori[0])}${v.uploadErrori.length>1?' …':''} — chiedi all'ospite di rimandarle.</div>`:''}
       ${nomi?`<div class="storico-ospiti" style="margin-top:8px;font-size:13.5px">${escText(nomi)}</div>`:''}
@@ -16004,7 +16008,13 @@ function soggiorniHome(){
       const fine=x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1);
       return (!x.struttura||casaCanon(x.struttura)===casa)&&x.arrivo<par&&fine>arr;
     });
-    if(giaCe)return;
+    if(giaCe){
+      // il soggiorno vero si tiene il link alla prenotazione: dal calendario si deve poter
+      // ancora aprire Airbnb anche dopo il check-in (prima il link spariva con la barra a righe)
+      if(p.url)out.forEach(x=>{ if(!x.esterna&&!x.urlEst&&(!x.struttura||casaCanon(x.struttura)===casa)&&x.arrivo<par
+        &&(x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1))>arr){ x.urlEst=p.url; x.fonteEst=p.fonte||'Airbnb'; } });
+      return;
+    }
     out.push({arrivo:arr, partenza:par, nome:p.nome||('Prenotazione '+(p.fonte||'Airbnb')), ospiti:p.ospiti||null, struttura:casa,
       // nella casella del calendario il cognome (l'email dà "Nome Cognome"; l'Archivio "COGNOME NOME")
       nomeCorto:p.nome?calNomeCorto(String(p.nome).trim().split(/\s+/).slice(-1)[0]):'',
@@ -16080,6 +16090,16 @@ function calApriEsterna(uidEnc){
   if(p&&p.url){ window.open(p.url,'_blank','noopener'); return; }
   toast(`Prenotazione ${p?p.fonte:'dal calendario'}: il check-in online non è ancora stato fatto`);
 }
+// soggiorno già registrato o in attesa che nel calendario di Airbnb ha la sua prenotazione:
+// pulsante per aprirla (sul telefono si apre l'app di Airbnb, se c'è)
+function linkPortale(tipo,chiave){
+  const s=soggiorniHome().find(x=>x.urlEst&&(tipo==='reg'?x.registrato&&x.ts===chiave:!x.registrato&&x.id===chiave));
+  return s?{url:s.urlEst, fonte:s.fonteEst}:null;
+}
+function bottonePortale(l,stile){
+  if(!l||!/^https?:\/\//i.test(l.url||''))return '';
+  return `<button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px;${stile||''}" onclick="event.stopPropagation();window.open('${encodeURI(l.url).replace(/'/g,'%27')}','_blank','noopener')">🔗 Apri su ${escText(l.fonte||'Airbnb')}</button>`;
+}
 // una riga del giorno scelto: chi parte (p), chi arriva (a) o chi è in casa (c)
 const calDataBreve=d=>d?d.toLocaleDateString('it-IT',{day:'numeric',month:'numeric'}):'';
 function calRigaEvento(e){
@@ -16103,7 +16123,8 @@ function calRigaEvento(e){
   return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore}"></span>
     <span style="flex:1;min-width:0">
       <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
-      <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${quando?' · '+escText(quando):''}</span></span>
+      <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${quando?' · '+escText(quando):''}</span>
+      ${e.urlEst?bottonePortale({url:e.urlEst,fonte:e.fonteEst},'margin-top:7px;padding:7px 11px'):''}</span>
     ${pend?pendingAzione(pend,'padding:8px 12px;font-size:12.5px')
           :'<span class="vai">›</span>'}</div>`;
 }
