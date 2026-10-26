@@ -36,6 +36,8 @@
   .brand-badge svg{width:20px; height:20px}
   .brand-name{font-weight:800; font-size:17px; letter-spacing:-.01em}
   .brand-name .flow{color:var(--amber)}
+  .menu-gruppo{font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:16px 6px 6px}
+  .settings-head+.menu-gruppo{margin-top:4px}
   .brand-role{font-size:9.5px; letter-spacing:.05em; font-weight:800; padding:3px 8px; border-radius:999px; text-transform:uppercase;
     background:rgba(90,160,242,.15); color:var(--blue); border:1px solid rgba(90,160,242,.4)}
   header h1{margin:8px 0 0; font-size:20px; font-weight:800; letter-spacing:-.02em}
@@ -534,7 +536,12 @@
     background:var(--amber); color:var(--accent-ink); font-size:16px; display:flex; align-items:center; justify-content:center}
   .storico-head{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px}
   .storico-meta{font-size:12px; color:var(--muted); margin-top:2px}
-  .storico-ospiti{font-size:12px; margin-top:2px}
+  .storico-ospiti{font-size:12px; margin-top:4px; color:var(--muted)}
+  .storico-tit{font-size:15px; line-height:1.3}
+  .storico-pills{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px}
+  .storico-az{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .storico-az .btn{width:auto; padding:6px 12px; font-size:12px}
+  .storico-az .storico-via{margin-left:auto; opacity:.7}
   .storico-sub{font-size:11.5px; color:var(--muted); font-weight:600; margin-top:10px}
   .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:18px; padding:28px 16px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface2)}
   .dropzone.drag{border-color:var(--amber); background:rgba(132,227,211,.07)}
@@ -573,12 +580,9 @@
       <span class="brand-name">Key<span class="flow">Flow</span></span>
     </div>
     <div style="display:flex; align-items:center; gap:8px">
-      <span class="brand-role">Gestionale host</span>
       <button class="settings-btn" id="settingsBtn" onclick="toggleSettings()" aria-label="Impostazioni">⚙️</button>
     </div>
   </div>
-  <h1>Registrazione ospiti</h1>
-  <div class="sub" id="hsub"><span class="dot"></span><span id="hsubText">Alloggiati Web · Ross1000 · tabelle ufficiali caricate</span></div>
 </header>
 
 <div class="settings-overlay" id="settingsOverlay" onclick="closeSettings(event)">
@@ -588,14 +592,17 @@
       <button class="settings-close" onclick="closeSettings()" aria-label="Chiudi">✕</button>
     </div>
 
-    <button class="link-row menu-riga" id="rowStruttura" style="display:none" onclick="apriPagina('strutturaOverlay')"><span class="mi">🏠</span><span style="flex:1;text-align:left">Struttura predefinita</span><span class="freccia">›</span></button>
+    <div class="menu-gruppo">Prenotazioni e ospiti</div>
     <button class="link-row menu-riga" onclick="apriCalendari()"><span class="mi">📅</span><span style="flex:1;text-align:left">Calendari Airbnb · prenotazioni in anticipo</span><span class="freccia">›</span></button>
-    <button class="link-row menu-riga" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" id="rowStruttura" style="display:none" onclick="apriPagina('strutturaOverlay')"><span class="mi">🏠</span><span style="flex:1;text-align:left">Struttura predefinita</span><span class="freccia">›</span></button>
+    <div class="menu-gruppo">Comunicazioni obbligatorie</div>
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriIstat()"><span class="mi">📮</span><span style="flex:1;text-align:left">Modulo ISTAT via email</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriGeis()"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · imposta di soggiorno</span><span id="geisBadgeMenu" class="pill err" style="display:none;margin-right:6px">da mandare</span><span class="freccia">›</span></button>
+    <div class="menu-gruppo">Sicurezza e sistema</div>
+    <button class="link-row menu-riga" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('privacyOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Privacy file</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione</span><span class="freccia">›</span></button>
 
@@ -834,7 +841,7 @@ function doGet() {
     <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
       <div style="font-weight:700;font-size:13px">👤 Nomi e numero di ospiti dalle email di Airbnb</div>
       <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Per ogni prenotazione Airbnb manda l'email <i>"Prenotazione confermata - Nome Cognome arriverà il…"</i> con nome e numero di ospiti: KeyFlow la legge dalle caselle qui sotto e mette il nome sulla prenotazione giusta.<br>
-        📁 In ogni casella crea anche da solo le cartelle di archivio <b>KeyFlow → Prenotazioni Airbnb</b> e <b>Contratti ospiti</b> (in quella di Canazei anche <b>APT moduli ISTAT</b>) e ci mette le email giuste: in Gmail le trovi nel menu ☰.</div>
+        📁 In ogni casella sposta anche le email nelle <b>tue cartelle</b> (es. <b>CONTRATTI LT</b>, <b>APT</b>): sotto ogni casella vedi dove va ogni tipo di email e puoi cambiarlo.</div>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer;font-size:13.5px">
         <input type="checkbox" id="calEmailAttivo" onchange="cambiaEmailCalendari(this.checked)" style="width:22px;height:22px;accent-color:var(--amber)">
         <span>Leggi i nomi dalle email di Airbnb</span></label>
@@ -919,14 +926,6 @@ function doGet() {
       <div class="scad-riga" id="oggiRossCoda" style="display:none" onclick="apriPagina('rossOverlay')"></div>
       <div class="scad-riga" id="oggiGeis" style="display:none" onclick="apriGeis()"></div>
     </div>
-    <div class="card" id="oggiAzioniCard">
-      <h2><span class="n">⚡</span> Azioni rapide</h2>
-      <div style="display:flex;gap:10px">
-        <button class="btn ghost sm" style="flex:1" onclick="mostraTab('registra')">📝 Nuova registrazione</button>
-        <button class="btn ghost sm" style="flex:1" onclick="mostraTab('ospiti')">🔗 Link ospiti</button>
-      </div>
-      <div id="oggiStato" style="margin-top:6px"></div>
-    </div>
   </div><!-- /page-oggi -->
 
   <div class="page" id="page-registra">
@@ -983,7 +982,7 @@ function doGet() {
   </div>
 
 
-  <div class="hint">La <b>Verifica</b> usa il metodo Test del portale (controlla senza inviare). L'<b>Invio ufficiale</b> trasmette davvero le schedine alla Questura: è irreversibile, quindi chiede conferma. Dopo l'invio puoi scaricare la ricevuta PDF.</div>
+  <div class="hint">La <b>Verifica</b> usa il metodo Test del portale (controlla senza inviare). L'<b>Invio ufficiale</b> trasmette davvero le schedine alla Questura: è irreversibile, quindi chiede conferma. La ricevuta PDF si salva da sola (quella del giorno il portale la prepara il giorno dopo).</div>
 
   </div><!-- /page-registra -->
 
@@ -13005,19 +13004,31 @@ function renderStorico(){
     const pillRic=ric?` <span class="pill ok" title="${escText(etichettaRicevuta(ric))}">🧾 ${ric.modo==='drive'?'su Drive':'scaricata'}</span>`
       :diOggi?' <span class="pill wait" title="Il portale Alloggiati Web prepara la ricevuta di oggi domani: si salverà da sola al prossimo invio">🧾 ricevuta pronta da domani</span>'
       :((e.tipo==='inviata'&&recente)?' <span class="pill wait">🧾 ricevuta da fare</span>':'');
-    const pill=(e.tipo==='inviata'?'<span class="pill ok">✓ inviata</span>':'<span class="pill wait">TXT scaricato</span>')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>'
+    const giornoInvio=new Date(e.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
+    const pill=(e.tipo==='inviata'?`<span class="pill ok" title="${escText(quando)}">✓ inviata il ${giornoInvio}</span>`:`<span class="pill wait" title="${escText(quando)}">📄 .txt scaricato il ${giornoInvio}</span>`)
+      +(e.tipo==='inviata'&&e.totali>e.valide?` <span class="pill err">⚠️ ${e.totali-e.valide} schedin${e.totali-e.valide===1?'a':'e'} non inviat${e.totali-e.valide===1?'a':'e'}</span>`:'')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>'
       :(rossInSospeso(e)?` <span class="pill wait" title="${escText(rossMotivoCoda(e)+' '+ROSS_CODA_SPIEGA)}">🔁 Ross1000 in coda</span>`:''))+pillRic;
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
     const sInfo=e.struttura?strutturaInfo(e.struttura):null;
     const pReg=partenzaRegistrata(e);
-    const meta=[e.struttura, conteggio, e.arrivo?('arrivo '+e.arrivo):null, pReg?('partenza '+pReg.partenza):null].filter(Boolean).map(escText).join(' · ');
-    const rigaDate=pReg?`<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
-        ${e.modificato||e.partenzaCorretta?`<span class="pill wait">✏️ modificato il ${escText(new Date((e.modificato||e.partenzaCorretta).ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}))}</span>`:''}
-        <button class="btn ghost sm" style="width:auto;padding:6px 12px;font-size:12px" onclick="apriModifica('reg',${e.ts})">✏️ Modifica</button>
-        ${bottonePortale(portali.get(e.ts))}</div>`:'';
+    // (ottobre 2026, riordino) in cima CHI e QUANDO ha soggiornato, sotto com'è andato l'invio,
+    // poi i pulsanti tutti in una riga. Prima in cima c'era l'ora dell'invio e "2/2 valide".
+    const nomi=(e.records||[]).map(nomeDaSchedina).filter(Boolean);
+    if(!nomi.length)(e.ospiti||[]).forEach(x=>nomi.push(maiuscoleIniziali(x)));
+    const nOsp=nomi.length||e.valide||0;
+    const arrS=parseIt(e.arrivo||String(((e.records||[])[0])||'').slice(2,12).trim());
+    const periodo=arrS?somPeriodo(arrS,pReg?parseIt(pReg.partenza):null):'';
+    const meta=[periodo, e.tipo==='inviata'?'':conteggio].filter(Boolean).map(escText).join(' · ');
+    const mod=e.modificato||e.partenzaCorretta;
+    const pillMod=mod?` <span class="pill wait">✏️ modificato il ${escText(new Date(mod.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'}))}</span>`:'';
     const aperto=storicoAperto.has(e.ts);
+    const pulsanti=[
+      pReg?`<button class="btn ghost sm" onclick="apriModifica('reg',${e.ts})">✏️ Modifica</button>`:'',
+      (e.records&&e.records.length)?`<button class="btn ghost sm" onclick="toggleStoricoDettaglio(${e.ts})">${aperto?'▲ Chiudi schedine':'🔍 Schedine'}</button>`:'',
+      bottonePortale(portali.get(e.ts)),
+      `<button class="btn ghost sm storico-via" onclick="rimuoviStorico(${e.ts})" title="Togli dall'Archivio" aria-label="Togli dall'Archivio">🗑</button>`
+    ].filter(Boolean).join('');
     const dettaglio=(e.records&&e.records.length)?`
-      <button class="btn ghost sm" style="width:100%;margin-top:6px" onclick="toggleStoricoDettaglio(${e.ts})">${aperto?'▲ Nascondi dettaglio':'🔍 Dettaglio schedine'}</button>
       ${aperto?e.records.map(r=>`<div class="rec-card">
         ${recSummary(r)}
         <details class="rec-raw"><summary>Codice tecnico (168 caratteri)</summary>
@@ -13033,13 +13044,13 @@ function renderStorico(){
       ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" ${fotoHref(u)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
     `;
     return `<div class="storico-item" id="storico-${e.ts}"${sInfo?` style="border-left:3px solid ${sInfo.colore};padding-left:9px;margin-left:-1px"`:''}>
-      <div class="storico-head"><span>${escText(quando)}</span>
-        <span style="display:flex;gap:6px;align-items:center">${pill}<button class="btn ghost sm" onclick="rimuoviStorico(${e.ts})">🗑</button></span></div>
-      <div class="storico-meta">${sInfo?`<span style="color:${sInfo.colore}">${sInfo.emoji}</span> `:''}${meta}</div>
-      ${e.ospiti&&e.ospiti.length?`<div class="storico-ospiti">${escText(e.ospiti.join(', '))}</div>`:''}
-      ${rigaDate}
+      <div class="storico-tit"><b>${escText(nomi[0]||'ospite')}</b>${nOsp>1?` <span class="muted">👤 ${nOsp}</span>`:''}</div>
+      <div class="storico-meta">${meta}${e.struttura?`${meta?' · ':''}<span style="color:${sInfo.colore}">●</span> ${escText(e.struttura)}`:''}</div>
+      <div class="storico-pills">${pill}${pillMod}</div>
+      ${nomi.length>1?`<div class="storico-ospiti">con ${escText(nomi.slice(1).join(', '))}</div>`:''}
       ${(()=>{ const n=storicoF&&storicoF.naz?ospitiDellaNazione(e,storicoF.naz):[];
         return n.length?`<div class="storico-sub" style="color:var(--amber)">🌍 ${escText(nomeStato(storicoF.naz)||storicoF.naz)}: ${escText(n.join(', '))}</div>`:''; })()}
+      <div class="storico-az">${pulsanti}</div>
       ${allegati}
       ${dettaglio}
     </div>`;
@@ -13682,6 +13693,9 @@ function parseArrivoTs(a){ // 'gg/mm/aaaa' -> timestamp (senza arrivo: in fondo 
   return m?new Date(+m[3],+m[2]-1,+m[1]).getTime():Infinity;
 }
 function nomeVoce(v){ return (v.ospiti||[]).map(o=>[o.cognome,o.nome].filter(Boolean).join(' ')).filter(Boolean).join(', '); }
+// per gli occhi: "Roberto Abbado", come su Airbnb (le schedine restano COGNOME NOME)
+function nomeOspite(o){ return maiuscoleIniziali([o&&o.nome,o&&o.cognome].filter(Boolean).join(' ')); }
+function nomeDaSchedina(r){ return r&&r.length===168?maiuscoleIniziali(r.slice(64,94)+' '+r.slice(14,64)):''; }
 // doppioni nella coda: stesso capogruppo + stessa data di arrivo in più voci (usato sia
 // nella griglia compatta sia nel dettaglio a schermo intero)
 function checkinChiaveDoppione(v){ const o=(v.ospiti||[])[0]||{}; const nm=(String(o.cognome||'')+' '+String(o.nome||'')).trim().toUpperCase(); return nm&&v.arrivo?nm+'|'+v.arrivo:''; }
@@ -13726,8 +13740,9 @@ function renderCheckinPending(soloLista){
     return `<div class="struttura-col" style="--accent:${info.colore}">
       <div class="struttura-col-head"><span class="dot"></span>${escText(g.nome)}<span class="cnt">${g.voci.length}</span></div>
       ${g.voci.map(v=>{
-        const nomi=nomeVoce(v)||'(senza nome)';
+        const nomi=(v.ospiti||[]).map(nomeOspite).filter(Boolean).join(', ')||'(senza nome)';
         const doppio=conteggiDoppioni[checkinChiaveDoppione(v)]>1;
+        const urg=urgenzaArrivo(giorniAllArrivo(v.arrivo));
         const icone=[
           v.aggiunta?'➕':'',      // ospiti aggiunti dopo un check-in già inviato
           v.presa?'🕓':'',
@@ -13740,8 +13755,9 @@ function renderCheckinPending(soloLista){
           <div class="cc-info">
             <div class="cc-nomi">${escText(nomi)}</div>
             <div class="cc-meta"><span>${v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare'}</span><span>👤 ${(v.ospiti||[]).length}</span>${icone?`<span class="cc-icons">${icone}</span>`:''}</div>
+            ${urg?`<span class="urg-pill${urg.ritardo?' ritardo':''}" style="margin-top:6px">${urg.testo}</span>`:''}
           </div>
-          <button class="cc-quick" onclick="event.stopPropagation();accettaCheckin('${v.id}')" title="${v.presa?'Riaggiungi alla prenotazione':'Aggiungi alla prenotazione'}">${v.presa?'↺':'✓'}</button>
+          ${pendingAzione(v,'padding:8px 12px;font-size:12.5px')}
         </div>`;
       }).join('')}
     </div>`;
@@ -15294,7 +15310,7 @@ document.addEventListener('click',e=>{
   if(e.target.closest&&e.target.closest('#allarmeLista button'))chiudiAllarmeDaFare();
 },true);
 function aggiornaOggi(){
-  const w=$('#oggiStato'); if(!w)return;
+  if(!$('#page-oggi'))return;
   // "Da fare": i check-in arrivati, ordinati per data di arrivo (chi arriva prima in cima),
   // con l'azione a un tocco: Registra (lo carica nella prenotazione) o Da inviare.
   const todo=$('#oggiTodo');
@@ -15305,7 +15321,7 @@ function aggiornaOggi(){
     todo.innerHTML=voci.length?voci.map(v=>{
       // anteprima essenziale: SOLO il titolare della prenotazione (primo ospite) + 👤 quanti sono
       const primo=(v.ospiti||[])[0]||{};
-      const titolare=[primo.cognome,primo.nome].filter(Boolean).join(' ')||'(senza nome)';
+      const titolare=nomeOspite(primo)||'(senza nome)';
       const ts=parseArr(v.arrivo);
       const diff=isFinite(ts)?Math.round((ts-oggi0)/864e5):null;
       // arrivato ieri o prima: non "arrivato il 16/10" (non si capisce al volo che è ieri), ma un
@@ -15330,15 +15346,6 @@ function aggiornaOggi(){
   }
   if(typeof renderRecensioni==='function')renderRecensioni();
   if(typeof renderCalendario==='function')renderCalendario();
-  const ultimo=storico.find(e=>e.tipo==='inviata');
-  const ultimoTxt=ultimo
-    ?`${new Date(ultimo.ts).toLocaleDateString('it-IT')} · ${escText(ultimo.struttura||'')} (${ultimo.valide} schedin${ultimo.valide===1?'a':'e'})`
-    :'nessuno ancora';
-  w.innerHTML=`
-    <div class="oggi-row" onclick="mostraTab('archivio')">
-      <span>🕘 Ultimo invio in Questura</span>
-      <span class="muted" style="text-align:right">${ultimoTxt}</span>
-    </div>`;
   if(typeof renderSintesi==='function')renderSintesi();
   // scadenze: il GEIS e, solo se qualcosa è rimasto indietro, Ross1000 in coda. La riga fissa
   // "Ross1000 · flussi del mese" non c'è più (ottobre 2026, l'utente: "è inutile, è tutto automatico")
@@ -16004,7 +16011,7 @@ function soggiorniHome(){
     const arr=parseIt(e.arrivo||rec.slice(2,12).trim()); if(!arr)return;
     const notti=parseInt(rec.slice(12,14),10)||0;
     const casa=(typeof nomeStrutturaCanonico==='function')?nomeStrutturaCanonico(e.struttura):e.struttura;
-    aggiungi({arrivo:arr, partenza:notti?piuGiorni(arr,notti):null, nome:(e.ospiti&&e.ospiti[0])||'ospite',
+    aggiungi({arrivo:arr, partenza:notti?piuGiorni(arr,notti):null, nome:(e.ospiti&&e.ospiti[0])||'ospite', nomeBello:nomeDaSchedina(rec),
       // sulla barra del calendario il nome di battesimo, come su Airbnb (dalla schedina: nome = caratteri 64-94)
       nomeBreve:nomeProprio(rec.slice(64,94))||calNomeCorto((e.ospiti&&e.ospiti[0])||''),
       ospiti:(e.ospiti||[]).length||e.valide||1, struttura:casa||'', colore:strutturaInfo(casa||'').colore,
@@ -16015,7 +16022,7 @@ function soggiorniHome(){
     const primo=(v.ospiti||[])[0]||{};
     let par=parseIt(v.partenza);
     if(!par&&v.notti)par=piuGiorni(arr,Number(v.notti)||0);
-    aggiungi({arrivo:arr, partenza:par, nome:[primo.cognome,primo.nome].filter(Boolean).join(' ')||'ospite',
+    aggiungi({arrivo:arr, partenza:par, nome:[primo.cognome,primo.nome].filter(Boolean).join(' ')||'ospite', nomeBello:nomeOspite(primo),
       nomeBreve:nomeProprio(primo.nome)||calNomeCorto(primo.cognome||''),
       ospiti:(v.ospiti||[]).length||1, struttura:v.strutturaNome||'', colore:strutturaInfo(v.strutturaNome||'').colore,
       registrato:false, id:v.id});
@@ -16041,7 +16048,7 @@ function soggiorniHome(){
         &&(x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1))>arr){ x.urlEst=p.url; x.fonteEst=p.fonte||'Airbnb'; } });
       return;
     }
-    out.push({arrivo:arr, partenza:par, nome:p.nome||('Prenotazione '+(p.fonte||'Airbnb')), ospiti:p.ospiti||null, struttura:casa,
+    out.push({arrivo:arr, partenza:par, nome:p.nome||('Prenotazione '+(p.fonte||'Airbnb')), nomeBello:p.nome?maiuscoleIniziali(p.nome):('Ospite '+(p.fonte||'Airbnb')), ospiti:p.ospiti||null, struttura:casa,
       // nella casella del calendario il cognome (l'email dà "Nome Cognome"; l'Archivio "COGNOME NOME")
       nomeCorto:p.nome?calNomeCorto(String(p.nome).trim().split(/\s+/).slice(-1)[0]):'',
       nomeBreve:nomeProprio(p.nome),
@@ -16141,7 +16148,7 @@ const calApriAttr=e=>`onclick="apriSommario('${calChiave(e)}')"`;
    della prenotazione come stile Airbnb, in sovrimpressione sul calendario, per vedere subito").
    Chi, quanti, quando, in che casa e a che punto è (check-in online, Questura, contratto).
    Niente codici d'accesso. ===== */
-const maiuscoleIniziali=t=>String(t||'').trim().toLowerCase().replace(/(^|[\s\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
+function maiuscoleIniziali(t){ return String(t||'').trim().replace(/\s+/g,' ').toLowerCase().replace(/(^|[\s\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase()); }
 function somQuando(d){
   if(!d)return '';
   const oggi0=new Date(); oggi0.setHours(0,0,0,0);
@@ -16255,14 +16262,14 @@ function calRigaEvento(e){
     const bid='calLink-'+(e.tipo)+'-'+encodeURIComponent(e.uid||'').replace(/[^A-Za-z0-9]/g,'').slice(-12);
     return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore};opacity:.55"></span>
     <span style="flex:1;min-width:0">
-      <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
+      <b style="font-size:13px">${cosa} · ${escText(e.nomeBello||e.nome)}</b>
       <span class="muted" style="display:block;font-size:11.5px">${e.ospiti?`👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'} · `:''}${e.ospiti||e.nomeCorto?escText(e.fonte)+', ':''}check-in non ancora fatto${quando?' · '+escText(quando):''}${e.telefono4?' · tel. …'+escText(e.telefono4):''}</span>
       ${link&&e.tipo!=='p'?`<button class="btn ghost sm" id="${bid}" style="width:auto;margin-top:7px;padding:7px 11px;font-size:12px" onclick="event.stopPropagation();copiaLinkCheckin('${link}','${bid}')">📋 Copia il link del check-in</button>`:''}</span>
     ${e.url?'<span class="vai">›</span>':''}</div>`;
   }
   return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore}"></span>
     <span style="flex:1;min-width:0">
-      <b style="font-size:13px">${cosa} · ${escText(e.nome)}</b>
+      <b style="font-size:13px">${cosa} · ${escText(e.nomeBello||e.nome)}</b>
       <span class="muted" style="display:block;font-size:11.5px">👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'}${quando?' · '+escText(quando):''}</span>
       ${e.urlEst?bottonePortale({url:e.urlEst,fonte:e.fonteEst},'margin-top:7px;padding:7px 11px'):''}</span>
     ${pend?pendingAzione(pend,'padding:8px 12px;font-size:12.5px')
@@ -16325,8 +16332,8 @@ function calDettaglio(ev,filtro){
     const quando=i===0?'Oggi':i===1?'Domani':d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
     righe.push(`<div class="agenda-g"><span class="quando${i===0?' oggi':''}">${escText(quando)}</span>
       <span class="cosa">${lista.map(e=>`<span class="agenda-ev" ${calApriAttr(e)}><span class="pallo" style="background:${e.colore}"></span>
-        <span class="nome">${e.tipo==='a'?'→':'←'} ${escText(e.nome)}${e.ospiti>1?' <span class="muted">👤'+e.ospiti+'</span>':''}</span>
-        ${e.esterna?'<span class="pill wait">check-in da fare</span>':e.registrato?'<span class="vai muted">›</span>':'<span class="pill err">da fare</span>'}</span>`).join('')}</span></div>`);
+        <span class="nome">${e.tipo==='a'?'➡️':'⬅️'} ${escText(e.nomeBello||e.nome)}${e.ospiti>1?' <span class="muted">👤'+e.ospiti+'</span>':''}</span>
+        ${e.esterna?'<span class="pill wait">check-in non fatto</span>':e.registrato?'<span class="vai muted">›</span>':'<span class="pill err">da registrare</span>'}</span>`).join('')}</span></div>`);
   }
   return `<div class="stat-lab" style="margin-top:14px">PROSSIMI GIORNI</div>
     ${righe.length?righe.join(''):'<div class="muted" style="font-size:12.5px">Nessun arrivo o partenza in programma.</div>'}`;
@@ -16426,7 +16433,7 @@ function renderCalendario(){
     ${scelte}
     <div class="gcal-dow">${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<span>${g}</span>`).join('')}</div>
     <div class="gcal-mese${alta>22?' alta':''}">${righe}</div>
-    <div class="gcal-legenda">Ogni barra è un soggiorno, dall'arrivo alla partenza · il colore è la casa${prenotazioniEsterne.length?' · a righe = prenotazione Airbnb, check-in non ancora fatto':''}.<br>Tocca un nome per aprirlo, un giorno per vedere chi arriva e chi parte.</div>
+    <div class="gcal-legenda">${prenotazioniEsterne.length?'A righe = check-in non ancora fatto · ':''}tocca una barra per il riepilogo, un giorno per vedere chi arriva e chi parte</div>
     ${calendariConfig&&!calendariCollegati()?'<button class="gcal-invito" onclick="apriCalendari()">📅 Vuoi vedere le prenotazioni <b>in anticipo</b>, prima del check-in? <b>Collega il calendario di Airbnb ›</b></button>':''}
     ${calDettaglio(ev,filtro)}`;
 }
@@ -16843,7 +16850,7 @@ function geisAvvisoHome(){
   if(da){
     const quando=da.giorni>=0
       ?(da.giorni===0?'oggi':'fra '+da.giorni+' g')
-      :('+'+(-da.giorni)+' g');
+      :((-da.giorni)+' g di ritardo');
     w.innerHTML=`<span class="ico">🏛️</span>
       <span class="txt"><b>GEIS · ${da.titolo}</b><br>
         <span class="muted">${escText(da.mesiNomi)} · ${da.giorni>=0?'entro il '+da.scadenzaIt:'era entro il '+da.scadenzaIt}</span></span>
@@ -17206,7 +17213,6 @@ function apriCard(id){
   await adminGate();
   initCardToggles();
   document.body.classList.add('ready');
-  $('#hsub').title=`${comuni.length.toLocaleString('it')} comuni · ${STATI.length} stati · ${DOCUMENTI.length} documenti caricati`;
   mostraTab('oggi');   // si riparte sempre dalla Home, non dall'ultima scheda usata
   const strutturePronte=loadStrutture();
   wireDropzone();
