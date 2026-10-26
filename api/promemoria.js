@@ -34,6 +34,7 @@ const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
 const KEY_GEIS = "geis_stato";
 const KEY_RECENSIONI = "recensioni_fatte";
+const KEY_ORARI = "orari_case";   // { idCasa: { in: "16:00", out: "10:00" } }
 const MAX_PENDENTI = 200;
 
 // FASCICOLO MENSILE: zip con registro CSV + contratti firmati del mese (per arrivo).
@@ -377,6 +378,29 @@ module.exports = async (req, res) => {
           await redisCmd(conn, ["SET", KEY_RECENSIONI, JSON.stringify(stato)]);
         }
         return res.status(200).json({ ok: true, stato });
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
+    // orari di check-in e check-out di ogni casa (Impostazioni → Le case), per il riepilogo della
+    // prenotazione. { orari?: { idCasa: { in, out } } } — "" toglie l'orario.
+    if ((req.body || {}).azione === "orari") {
+      try {
+        const raw = await redisCmd(conn, ["GET", KEY_ORARI]);
+        let orari = {};
+        try { orari = raw ? JSON.parse(raw) || {} : {}; } catch { orari = {}; }
+        const nuovi = (req.body || {}).orari;
+        if (nuovi && typeof nuovi === "object") {
+          const ora = (v) => { const m = /^([01]?\d|2[0-3])[:.]([0-5]\d)$/.exec(String(v || "").trim()); return m ? `${m[1].padStart(2, "0")}:${m[2]}` : ""; };
+          for (const [id, o] of Object.entries(nuovi).slice(0, 20)) {
+            const k = String(id).slice(0, 40);
+            const voce = { in: ora(o && o.in), out: ora(o && o.out) };
+            if (voce.in || voce.out) orari[k] = voce; else delete orari[k];
+          }
+          await redisCmd(conn, ["SET", KEY_ORARI, JSON.stringify(orari)]);
+        }
+        return res.status(200).json({ ok: true, orari });
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }

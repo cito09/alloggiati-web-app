@@ -36,6 +36,13 @@
   .brand-badge svg{width:20px; height:20px}
   .brand-name{font-weight:800; font-size:17px; letter-spacing:-.01em}
   .brand-name .flow{color:var(--amber)}
+  input[type=time]{color-scheme:dark}
+  .cal-sez{margin-top:16px; border-top:1px solid var(--line); padding-top:12px}
+  .cal-sez>summary{display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; cursor:pointer; font-weight:700; font-size:13.5px; list-style:none}
+  .cal-sez>summary::-webkit-details-marker{display:none}
+  .cal-sez>summary::after{content:'▸'; margin-left:auto; color:var(--muted)}
+  .cal-sez[open]>summary::after{content:'▾'}
+  .cal-sez>summary .muted{font-size:12px; font-weight:600}
   .menu-gruppo{font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:16px 6px 6px}
   .settings-head+.menu-gruppo{margin-top:4px}
   .brand-role{font-size:9.5px; letter-spacing:.05em; font-weight:800; padding:3px 8px; border-radius:999px; text-transform:uppercase;
@@ -102,7 +109,7 @@
   .card>.card-body{margin-top:26px}
   .card.closed>.card-body{display:none}
   label{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600}
-  input[type=text], input[type=date], input[type=number], input[type=password], input[type=search],
+  input[type=text], input[type=date], input[type=time], input[type=number], input[type=password], input[type=search],
   input[type=email], input[type=tel], input[type=url], select, textarea.campo{
     width:100%; background:var(--surface2); border:1px solid transparent; color:var(--ink);
     border-radius:14px; padding:13px 15px; font-size:16px; font-family:inherit;}
@@ -595,7 +602,7 @@
     <div class="menu-gruppo">Prenotazioni e ospiti</div>
     <button class="link-row menu-riga" onclick="apriCalendari()"><span class="mi">📅</span><span style="flex:1;text-align:left">Calendari Airbnb · prenotazioni in anticipo</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
-    <button class="link-row menu-riga" id="rowStruttura" style="display:none" onclick="apriPagina('strutturaOverlay')"><span class="mi">🏠</span><span style="flex:1;text-align:left">Struttura predefinita</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" id="rowStruttura" onclick="apriCase()"><span class="mi">🏠</span><span style="flex:1;text-align:left">Le case · orari di check-in e check-out</span><span class="freccia">›</span></button>
     <div class="menu-gruppo">Comunicazioni obbligatorie</div>
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
@@ -603,8 +610,7 @@
     <button class="link-row menu-riga" onclick="apriGeis()"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · imposta di soggiorno</span><span id="geisBadgeMenu" class="pill err" style="display:none;margin-right:6px">da mandare</span><span class="freccia">›</span></button>
     <div class="menu-gruppo">Sicurezza e sistema</div>
     <button class="link-row menu-riga" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
-    <button class="link-row menu-riga" onclick="apriPagina('privacyOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Privacy file</span><span class="freccia">›</span></button>
-    <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione e privacy</span><span class="freccia">›</span></button>
 
     <div class="settings-section">
       <div class="muted" style="font-size:11.5px;text-align:center">KeyFlow · Gestionale host</div>
@@ -615,11 +621,18 @@
 <div class="pagina-piena" id="strutturaOverlay">
   <div class="pp-head">
     <button class="btn ghost sm" onclick="chiudiPagina('strutturaOverlay')" style="width:auto">← Indietro</button>
-    <h2>🏠 Struttura predefinita</h2>
+    <h2>🏠 Le case</h2>
   </div>
   <div class="pp-body">
-        <div class="muted" style="font-size:12px;margin-bottom:6px">Quella già selezionata quando apri una nuova registrazione.</div>
-        <select id="settingsStrutturaSel"></select>
+        <div style="font-weight:700;font-size:13px">🕓 Orari di check-in e check-out</div>
+        <div class="muted" style="font-size:12px;margin:4px 0 8px">Compaiono nel riepilogo della prenotazione che si apre dal calendario.</div>
+        <div id="orariCase"></div>
+        <button class="btn primary sm" style="width:100%;margin-top:10px" id="orariSalvaBtn" onclick="salvaOrariCase()">💾 Salva orari</button>
+        <div id="strutturaPrefWrap" style="display:none;margin-top:22px;border-top:1px solid var(--line);padding-top:14px">
+          <div style="font-weight:700;font-size:13px">📝 Struttura predefinita</div>
+          <div class="muted" style="font-size:12px;margin:4px 0 6px">Quella già selezionata quando apri una nuova registrazione.</div>
+          <select id="settingsStrutturaSel"></select>
+        </div>
         </div>
 </div>
 
@@ -670,27 +683,21 @@
         </div>
 </div>
 
-<div class="pagina-piena" id="privacyOverlay">
+<div class="pagina-piena" id="statoOverlay">
   <div class="pp-head">
-    <button class="btn ghost sm" onclick="chiudiPagina('privacyOverlay')" style="width:auto">← Indietro</button>
-    <h2>🔒 Privacy file</h2>
+    <button class="btn ghost sm" onclick="chiudiPagina('statoOverlay')" style="width:auto">← Indietro</button>
+    <h2>ℹ️ Stato e privacy</h2>
   </div>
   <div class="pp-body">
-        <div class="muted" style="font-size:12px">I file dei <b>nuovi</b> check-in (foto documenti, selfie, contratti) sono già <b>privati</b>: apribili solo da qui, con il tuo accesso. I file caricati <b>prima</b> di questa modifica erano pubblici: con il pulsante qui sotto li rendi privati anche loro (operazione una tantum e sicura, i file non si perdono).</div>
+        <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
+        <div style="margin-top:20px;border-top:1px solid var(--line);padding-top:14px">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px">🔒 Privacy dei file</div>
+        <div class="muted" style="font-size:12px">Le foto dei documenti, i selfie e i contratti sono <b>privati</b>: si aprono solo da qui, con il tuo accesso. I file vecchi (caricati quando erano ancora pubblici) sono già stati resi privati: questi pulsanti servono solo per un controllo.</div>
         <button class="btn ghost" id="diagnosiBtn" style="margin-top:10px" onclick="verificaArchivioFoto()">🔍 Verifica configurazione</button>
         <div id="diagnosiMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
         <button class="btn ghost" id="privatizzaBtn" style="margin-top:10px" onclick="privatizzaVecchie()">🔒 Rendi privati i file già caricati</button>
         <div id="privatizzaMsg" class="muted" style="font-size:12px;margin-top:8px"></div>
         </div>
-</div>
-
-<div class="pagina-piena" id="statoOverlay">
-  <div class="pp-head">
-    <button class="btn ghost sm" onclick="chiudiPagina('statoOverlay')" style="width:auto">← Indietro</button>
-    <h2>ℹ️ Stato configurazione</h2>
-  </div>
-  <div class="pp-body">
-        <div id="settingsInfo" class="muted" style="font-size:12.5px"></div>
         </div>
 </div>
 
@@ -823,8 +830,7 @@ function doGet() {
     <h2>📅 Calendari Airbnb</h2>
   </div>
   <div class="pp-body">
-    <div class="muted" style="font-size:12.5px;line-height:1.55">Così il calendario della Home si riempie <b>da solo</b> con le prenotazioni, prima ancora che gli ospiti facciano il check-in. KeyFlow le rilegge ogni volta che apri l'app e ogni mattina.<br>
-      Finché l'ospite non fa il check-in la prenotazione è una barretta <b>a righe</b>: il calendario di Airbnb dà le date, le email di conferma di Airbnb (qui sotto) aggiungono nome e numero di ospiti. Dopo il check-in compaiono i dati veri.</div>
+    <div class="muted" style="font-size:12.5px;line-height:1.55">Così il calendario della Home si riempie <b>da solo</b> con le prenotazioni, prima ancora del check-in degli ospiti. KeyFlow le rilegge ogni volta che apri l'app e ogni mattina.</div>
     <div style="font-weight:700;font-size:13px;margin-top:18px">📅 Link del calendario di Airbnb (date delle prenotazioni)</div>
     <details style="margin-top:6px">
       <summary style="font-size:12.5px;font-weight:700;cursor:pointer">📖 Dove trovo il link su Airbnb</summary>
@@ -838,23 +844,23 @@ function doGet() {
         Il link è personale: non condividerlo con altri (chi lo ha vede le date occupate).</div>
     </details>
     <div id="calendariCampi" style="margin-top:6px"></div>
-    <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
-      <div style="font-weight:700;font-size:13px">👤 Nomi e numero di ospiti dalle email di Airbnb</div>
+    <button class="btn primary" style="width:100%;margin-top:14px" id="calendariSalvaBtn" onclick="salvaCalendari()">💾 Salva e leggi le prenotazioni</button>
+    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="caricaCalendariEsterni({aggiorna:true,avvisa:true})">🔄 Rileggi adesso</button>
+    <div id="calendariEsito" class="muted" style="font-size:12px;margin-top:10px"></div>
+    <details class="cal-sez" id="calEmailSez">
+      <summary><span>📬 Nomi degli ospiti dalle email di Airbnb</span><span id="calEmailRiassunto" class="muted"></span></summary>
       <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Per ogni prenotazione Airbnb manda l'email <i>"Prenotazione confermata - Nome Cognome arriverà il…"</i> con nome e numero di ospiti: KeyFlow la legge dalle caselle qui sotto e mette il nome sulla prenotazione giusta.<br>
         📁 In ogni casella sposta anche le email nelle <b>tue cartelle</b> (es. <b>CONTRATTI LT</b>, <b>APT</b>): sotto ogni casella vedi dove va ogni tipo di email e puoi cambiarlo.</div>
       <label style="display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer;font-size:13.5px">
         <input type="checkbox" id="calEmailAttivo" onchange="cambiaEmailCalendari(this.checked)" style="width:22px;height:22px;accent-color:var(--amber)">
         <span>Leggi i nomi dalle email di Airbnb</span></label>
       <div id="calEmailStato" class="muted" style="font-size:12px;line-height:1.55;margin-top:6px"></div>
-    </div>
-    <button class="btn primary" style="width:100%;margin-top:14px" id="calendariSalvaBtn" onclick="salvaCalendari()">💾 Salva e leggi le prenotazioni</button>
-    <button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="caricaCalendariEsterni({aggiorna:true,avvisa:true})">🔄 Rileggi adesso</button>
-    <div id="calendariEsito" class="muted" style="font-size:12px;margin-top:10px"></div>
-    <div style="margin-top:18px;padding:12px 13px;border-radius:16px;background:var(--surface2);border:1.5px solid rgba(132,227,211,.34)">
-      <div style="font-weight:800;font-size:13.5px">⭐ ProhostAI · solo col piano a pagamento</div>
+    </details>
+    <details class="cal-sez" id="calProhostSez">
+      <summary><span>⭐ ProhostAI · solo col piano a pagamento</span><span id="calProhostRiassunto" class="muted"></span></summary>
       <div class="muted" style="font-size:12px;line-height:1.55;margin-top:4px">Con il piano <b>All-in-one</b> di ProhostAI (a pagamento: col piano gratuito le chiavi API non si possono creare) arrivano <b>tutte</b> le prenotazioni con <b>nome, numero di ospiti e date</b>, anche quelle di Booking. Se un giorno lo attivi, incolla qui la chiave: il resto è già pronto.</div>
       <div id="prohostStato" style="margin-top:8px"></div>
-    </div>
+    </details>
   </div>
 </div>
 
@@ -971,18 +977,17 @@ function doGet() {
       <div id="sendResult"></div>
       <div id="rossResult"></div>
     </div>
+    <div class="muted" style="font-size:11.5px;line-height:1.5;margin-top:10px"><b>Verifica</b> controlla le schedine col portale senza inviarle. <b>Invia</b> le trasmette davvero (chiede conferma). La ricevuta PDF si salva da sola: quella del giorno il portale la prepara il giorno dopo.</div>
 
 
   </div>
 
   <div class="card" id="previewCard">
-    <h2><span class="n">TXT</span> Anteprima file</h2>
+    <h2><span class="n">📄</span> File .txt (solo per caricarlo a mano)</h2>
     <div id="previewWrap"><div class="muted">Nessuna schedina pronta. Aggiungi una prenotazione e un ospite.</div></div>
     <button class="btn ghost sm" id="dlBtn" onclick="downloadTxt()" disabled style="width:100%;margin-top:10px">Scarica .txt (caricamento manuale)</button>
   </div>
 
-
-  <div class="hint">La <b>Verifica</b> usa il metodo Test del portale (controlla senza inviare). L'<b>Invio ufficiale</b> trasmette davvero le schedine alla Questura: è irreversibile, quindi chiede conferma. La ricevuta PDF si salva da sola (quella del giorno il portale la prepara il giorno dopo).</div>
 
   </div><!-- /page-registra -->
 
@@ -14449,7 +14454,7 @@ async function loadStrutture(){
       $('#strutturaWrap').style.display='';
       const sel2=$('#settingsStrutturaSel');
       if(sel2){ sel2.innerHTML=opts; sel2.onchange=()=>setStrutturaPreferita(sel2.value); }
-      const rowS=$('#rowStruttura'); if(rowS)rowS.style.display='';
+      const prefW=$('#strutturaPrefWrap'); if(prefW)prefW.style.display='';
     }
     // Impostazioni → Ricevute Questura: un pulsante per struttura, col suo colore
     const rb=$('#ricevuteBtns');
@@ -14467,6 +14472,46 @@ async function loadStrutture(){
     aggiornaRossUI();
     aggiornaOggi();
   }catch(e){/* offline: i pulsanti mostreranno l'errore al click */}
+}
+/* ===== Le case: orari di check-in e check-out (ottobre 2026), per il riepilogo della prenotazione.
+   In KV (azione "orari" di /api/promemoria), copia sul telefono in localStorage. Alba Loft parte con
+   16:00 / 10:00, gli orari del suo annuncio su Airbnb. ===== */
+const ORARI_PREDEFINITI={canazei:{in:'16:00',out:'10:00'}};
+let orariCase=(()=>{ try{ return JSON.parse(localStorage.getItem('orari_case')||'null')||{}; }catch(e){ return {}; } })();
+function orariDi(idCasa){ return orariCase[idCasa]||ORARI_PREDEFINITI[idCasa]||{}; }
+function idCasaDaNome(nome){
+  const c=nomeStrutturaCanonico(nome||'');
+  const s=struttureList.find(x=>nomeStrutturaCanonico(x.nome||'')===c||x.id===nome);
+  return s?s.id:'';
+}
+async function caricaOrariCase(orari){
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'orari',...(orari?{orari}:{})})});
+    const d=await r.json(); if(!r.ok)throw new Error(d.error||'errore');
+    if(d.orari){ orariCase=d.orari; try{ localStorage.setItem('orari_case',JSON.stringify(orariCase)); }catch(e){} }
+    return true;
+  }catch(e){ return false; }
+}
+function renderOrariCase(){
+  const w=$('#orariCase'); if(!w)return;
+  w.innerHTML=struttureList.map(c=>{ const o=orariDi(c.id), info=strutturaInfo(c.nome||c.id);
+    return `<div style="padding:8px 0;border-top:1px solid var(--line)">
+      <div style="font-weight:700;font-size:13px"><span style="color:${info.colore}">●</span> ${escText(c.nome||c.id)}</div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <label style="flex:1;margin:0">Check-in dalle<input type="time" id="orarioIn_${escText(c.id)}" value="${escText(o.in||'')}"></label>
+        <label style="flex:1;margin:0">Check-out entro le<input type="time" id="orarioOut_${escText(c.id)}" value="${escText(o.out||'')}"></label>
+      </div></div>`; }).join('')||'<div class="muted" style="font-size:12px">Case non ancora caricate.</div>';
+}
+function apriCase(){ apriPagina('strutturaOverlay'); renderOrariCase(); caricaOrariCase().then(renderOrariCase); }
+async function salvaOrariCase(){
+  const orari={};
+  struttureList.forEach(c=>{ orari[c.id]={in:(document.getElementById('orarioIn_'+c.id)||{}).value||'', out:(document.getElementById('orarioOut_'+c.id)||{}).value||''}; });
+  const b=$('#orariSalvaBtn'); if(b){ b.disabled=true; b.textContent='Salvo…'; }
+  const ok=await caricaOrariCase(orari);
+  if(b){ b.disabled=false; b.textContent='💾 Salva orari'; }
+  toast(ok?'✓ Orari salvati':'⚠️ Orari non salvati: controlla la connessione');
+  renderOrariCase();
 }
 function setStrutturaPreferita(id){
   const cambiata=currentStruttura()!==id;
@@ -15822,6 +15867,8 @@ function renderCalendariEsiti(){
 function renderProhost(){
   const w=$('#prohostStato'); if(!w)return;
   const ph=(calendariConfig&&calendariConfig.prohost)||{};
+  const rias=$('#calProhostRiassunto'); if(rias)rias.textContent=ph.collegato?'collegato':'non collegato';
+  const sez=$('#calProhostSez'); if(sez&&ph.collegato&&ph.esito&&!ph.esito.ok)sez.open=true;
   // da collegare, oppure la chiave non va più (cancellata in ProhostAI, permessi tolti): se ne incolla una nuova
   const daCollegare=!ph.collegato||(ph.esito&&ph.esito.rifiutata);
   if(daCollegare){
@@ -15908,6 +15955,13 @@ function renderCalendariEmail(){
   </details>`;
   box.innerHTML=!em.configurato&&!caselle.length?'Nessuna casella Gmail collegata.'+aggiungi
     :(righe+totale+righeCanc+aggiungi);
+  // titolo della sezione chiusa: com'è messa in due parole; se c'è un problema si apre da sola
+  const conProblema=em.attivo&&caselle.some(c=>c.esito&&(!c.esito.ok||c.esito.erroreCartelle));
+  const rias=$('#calEmailRiassunto');
+  if(rias)rias.innerHTML=!em.attivo?'spenta'
+    :conProblema?'<span style="color:var(--err)">⚠️ da controllare</span>'
+    :`<span style="color:var(--ok)">✓ attiva</span> · ${caselle.length} casell${caselle.length===1?'a':'e'}`;
+  const sez=$('#calEmailSez'); if(sez&&conProblema)sez.open=true;
 }
 /* Cartelle di archivio in Gmail di una casella. L'utente (ottobre 2026): "avevo già la cartella
    contratti ospiti, sia a Bologna sia a Canazei (e l'APT a Canazei): non farne di nuove, mettile
@@ -16213,6 +16267,7 @@ function apriSommario(chiave){
   if(e||v)az.push(`<button class="btn ghost" onclick="apriModifica('${e?'reg':'pend'}',${e?e.ts:`'${v.id}'`})">✏️ Modifica</button>`);
   if(e)az.push(`<button class="btn ghost" onclick="calApriRegistrato(${e.ts})">🗂️ Apri nell'Archivio</button>`);
   if(v)az.push(`<button class="btn ghost" onclick="apriDettaglioCheckin('${v.id}')">🪪 Documenti e dettagli</button>`);
+  const orario=orariDi(s.strutturaId||idCasaDaNome(s.struttura));
   const body=$('#sommarioBody'); if(!body)return;
   body.innerHTML=`
     <div class="som-avatar"><span class="av" style="background:${s.colore}${breve?'':';font-size:44px'}">${breve?escText(breve.charAt(0).toUpperCase()):'👤'}</span>
@@ -16222,9 +16277,9 @@ function apriSommario(chiave){
     <div class="som-casa"><span class="pallo" style="background:${s.colore}"></span>${escText(s.struttura||'')}</div>
     <div class="som-card">
       <div class="som-io">
-        <div><b>Check-in</b><span>${escText(somGiorno(s.arrivo))}</span><span class="muted">${escText(somQuando(s.arrivo))}</span></div>
+        <div><b>Check-in</b><span>${escText(somGiorno(s.arrivo))}</span>${orario.in?`<span>dalle ${escText(orario.in)}</span>`:''}<span class="muted">${escText(somQuando(s.arrivo))}</span></div>
         <span class="sep"></span>
-        <div style="text-align:right"><b>Check-out</b><span>${escText(somGiorno(s.partenza))}</span><span class="muted">${escText(somQuando(s.partenza))}</span></div>
+        <div style="text-align:right"><b>Check-out</b><span>${escText(somGiorno(s.partenza))}</span>${orario.out?`<span>entro le ${escText(orario.out)}</span>`:''}<span class="muted">${escText(somQuando(s.partenza))}</span></div>
       </div>
       ${righe.join('')}
     </div>
@@ -17224,6 +17279,7 @@ function apriCard(id){
   strutturePronte.then(()=>caricaCalendariEsterni()).catch(()=>{});   // prenotazioni di Airbnb in anticipo
   caricaRicevuteFatte();
   caricaRecensioniStato();   // Home → Recensioni: cosa è già copiato/fatto (uguale su tutti i dispositivi)
+  caricaOrariCase();         // orari di check-in/check-out delle case, per il riepilogo della prenotazione
   caricaIstatConfig();
   isRenderStorico();
   isWireDrop();
