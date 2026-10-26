@@ -10,7 +10,7 @@
 const MESI = { gen: 1, feb: 2, mar: 3, apr: 4, mag: 5, giu: 6, lug: 7, ago: 8, set: 9, ott: 10, nov: 11, dic: 12,
   jan: 1, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, dec: 12 };
 const ATTESA_MS = 28000;
-const VERSIONE_LETTURA = 2;   // 2 = si leggono anche le email di cancellazione
+const VERSIONE_LETTURA = 3;   // 2 = si leggono anche le email di cancellazione; 3 = si ripassano le conferme vecchie per l'archivio dei link ad Airbnb
 
 // solo le conferme che arrivano a chi OSPITA ("Prenotazione confermata - Anna Rossi arriverà
 // il …"); non quelle dei viaggi fatti come ospite ("La tua prenotazione … è confermata"),

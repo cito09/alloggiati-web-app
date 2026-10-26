@@ -14,6 +14,9 @@
 // Con "email" attivo i nomi e il numero di ospiti arrivano dalle email di Airbnb (_airbnbEmail.js).
 //     prohost: { chiave, case:{listingId: idStruttura|"-"}, annunci:[…], esito } — con la chiave di
 //              ProhostAI (_prohost.js) arrivano tutte le prenotazioni con nome e ospiti (sorgente "prohost")
+//     archivio: { CODICE|uid: { s: idStruttura, f: fonte, a: arrivo, p: partenza, u: link } } — TUTTE le
+//              prenotazioni lette dai calendari, anche finite da tanto: il link alla prenotazione su
+//              Airbnb resta per sempre al soggiorno (le "prenotazioni" del calendario si fermano a 45 giorni)
 const crypto = require("crypto");
 const { redisCmd } = require("./_kv");
 const { leggiConfermeAirbnb, provaCasella, spiegaErroreGmail, VERSIONE_ARCHIVIO, destinazioni, filtriGmailXml } = require("./_airbnbEmail");
@@ -71,12 +74,13 @@ function leggiIcal(testo) {
 }
 const ggmmaaaa = (s) => `${s.slice(6, 8)}/${s.slice(4, 6)}/${s.slice(0, 4)}`;
 const giornoUtc = (s) => Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8));
+const aaaammgg = (d) => String(d || "").split("/").reverse().join("");
 
 // dagli eventi del calendario alle prenotazioni vere: via i blocchi ("Airbnb (Not
 // available)", date chiuse a mano), via le date sbagliate e quelle ormai lontane
-function prenotazioniDaEventi(eventi, { strutturaId, url, oggi = Date.now() }) {
+function prenotazioniDaEventi(eventi, { strutturaId, url, oggi = Date.now(), giorniPassati = 45 }) {
   const fonte = fonteDi(url), sorgente = sorgenteDi(url);
-  const limitePassato = oggi - 45 * 86400000;
+  const limitePassato = oggi - giorniPassati * 86400000;
   const out = [];
   for (const ev of eventi) {
     if (!/^\d{8}$/.test(ev.inizio || "") || !/^\d{8}$/.test(ev.fine || "")) continue;
@@ -127,8 +131,8 @@ async function leggiCalendari(conn) {
   try {
     const raw = await redisCmd(conn, ["GET", KEY]);
     const s = raw ? JSON.parse(raw) : {};
-    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {}, prohost: s.prohost || {} };
-  } catch { return { link: {}, prenotazioni: [], esiti: {}, aggiornato: 0, email: {}, prohost: {} }; }
+    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {}, prohost: s.prohost || {}, archivio: s.archivio || {} };
+  } catch { return { link: {}, prenotazioni: [], esiti: {}, aggiornato: 0, email: {}, prohost: {}, archivio: {} }; }
 }
 async function salvaCalendari(conn, stato) {
   await redisCmd(conn, ["SET", KEY, JSON.stringify(stato)]);
@@ -180,6 +184,9 @@ async function aggiornaEmail(email, conn) {
   delete e.stato;
   const conferme = { ...(e.conferme || {}) };
   const cancellate = { ...(e.cancellate || {}) };   // codice HM… → {ts, nome, arrivo, partenza}
+  // codici di TUTTE le conferme lette (le "conferme" si tolgono 120 giorni dopo la partenza): servono
+  // ad aprire su Airbnb anche i soggiorni vecchi, quelli che il calendario .ics non riporta più
+  const codici = { ...(e.codici || {}) };            // codice HM… → {a, p, n, ts}
   const risultati = await Promise.all(caselle.map(async (c) => {
     try {
       const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {},
@@ -190,7 +197,8 @@ async function aggiornaEmail(email, conn) {
   for (const x of risultati) {
     const prima = stati[x.c.utente] || {};
     if (x.ok) {
-      x.r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts, casella: x.c.utente }; });
+      x.r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts, casella: x.c.utente };
+        if (c.arrivo && c.partenza) codici[c.codice] = { a: c.arrivo, p: c.partenza, n: c.nome || "", ts: c.ts, casella: x.c.utente }; });
       (x.r.cancellate || []).forEach((c) => { if (!cancellate[c.codice] || cancellate[c.codice].ts < c.ts) cancellate[c.codice] = { ts: c.ts, casella: x.c.utente }; });
       // quante email sono finite in ogni cartella di archivio (in tutto, da quando è collegata)
       const tot = { ...(prima.cartelle || {}) };
@@ -220,6 +228,7 @@ async function aggiornaEmail(email, conn) {
   // prenotazione cancellata: il nome esce dall'archivio (resta solo nella voce della cancellazione,
   // per dire CHI ha cancellato). Una conferma arrivata DOPO la cancellazione vince (rifatta uguale).
   for (const [codice, c] of Object.entries(cancellate)) {
+    if (codici[codice] && !(codici[codice].ts > c.ts)) delete codici[codice];
     const conf = conferme[codice];
     if (conf && conf.ts > c.ts) { delete cancellate[codice]; continue; }
     if (conf) { cancellate[codice] = { ...c, nome: conf.nome, arrivo: conf.arrivo, partenza: conf.partenza, ospiti: conf.ospiti }; delete conferme[codice]; }
@@ -228,6 +237,9 @@ async function aggiornaEmail(email, conn) {
   e.caselle = stati;
   e.conferme = conferme;
   e.cancellate = cancellate;
+  const limiteCodici = Date.now() - 3 * 365 * 86400000;
+  for (const [k, v] of Object.entries(codici)) if (giornoUtc(aaaammgg(v.p)) < limiteCodici) delete codici[k];
+  e.codici = codici;
   const ko = risultati.filter((x) => !x.ok);
   e.esito = ko.length === risultati.length
     ? { ok: false, ts: Date.now(), errore: ko[0].errore }
@@ -253,6 +265,17 @@ async function aggiornaProhost(prohost) {
     return { prohost: ph, pren: null };
   }
 }
+// archivio dei link: una voce per prenotazione (per codice HM…, sennò per uid), mai cancellata
+// tranne dopo 3 anni. Si tiene solo cosa serve per riconoscere il soggiorno e aprirlo su Airbnb.
+function archivia(archivio, lista) {
+  for (const p of lista || []) {
+    if (!p || !/^https?:\/\//i.test(p.url || "") || !p.arrivo || !p.partenza) continue;
+    archivio[String(p.codice || p.uid).toUpperCase()] = { s: p.strutturaId || "", f: p.fonte || "Airbnb", a: p.arrivo, p: p.partenza, u: p.url };
+  }
+  const limite = Date.now() - 3 * 365 * 86400000;
+  for (const [k, v] of Object.entries(archivio)) if (giornoUtc(aaaammgg(v.p)) < limite) delete archivio[k];
+  return archivio;
+}
 const haFonti = (stato) => Object.values(stato.link || {}).some((l) => (l || []).length) || !!(stato.prohost && stato.prohost.chiave);
 
 // Rilegge tutti i link. Se un link non risponde, le prenotazioni lette l'ultima volta da
@@ -265,10 +288,14 @@ async function sincronizzaCalendari(conn, stato) {
   for (const [strutturaId, links] of Object.entries(stato.link || {})) {
     for (const url of links || []) lavori.push({ strutturaId, url, sorgente: sorgenteDi(url) });
   }
+  const archivio = { ...(stato.archivio || {}) };
   const risultati = await Promise.all(lavori.map(async (l) => {
     try {
-      const pren = prenotazioniDaEventi(leggiIcal(await scaricaCalendario(l.url)), l);
-      return { ...l, ok: true, pren };
+      // tutte quelle del file vanno nell'archivio dei link; nel calendario solo le recenti
+      const tutte = prenotazioniDaEventi(leggiIcal(await scaricaCalendario(l.url)), { ...l, giorniPassati: 3650 });
+      const limite = Date.now() - 45 * 86400000;
+      const pren = tutte.filter((p) => giornoUtc(aaaammgg(p.partenza)) >= limite);
+      return { ...l, ok: true, pren, tutte };
     } catch (e) { return { ...l, ok: false, errore: spiegaErrore(e) }; }
   }));
   const sorgentiAttive = new Set(lavori.map((l) => l.sorgente));
@@ -276,7 +303,7 @@ async function sincronizzaCalendari(conn, stato) {
   const prenotazioni = (stato.prenotazioni || []).filter((p) => sorgentiAttive.has(p.sorgente) && fallite.has(p.sorgente));
   const esiti = {};
   for (const r of risultati) {
-    if (r.ok) prenotazioni.push(...r.pren);
+    if (r.ok) { prenotazioni.push(...r.pren); archivia(archivio, r.tutte); }
     esiti[r.sorgente] = r.ok
       ? { ok: true, quante: r.pren.length, ts: Date.now(), strutturaId: r.strutturaId, fonte: fonteDi(r.url) }
       : { ok: false, errore: r.errore, ts: Date.now(), strutturaId: r.strutturaId, fonte: fonteDi(r.url),
@@ -285,7 +312,8 @@ async function sincronizzaCalendari(conn, stato) {
   const ph = await prohostInArrivo;
   // ProhostAI non ha risposto: restano le sue prenotazioni lette l'ultima volta
   prenotazioni.push(...(ph.pren || (stato.prenotazioni || []).filter((p) => p.sorgente === "prohost")));
-  const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost };
+  archivia(archivio, ph.pren || []);
+  const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost, archivio };
   await salvaCalendari(conn, nuovo);
   await avvisaCancellazioni(stato, nuovo);
   return nuovo;
@@ -309,6 +337,23 @@ function conNomi(prenotazioni, conferme) {
     return c ? { ...p, nome: c.nome || "", ospiti: c.ospiti || null } : p;
   });
 }
+// per il gestionale: tutti i link alle prenotazioni, anche dei soggiorni vecchi.
+// s = casa (dai calendari .ics); quelli dalle email non sanno la casa ma hanno il nome (n).
+function linkPrenotazioni(stato, canc) {
+  const out = [], visti = new Set();
+  for (const [k, v] of Object.entries(stato.archivio || {})) {
+    if (canc[k]) continue;
+    visti.add(k); out.push({ s: v.s, f: v.f, a: v.a, p: v.p, u: v.u });
+  }
+  const em = stato.email || {};
+  if (emailAccesa(em)) {
+    for (const [k, v] of Object.entries(em.codici || {})) {
+      if (visti.has(k) || canc[k] || !/^HM[A-Z0-9]+$/.test(k)) continue;
+      out.push({ s: "", f: "Airbnb", a: v.a, p: v.p, n: v.n || "", u: `https://www.airbnb.it/hosting/reservations/details/${k}` });
+    }
+  }
+  return out;
+}
 function vistaCalendari(stato) {
   const link = {};
   for (const [id, links] of Object.entries(stato.link || {})) {
@@ -320,7 +365,7 @@ function vistaCalendari(stato) {
   const canc = emailAccesa(em) ? (em.cancellate || {}) : {};
   const attive = (stato.prenotazioni || []).filter((p) => !(p.codice && canc[String(p.codice).toUpperCase()]));
   const prenotazioni = emailAccesa(em) ? conNomi(attive, em.conferme) : attive;
-  return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0,
+  return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0, linkPrenotazioni: linkPrenotazioni(stato, canc),
     email: { attivo: emailAccesa(em), configurato: caselleEmail(em).length > 0, casella: process.env.GMAIL_USER || "",
       esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,
       conNome: prenotazioni.filter((p) => p.nome).length,
@@ -456,6 +501,7 @@ async function azioneCalendariInTurno(conn, corpo) {
         extra.splice(i, 1);
         // via anche i nomi arrivati da quella casella
         em.conferme = Object.fromEntries(Object.entries(em.conferme || {}).filter(([, v]) => v.casella !== t));
+        em.codici = Object.fromEntries(Object.entries(em.codici || {}).filter(([, v]) => v.casella !== t));
         cambiati = true;
       }
     }

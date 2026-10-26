@@ -15716,7 +15716,11 @@ const maiuscola=t=>String(t||'').charAt(0).toUpperCase()+String(t||'').slice(1);
    prenotazioni (api/_calendari.js): qui arrivano con date, codice e ultime cifre del telefono,
    senza nome. Copia in questo telefono per vederle subito anche senza rete. */
 let prenotazioniEsterne=[], calendariConfig=null;
-try{ const c=JSON.parse(localStorage.getItem('calendari_cache')||'null'); if(c&&Array.isArray(c.prenotazioni))prenotazioniEsterne=c.prenotazioni; }catch(e){}
+// archivio dei link alle prenotazioni (anche dei soggiorni vecchi): [{s:casa, f:fonte, a:arrivo, p:partenza, u:link, n:nome}]
+let linkArchivio=[], linkArchivioDate=null;
+try{ const c=JSON.parse(localStorage.getItem('calendari_cache')||'null');
+  if(c&&Array.isArray(c.prenotazioni))prenotazioniEsterne=c.prenotazioni;
+  if(c&&Array.isArray(c.link))linkArchivio=c.link; }catch(e){}
 function nomeCasaDaId(id){ const s=struttureList.find(x=>x.id===id); return s?s.nome:(id||''); }
 function calendariCollegati(){ return !!calendariConfig&&(Object.values(calendariConfig.link||{}).some(l=>(l||[]).length)||!!(calendariConfig.prohost&&calendariConfig.prohost.collegato)); }
 async function caricaCalendariEsterni(opz={}){
@@ -15729,7 +15733,8 @@ async function caricaCalendariEsterni(opz={}){
     if(d.configurato===false){ calendariConfig={link:{}}; return; }
     calendariConfig={link:d.link||{}, aggiornato:d.aggiornato||0, email:d.email||{}, prohost:d.prohost||{}};
     prenotazioniEsterne=Array.isArray(d.prenotazioni)?d.prenotazioni:[];
-    try{ localStorage.setItem('calendari_cache',JSON.stringify({prenotazioni:prenotazioniEsterne})); }catch(e){}
+    if(Array.isArray(d.linkPrenotazioni)){ linkArchivio=d.linkPrenotazioni; linkArchivioDate=null; }
+    try{ localStorage.setItem('calendari_cache',JSON.stringify({prenotazioni:prenotazioniEsterne, link:linkArchivio})); }catch(e){}
     aggiornaOggi();
     if(opz.campi)renderCalendariCampi(); else renderCalendariEsiti();
     renderCalendariEmail();
@@ -16022,7 +16027,33 @@ function soggiorniHome(){
       colore:strutturaInfo(casa).colore, registrato:false, esterna:true, fonte:p.fonte||'Airbnb',
       uid:p.uid, url:p.url||'', telefono4:p.telefono4||'', codice:p.codice||'', strutturaId:p.strutturaId});
   });
+  linkDaArchivio(out);
   return out;
+}
+// i soggiorni che non hanno trovato la loro prenotazione nel calendario di adesso (finiti da più
+// di 45 giorni) la cercano nell'archivio dei link: quelli dei calendari per casa e date che si
+// accavallano, quelli delle email di conferma (senza casa) per giorno d'arrivo + nome o date uguali
+function linkDaArchivio(out){
+  if(!linkArchivio.length)return;
+  if(!linkArchivioDate)linkArchivioDate=linkArchivio.map(l=>({l, arr:parseIt(l.a), par:parseIt(l.p), parole:parole(l.n)}))
+    .filter(x=>x.arr&&x.par&&/^https?:\/\//i.test(x.l.u||''));
+  // la casa si ricava a ogni giro: l'elenco delle strutture può arrivare dopo l'archivio
+  const caseId={}, casaDi=v=>v.l.s?(caseId[v.l.s]||(caseId[v.l.s]=nomeStrutturaCanonico(nomeCasaDaId(v.l.s)))):'';
+  out.forEach(x=>{
+    if(x.esterna||x.urlEst||!x.arrivo)return;
+    const casaX=x.struttura?nomeStrutturaCanonico(x.struttura):'';
+    const fineX=x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1);
+    let t=linkArchivioDate.find(v=>v.l.s&&(!casaX||casaDi(v)===casaX)&&v.arr<fineX&&v.par>x.arrivo);
+    if(!t){
+      const k=dataKey(x.arrivo);
+      const stesso=linkArchivioDate.filter(v=>!v.l.s&&dataKey(v.arr)===k);
+      const nomeX=parole(x.nome);
+      t=stesso.find(v=>v.parole.some(w=>nomeX.includes(w)))
+        ||(stesso.length===1&&x.partenza&&dataKey(stesso[0].par)===dataKey(x.partenza)?stesso[0]:null);
+    }
+    if(t){ x.urlEst=t.l.u; x.fonteEst=t.l.f||'Airbnb'; }
+  });
+  function parole(n){ return String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().split(/[^A-Z]+/).filter(w=>w.length>=3); }
 }
 // eventi giorno per giorno: prima le partenze, poi gli arrivi (come si fa in casa)
 function eventiCalendario(){
