@@ -460,6 +460,34 @@
   #allarmeDaFare .sirena{font-size:40px; text-align:center; animation:urgenzaLampo 1.2s ease-in-out infinite}
   #allarmeDaFare h3{margin:4px 0 2px; text-align:center; font-size:20px; font-weight:800; color:var(--err)}
   #allarmeDaFare .sotto{text-align:center; color:var(--muted); font-size:13px; margin-bottom:12px}
+  /* sommario della prenotazione in sovrimpressione (tocco su un soggiorno del calendario), stile Airbnb */
+  #sommarioPren{position:fixed; inset:0; z-index:790; display:none; align-items:flex-end; justify-content:center;
+    background:rgba(0,0,0,.6); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px)}
+  #sommarioPren.open{display:flex}
+  #sommarioPren .box{position:relative; width:100%; max-width:520px; max-height:88vh; overflow-y:auto; background:var(--surface);
+    border-radius:26px 26px 0 0; padding:22px 18px calc(18px + env(safe-area-inset-bottom)); animation:allarmeSu .22s ease-out}
+  @media (min-width:700px){ #sommarioPren{align-items:center} #sommarioPren .box{border-radius:26px} }
+  #sommarioPren .som-x{position:absolute; top:12px; right:12px; width:36px; height:36px; border-radius:50%; border:0;
+    background:var(--surface2,#26262b); color:var(--ink); font-size:16px; cursor:pointer}
+  .som-avatar{position:relative; width:96px; height:96px; margin:4px auto 12px}
+  .som-avatar .av{width:96px; height:96px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:40px; font-weight:800; color:#0a0a0c}
+  .som-avatar .av.piu{position:absolute; width:44px; height:44px; top:-6px; right:-26px; font-size:15px;
+    background:#3a3a40; color:var(--ink); border:3px solid var(--surface)}
+  .som-tit{margin:0; text-align:center; font-size:23px; line-height:1.2; font-weight:800; letter-spacing:-.01em}
+  .som-sotto{text-align:center; color:var(--muted); font-size:14.5px; font-weight:600; margin-top:6px}
+  .som-casa{display:flex; align-items:center; justify-content:center; gap:7px; color:var(--muted); font-size:13.5px; margin-top:3px}
+  .som-casa .pallo{width:9px; height:9px; border-radius:50%}
+  .som-card{background:var(--bg,#0a0a0c); border-radius:20px; margin-top:16px; padding:4px 16px}
+  .som-io{display:flex; padding:12px 0; border-bottom:1px solid var(--line)}
+  .som-io>div{flex:1; display:flex; flex-direction:column; gap:2px; font-size:13.5px}
+  .som-io>div b{font-size:14.5px}
+  .som-io .sep{flex:0 0 1px; background:var(--line); margin:0 12px}
+  .som-riga{display:flex; gap:12px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); font-size:13.5px; line-height:1.4}
+  .som-riga:last-child{border-bottom:0}
+  .som-riga .ic{flex:0 0 26px; text-align:center; font-size:17px}
+  .som-az{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+  .som-az .btn{flex:1 1 140px; width:auto}
   /* Home → Recensioni: una riga per ospite partito, due pulsanti che copiano il testo */
   .rec-riga{padding:10px 0; border-bottom:1px solid var(--line)}
   .rec-riga:last-child{border-bottom:none; padding-bottom:2px}
@@ -889,7 +917,6 @@ function doGet() {
     <div class="card" id="oggiScadenzeCard" style="display:none">
       <h2><span class="n">⏰</span> Scadenze</h2>
       <div class="scad-riga" id="oggiRossCoda" style="display:none" onclick="apriPagina('rossOverlay')"></div>
-      <div class="scad-riga" id="oggiRoss" style="display:none" onclick="apriPagina('rossOverlay')"></div>
       <div class="scad-riga" id="oggiGeis" style="display:none" onclick="apriGeis()"></div>
     </div>
     <div class="card" id="oggiAzioniCard">
@@ -1022,6 +1049,13 @@ function doGet() {
     <div class="sotto">La Questura va avvisata <b>entro 24 ore</b> dall'arrivo.</div>
     <div id="allarmeLista"></div>
     <button class="btn ghost" style="margin-top:12px" onclick="chiudiAllarmeDaFare()">Più tardi</button>
+  </div>
+</div>
+
+<div id="sommarioPren" role="dialog" aria-modal="true" aria-labelledby="sommarioTitolo" onclick="if(event.target===this)chiudiSommario()">
+  <div class="box">
+    <button class="som-x" onclick="chiudiSommario()" aria-label="Chiudi">✕</button>
+    <div id="sommarioBody"></div>
   </div>
 </div>
 
@@ -15027,6 +15061,8 @@ function keyflowBack(){
   // 0) avviso dei check-in in scadenza
   const al=document.getElementById('allarmeDaFare');
   if(al&&al.classList.contains('open')){ chiudiAllarmeDaFare(); return true; }
+  const som=document.getElementById('sommarioPren');
+  if(som&&som.classList.contains('open')){ chiudiSommario(); return true; }
   // 1) lightbox foto aperta
   const lb=document.getElementById('fotoLightbox');
   if(lb&&getComputedStyle(lb).display!=='none'){ if(typeof chiudiFoto==='function')chiudiFoto(); else {lb.style.display='none';document.body.style.overflow='';} return true; }
@@ -15304,23 +15340,8 @@ function aggiornaOggi(){
       <span class="muted" style="text-align:right">${ultimoTxt}</span>
     </div>`;
   if(typeof renderSintesi==='function')renderSintesi();
-  // scadenze: una riga per Ross1000 (file dei flussi entro il 5) e una per il GEIS
-  const rw=$('#oggiRoss');
-  const haRoss=struttureList.some(s=>s.ross);
-  if(rw){
-    rw.style.display=haRoss?'':'none';
-    if(haRoss){
-      const oggi=new Date(); const giorno=oggi.getDate();
-      const meseIt=d=>d.toLocaleDateString('it-IT',{month:'long'});
-      const mesePrec=meseIt(new Date(oggi.getFullYear(),oggi.getMonth()-1,1));
-      const urgente=giorno<=5; const mancano=5-giorno;
-      rw.innerHTML=`<span class="ico">📅</span>
-        <span class="txt"><b>Ross1000 · flussi di ${escText(urgente?mesePrec:meseIt(oggi))}</b><br>
-          <span class="muted">${urgente?'Da completare entro il 5. Ogni invio ufficiale li trasmette già; quelli mancanti sono in ⚙️ Impostazioni → Ross1000 → Arretrati'
-            :'Prossima scadenza: 5 '+escText(meseIt(new Date(oggi.getFullYear(),oggi.getMonth()+1,1)))+'. Ogni invio ufficiale lo trasmette già.'}</span></span>
-        ${urgente?`<span class="pill ${mancano<=1?'err':'wait'}" style="flex:0 0 auto">${mancano===0?'oggi':'fra '+mancano+' g'}</span>`:''}`;
-    }
-  }
+  // scadenze: il GEIS e, solo se qualcosa è rimasto indietro, Ross1000 in coda. La riga fissa
+  // "Ross1000 · flussi del mese" non c'è più (ottobre 2026, l'utente: "è inutile, è tutto automatico")
   if(typeof geisAvvisoHome==='function')geisAvvisoHome();
   aggiornaRossCodaUI();
   aggiornaScadenze();
@@ -15328,7 +15349,7 @@ function aggiornaOggi(){
 // la scheda "Scadenze" si vede solo se almeno una riga ha qualcosa da dire
 function aggiornaScadenze(){
   const card=$('#oggiScadenzeCard'); if(!card)return;
-  const righe=['#oggiRossCoda','#oggiRoss','#oggiGeis'].map(id=>$(id)).filter(el=>el&&el.style.display!=='none');
+  const righe=['#oggiRossCoda','#oggiGeis'].map(id=>$(id)).filter(el=>el&&el.style.display!=='none');
   card.style.display=righe.length?'':'none';
 }
 
@@ -16112,15 +16133,103 @@ function nomeProprio(n){
 }
 // dove porta il tocco su un nome: già registrato -> la sua voce nell'Archivio,
 // ancora in attesa -> la scheda del check-in, da cui si registra
-const calApriAttr=e=>e.esterna?`onclick="calApriEsterna('${encodeURIComponent(e.uid||'').replace(/'/g,'%27')}')"`
-  :e.registrato?`onclick="calApriRegistrato(${e.ts||0})"`:`onclick="calApriInAttesa('${e.id||''}')"`;
-// prenotazione presa dal calendario di Airbnb: si apre la prenotazione sul sito di Airbnb
-// (lì ci sono nome e messaggi); se il portale non dà il link, si spiega cos'è
-function calApriEsterna(uidEnc){
-  const p=prenotazioniEsterne.find(x=>x.uid===decodeURIComponent(uidEnc||''));
-  if(p&&p.url){ window.open(p.url,'_blank','noopener'); return; }
-  toast(`Prenotazione ${p?p.fonte:'dal calendario'}: il check-in online non è ancora stato fatto`);
+// (ottobre 2026) il tocco apre il sommario della prenotazione sopra il calendario, stile Airbnb;
+// da lì si va alla scheda completa, ad Airbnb, alla registrazione
+const calChiave=e=>e.esterna?'e:'+encodeURIComponent(e.uid||'').replace(/'/g,'%27'):e.registrato?'r:'+(e.ts||0):'p:'+(e.id||'');
+const calApriAttr=e=>`onclick="apriSommario('${calChiave(e)}')"`;
+/* ===== Sommario della prenotazione (ottobre 2026, l'utente: "vorrei che mi si aprisse un sommario
+   della prenotazione come stile Airbnb, in sovrimpressione sul calendario, per vedere subito").
+   Chi, quanti, quando, in che casa e a che punto è (check-in online, Questura, contratto).
+   Niente codici d'accesso. ===== */
+const maiuscoleIniziali=t=>String(t||'').trim().toLowerCase().replace(/(^|[\s\-'’])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
+function somQuando(d){
+  if(!d)return '';
+  const oggi0=new Date(); oggi0.setHours(0,0,0,0);
+  const g=Math.round((new Date(d.getFullYear(),d.getMonth(),d.getDate())-oggi0)/864e5);
+  return g===0?'oggi':g===1?'domani':g===-1?'ieri':g>1?`fra ${g} giorni`:`${-g} giorni fa`;
 }
+function somGiorno(d){ return d?d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}).replace(/\./g,''):'—'; }
+function somPeriodo(a,p){
+  const m=d=>d.toLocaleDateString('it-IT',{month:'short'}).replace(/\./g,'');
+  const anno=d=>d.getFullYear()!==new Date().getFullYear()?' '+d.getFullYear():'';
+  if(!p)return `${a.getDate()} ${m(a)}${anno(a)}`;
+  const notti=Math.round((new Date(p.getFullYear(),p.getMonth(),p.getDate())-new Date(a.getFullYear(),a.getMonth(),a.getDate()))/864e5);
+  const date=a.getMonth()===p.getMonth()&&a.getFullYear()===p.getFullYear()
+    ?`${a.getDate()}–${p.getDate()} ${m(p)}${anno(p)}`:`${a.getDate()} ${m(a)}${anno(a)} – ${p.getDate()} ${m(p)}${anno(p)}`;
+  return `${date} · ${notti} nott${notti===1?'e':'i'}`;
+}
+function apriSommario(chiave){
+  chiave=decodeURIComponent(chiave||'');
+  const tipo=chiave.slice(0,1), val=chiave.slice(2);
+  const s=soggiorniHome().find(x=>tipo==='e'?x.esterna&&x.uid===val:tipo==='r'?x.registrato&&String(x.ts)===val:!x.registrato&&!x.esterna&&x.id===val);
+  if(!s){ toast('Questa prenotazione non c\'è più'); return; }
+  const e=tipo==='r'?storico.find(x=>String(x.ts)===val):null;
+  const v=tipo==='p'?checkinPending.find(x=>x.id===val):null;
+  // i nomi di tutti gli ospiti, scritti bene ("Roberto Abbado")
+  let nomi=[];
+  if(e)nomi=(e.records||[]).filter(r=>r&&r.length===168).map(r=>maiuscoleIniziali(r.slice(64,94)+' '+r.slice(14,64)));
+  else if(v)nomi=(v.ospiti||[]).map(o=>maiuscoleIniziali([o.nome,o.cognome].filter(Boolean).join(' '))).filter(Boolean);
+  else if(s.nome&&!/^Prenotazione /.test(s.nome))nomi=[maiuscoleIniziali(s.nome)];
+  const n=s.ospiti||nomi.length||0;
+  const breve=s.nomeBreve||(nomi[0]||'').split(' ')[0]||'';
+  const titolo=!breve?`Prenotazione ${escText(s.fonte||'Airbnb')}`
+    :n>1?`Gruppo di ${escText(breve)} composto da ${n} persone`:escText(nomi[0]||breve);
+  const url=s.esterna?s.url:s.urlEst, fonte=s.esterna?s.fonte:s.fonteEst;
+  const righe=[];
+  const riga=(ic,html)=>righe.push(`<div class="som-riga"><span class="ic">${ic}</span><span style="flex:1;min-width:0">${html}</span></div>`);
+  const gm=ts=>new Date(ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
+  if(e){
+    riga(e.tipo==='inviata'?'✅':'📄',e.tipo==='inviata'?`<b>Registrato in Questura</b> il ${gm(e.ts)}`:`<b>Schedine scaricate</b> (.txt) il ${gm(e.ts)}`);
+    if(e.rossOk)riga('📊','Ross1000 inviato');
+    else if(typeof rossInSospeso==='function'&&rossInSospeso(e))riga('🔁','Ross1000 in coda: si rimanda da solo');
+    const mod=e.modificato||e.partenzaCorretta; if(mod)riga('✏️',`Modificato il ${gm(mod.ts)}`);
+  }else if(v){
+    const urg=urgenzaArrivo(giorniAllArrivo(v.arrivo));
+    riga('🪪',`<b>Check-in online fatto</b> il ${gm(v.ts)} · ${v.presa?'in registrazione, da inviare':'da registrare in Questura'}`
+      +(urg?`<br><span style="color:var(--err);font-weight:800">${escText(urg.testo)}</span>`:''));
+    if(v.contrattoRichiesto)riga('📝',v.contrattoInviato?'Contratto firmato':'<span style="color:var(--err)">Contratto non inviato</span>');
+    if(v.deVisu)riga('🤳',v.deVisu.esito==='verificata'?'Identità verificata col selfie':v.deVisu.esito==='non_corrispondente'?'<span style="color:var(--err)">Selfie da ricontrollare</span>':'Selfie allegato');
+    if(v.modificato)riga('✏️',`Modificato da te il ${gm(v.modificato.ts)}`);
+  }else{
+    riga('⏳',`<b>Check-in online non ancora fatto</b><br><span class="muted">Prenotazione letta dal calendario di ${escText(s.fonte||'Airbnb')}</span>`);
+    if(s.telefono4)riga('📞',`Telefono che finisce con <b>${escText(s.telefono4)}</b>`);
+  }
+  if(nomi.length)riga('👥',nomi.map(escText).join('<br>'));
+  else if(n)riga('👥',`${n} ospit${n===1?'e':'i'}`);
+  const az=[];
+  if(url)az.push(bottonePortale({url,fonte},'padding:11px 14px;font-size:13.5px'));
+  if(s.esterna){
+    const link=(window.linkCheckinPerStruttura||{})[s.strutturaId];
+    if(link)az.push(`<button class="btn ghost" id="somCopia" data-resta="1" onclick="copiaLinkCheckin('${link}','somCopia')">📋 Copia il link del check-in</button>`);
+  }
+  if(v)az.push(pendingAzione(v,'flex:1 1 140px;padding:11px 14px;font-size:13.5px'));
+  if(e||v)az.push(`<button class="btn ghost" onclick="apriModifica('${e?'reg':'pend'}',${e?e.ts:`'${v.id}'`})">✏️ Modifica</button>`);
+  if(e)az.push(`<button class="btn ghost" onclick="calApriRegistrato(${e.ts})">🗂️ Apri nell'Archivio</button>`);
+  if(v)az.push(`<button class="btn ghost" onclick="apriDettaglioCheckin('${v.id}')">🪪 Documenti e dettagli</button>`);
+  const body=$('#sommarioBody'); if(!body)return;
+  body.innerHTML=`
+    <div class="som-avatar"><span class="av" style="background:${s.colore}${breve?'':';font-size:44px'}">${breve?escText(breve.charAt(0).toUpperCase()):'👤'}</span>
+      ${n>1?`<span class="av piu">+${n-1}</span>`:''}</div>
+    <h3 class="som-tit" id="sommarioTitolo">${titolo}</h3>
+    <div class="som-sotto">${escText(somPeriodo(s.arrivo,s.partenza))}</div>
+    <div class="som-casa"><span class="pallo" style="background:${s.colore}"></span>${escText(s.struttura||'')}</div>
+    <div class="som-card">
+      <div class="som-io">
+        <div><b>Check-in</b><span>${escText(somGiorno(s.arrivo))}</span><span class="muted">${escText(somQuando(s.arrivo))}</span></div>
+        <span class="sep"></span>
+        <div style="text-align:right"><b>Check-out</b><span>${escText(somGiorno(s.partenza))}</span><span class="muted">${escText(somQuando(s.partenza))}</span></div>
+      </div>
+      ${righe.join('')}
+    </div>
+    <div class="som-az">${az.join('')}</div>`;
+  const box=$('#sommarioPren'); box.classList.add('open'); box.querySelector('.box').scrollTop=0;
+}
+function chiudiSommario(){ const b=$('#sommarioPren'); if(b)b.classList.remove('open'); }
+// un pulsante del sommario fa la sua cosa e chiude il sommario (tranne "Copia", che resta lì per dire "Copiato")
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('#sommarioPren .som-az button');
+  if(b&&!b.dataset.resta)setTimeout(chiudiSommario,0);
+},true);
 // soggiorno già registrato o in attesa che nel calendario di Airbnb ha la sua prenotazione:
 // pulsante per aprirla (sul telefono si apre l'app di Airbnb, se c'è)
 function linkPortale(tipo,chiave){
@@ -16194,13 +16303,6 @@ function calApriRegistrato(ts){
     el.scrollIntoView({behavior:'smooth',block:'center'});
     el.classList.add('evidenzia'); setTimeout(()=>el.classList.remove('evidenzia'),2300);
   },80);
-}
-// tocco sul nome di chi NON è ancora registrato: apre la scheda del check-in in attesa
-// (foto, documenti, dati) con dentro il pulsante per aggiungerlo alla prenotazione
-function calApriInAttesa(id){
-  if(id&&checkinPending.some(v=>v.id===id)){ apriDettaglioCheckin(id); return; }
-  toast('Questo check-in non è più in attesa');
-  mostraTab('ospiti');
 }
 // sotto al calendario: il giorno scelto, oppure l'agenda dei prossimi giorni
 function calDettaglio(ev,filtro){
@@ -16743,13 +16845,13 @@ function geisAvvisoHome(){
       ?(da.giorni===0?'oggi':'fra '+da.giorni+' g')
       :('+'+(-da.giorni)+' g');
     w.innerHTML=`<span class="ico">🏛️</span>
-      <span class="txt"><b>Imposta di soggiorno · ${da.titolo}</b><br>
+      <span class="txt"><b>GEIS · ${da.titolo}</b><br>
         <span class="muted">${escText(da.mesiNomi)} · ${da.giorni>=0?'entro il '+da.scadenzaIt:'era entro il '+da.scadenzaIt}</span></span>
       <span class="pill ${da.stato==='in-ritardo'||da.giorni<=3?'err':'wait'}" style="flex:0 0 auto">${quando}</span>`;
   }else{
     const pross=geisLista().find(t=>t.stato==='in-corso')||geisLista()[0];
     w.innerHTML=`<span class="ico">🏛️</span>
-      <span class="txt"><b>Imposta di soggiorno · a posto</b><br>
+      <span class="txt"><b>GEIS · a posto</b><br>
         <span class="muted">Prossima: ${pross.scadenzaIt} per il ${pross.titolo}</span></span>
       <span class="pill ok" style="flex:0 0 auto">✓</span>`;
   }
