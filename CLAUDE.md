@@ -98,4 +98,6 @@ Produzione: **https://keyflowcheckin.vercel.app** (Vercel, piano Hobby). Repo: `
 
 ## Idee discusse ma NON ancora fatte
 
+- **Instinct** (assistente AI a cui si scrive su WhatsApp, app.instinct.com; 27/10/2026): l'utente voleva che scrivesse lui nel gruppo WhatsApp delle pulizie. Instinct stesso ha risposto che su WhatsApp NON si può aggiungere ai gruppi (i gruppi sono solo su iMessage, in rilascio graduale) e l'utente è ancora in lista d'attesa. Se un giorno potrà: idea pronta (scritta e poi tolta perché inutile) = link segreto col SOLO testo delle pulizie (GET `/api/promemoria?pulizie=<codice>`, codice in KV, "Cambia link" dal gestionale) che l'assistente apre ogni mattina e manda al gruppo. MAI collegargli le caselle Gmail delle case (dati degli ospiti; TechCrunch ha segnalato problemi di privacy, e di base usa i dati per addestrare la sua AI).
+
 - Versione "installabile per altri host" (ognuno col proprio account Vercel/KV/Blob → dati e responsabilità restano al cliente; ~1-2 settimane: rendere configurabili strutture/testi + guida installazione). È la strada scelta come primo passo per un'eventuale vendita, invece del SaaS multi-utente (3-5 mesi) o dell'app desktop (perderebbe il self check-in).
