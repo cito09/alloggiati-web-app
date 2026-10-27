@@ -7,7 +7,7 @@ Tabelle ufficiali (11.284 comuni, 236 stati, 95 tipi documento) già incorporate
 ## Come funziona
 
 1. **Frontend** (`public/index.html`): interfaccia, costruzione delle schedine e validazione 168 char — tutto lato client.
-2. **`/api/extract`**: lettura con Claude (modello **Sonnet 5**, più preciso) di screenshot prenotazione e foto documenti. La chiave API resta lato server.
+2. **`/api/extract`**: lettura con Claude (modello **Sonnet 5.5**, più preciso; se non risponde riprova con Sonnet 5) di screenshot prenotazione e foto documenti. La chiave API resta lato server.
 3. **`/api/send`**: `GenerateToken` → `Test` (verifica) o `Send` (invio) verso `Service.asmx`. Credenziali Alloggiati solo lato server.
 4. **`/api/ricevuta`**: scarica la ricevuta PDF firmata.
 5. **`public/checkin.html`**: pagina pubblica di self check-in (link fisso da mandare agli ospiti, es. via messaggio automatico Airbnb). L'ospite carica il documento o compila a mano; i dati finiscono in una coda di verifica, **mai** inviati automaticamente alla Questura.
@@ -23,9 +23,9 @@ Le credenziali non passano MAI dal browser: stanno nelle variabili d'ambiente di
 
 ### Lettura documenti
 
-Ogni foto (documento o screenshot prenotazione) passa dall'AI (modello Sonnet 5). In passato l'app provava prima una lettura gratuita via MRZ (Tesseract.js nel browser), poi è passata al modello Haiku 4.5 economico, ma su nomi/date composti o documenti meno nitidi serviva più precisione — quindi ora si usa Sonnet 5.
+Ogni foto (documento o screenshot prenotazione) passa dall'AI (modello Sonnet 5.5, dal 27/10/2026; prima Sonnet 5). In passato l'app provava prima una lettura gratuita via MRZ (Tesseract.js nel browser), poi è passata al modello Haiku 4.5 economico, ma su nomi/date composti o documenti meno nitidi serviva più precisione — quindi si è passati a Sonnet 5, e poi a Sonnet 5.5 (stesso prezzo).
 
-**Costi AI (modello Sonnet 5):** circa il doppio del precedente Haiku 4.5 a parità di immagine (~$0,01 per foto invece di ~$0,005). Su ~60 ospiti/mese, sotto 1€/mese totale. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio.
+**Costi AI (modello Sonnet 5.5, stesso prezzo di Sonnet 5):** circa il doppio del precedente Haiku 4.5 a parità di immagine (~$0,01 per foto invece di ~$0,005). Su ~60 ospiti/mese, sotto 1€/mese totale. Vercel resta nel piano gratuito. Volendo, puoi anche compilare a mano: l'app fa comunque codici, validazione 168 e invio.
 
 ## Deploy su Vercel
 

@@ -61,6 +61,12 @@ async function toBlock(d) {
   return { type: "image", source: { type: "base64", media_type: media, data } };
 }
 
+// Modello per leggere documenti e prenotazioni. 27/10/2026, scelto dall'utente: Sonnet 5.5, stesso
+// prezzo di Sonnet 5 ($2 / $10 per milione di token). Se rifiuta o non risponde si riprova UNA volta col
+// modello di prima, così la lettura dei documenti (anche nel check-in degli ospiti) non si blocca mai.
+const MODELLO = "claude-sonnet-5-5";
+const MODELLO_RISERVA = "claude-sonnet-5";
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   const key = process.env.ANTHROPIC_API_KEY;
@@ -80,20 +86,32 @@ module.exports = async (req, res) => {
     const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi, !!testo) : PROMPT_DOC;
     content.push({ type: "text", text: prompt });
 
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
-      // max_tokens alto: con più documenti/ospiti in una volta la risposta JSON è lunga;
-      // se il limite è troppo basso viene troncata a metà e non è più leggibile
-      // (dava "Unexpected end of JSON input").
-      body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 8000, messages: [{ role: "user", content }] }),
-    });
-    const data = await r.json();
+    const chiedi = async (model) => {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+        },
+        // max_tokens alto: con più documenti/ospiti in una volta la risposta JSON è lunga;
+        // se il limite è troppo basso viene troncata a metà e non è più leggibile
+        // (dava "Unexpected end of JSON input").
+        body: JSON.stringify({ model, max_tokens: 8000, messages: [{ role: "user", content }] }),
+      });
+      return { r, data: await r.json().catch(() => ({})), model };
+    };
+    let x = await chiedi(MODELLO);
+    if (!x.r.ok || x.data.stop_reason === "refusal") {
+      console.log("lettura ai: riprovo col modello di riserva", JSON.stringify({ modello: MODELLO, stato: x.r.status, stop: x.data.stop_reason || null }));
+      x = await chiedi(MODELLO_RISERVA);
+    }
+    const { r, data } = x;
     if (!r.ok) return res.status(502).json({ error: data?.error?.message || "Errore API" });
+    // quanto consuma ogni lettura (si legge nei registri di Vercel): token e costo stimato in dollari
+    const u = data.usage || {};
+    console.log("lettura ai", JSON.stringify({ modello: x.model, kind, immagini: images.length, entrata: u.input_tokens, uscita: u.output_tokens,
+      dollari: +(((u.input_tokens || 0) * 2 + (u.output_tokens || 0) * 10) / 1e6).toFixed(4) }));
     const replyText = (data.content || []).filter((i) => i.type === "text").map((i) => i.text).join("\n");
     let json;
     try {
