@@ -590,4 +590,4 @@ async function azioneCalendariInTurno(conn, corpo) {
   return vista;
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, azioneCalendari, conNomi, haFonti, conTurno };
+module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, vistaCalendari, azioneCalendari, conNomi, haFonti, conTurno };

@@ -498,6 +498,12 @@
   .som-az{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
   .som-az .btn{flex:1 1 140px; width:auto}
   /* Home → Recensioni: una riga per ospite partito, due pulsanti che copiano il testo */
+  .pul-giorno{padding:6px 0 12px; border-bottom:1px solid var(--line)}
+  .pul-giorno:last-child{border-bottom:none; padding-bottom:2px}
+  .pul-testa{font-size:13.5px; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline}
+  .pul-testo{white-space:pre-line; font-size:12.5px; line-height:1.5; background:var(--surface2); border-radius:14px; padding:10px 12px; margin-top:8px}
+  .pul-az{display:flex; gap:8px; margin-top:10px}
+  .pul-az .btn{flex:1; width:auto; text-align:center; text-decoration:none}
   .rec-riga{padding:10px 0; border-bottom:1px solid var(--line)}
   .rec-riga:last-child{border-bottom:none; padding-bottom:2px}
   .rec-riga.fatta{opacity:.55}
@@ -918,6 +924,10 @@ function doGet() {
     <div class="card" id="oggiTodoCard">
       <h2><span class="n">📌</span> Da fare <span id="oggiTodoBadge" class="pill err" style="display:none"></span></h2>
       <div id="oggiTodo"><div class="muted" style="font-size:13px">…</div></div>
+    </div>
+    <div class="card" id="oggiPulizieCard" style="display:none">
+      <h2><span class="n">🧹</span> Pulizie</h2>
+      <div id="oggiPulizie"></div>
     </div>
     <div class="card" id="oggiRecensioniCard" style="display:none">
       <h2><span class="n">⭐</span> Recensioni <span id="oggiRecBadge" class="pill wait" style="display:none"></span></h2>
@@ -15110,7 +15120,7 @@ document.addEventListener('visibilitychange',()=>{
   riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
   allarmeGiaVisto=false;                    // check-in in scadenza: l'avviso si rivede al rientro
-  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); caricaCalendariEsterni(); }catch(e){}
+  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); caricaCalendariEsterni(); caricaPulizie(); }catch(e){}
   if(registrazioneAMeta()){ aggiornaOggi(); return; }
   tornaAllaHome();
 });
@@ -15748,6 +15758,48 @@ function recCopia(ke,campo){
     if(ok)fatto(); else aMano();
   };
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(testo).then(fatto).catch(riserva);
+  else riserva();
+}
+/* ===== Home → 🧹 Pulizie (ottobre 2026, l'utente: "un reminder automatico: tutti i giorni che c'è
+   una pulizia un messaggio tipo 'ricordo che oggi c'è la pulizia per 5 ospiti', da girare al gruppo
+   WhatsApp delle pulizie"). Un bot dentro un gruppo WhatsApp non si può avere gratis e nelle regole:
+   il testo lo prepara il server (api/_pulizie.js, azione "pulizie"), uguale a quello della notifica
+   del mattino, e da qui si manda al gruppo con "Manda su WhatsApp" (link wa.me col testo già
+   scritto: si sceglie il gruppo e si invia) oppure si copia. Oggi e domani, solo se c'è qualcosa. ===== */
+let pulizie=(()=>{ try{ return JSON.parse(localStorage.getItem('pulizie_cache')||'null')||[]; }catch(e){ return []; } })();
+async function caricaPulizie(){
+  renderPulizie();
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'pulizie'})});
+    const d=await r.json(); if(!r.ok||!Array.isArray(d.giorni))return;
+    pulizie=d.giorni; try{ localStorage.setItem('pulizie_cache',JSON.stringify(pulizie)); }catch(e){}
+  }catch(e){ /* senza rete resta quello di prima */ }
+  renderPulizie();
+}
+function renderPulizie(){
+  const card=$('#oggiPulizieCard'), w=$('#oggiPulizie'); if(!card||!w)return;
+  const oggi=dataKey(new Date());
+  const giorni=pulizie.filter(g=>g&&g.giorno>=oggi&&g.testo);   // quelle di ieri non valgono più
+  card.style.display=giorni.length?'':'none';
+  w.innerHTML=giorni.map(g=>`<div class="pul-giorno">
+      <div class="pul-testa"><b>${g.giorno===oggi?'Oggi':'Domani'}</b>
+        <span class="muted">${(g.pulizie||[]).map(p=>`<span style="color:${strutturaInfo(p.nome).colore}">●</span> ${escText(p.nome)}`).join(' · ')}</span></div>
+      <div class="pul-testo">${escText(g.testo).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>
+      <div class="pul-az"><a class="btn primary sm" href="${escText(g.whatsapp)}" target="_blank" rel="noopener">📲 Manda su WhatsApp</a>
+        <button class="btn ghost sm" onclick="copiaPulizie('${g.giorno}')">📋 Copia</button></div></div>`).join('');
+}
+function copiaPulizie(giorno){
+  const g=pulizie.find(x=>x.giorno===giorno); if(!g)return;
+  const fatto=()=>toast('🧹 Messaggio copiato: incollalo nel gruppo delle pulizie');
+  const riserva=()=>{
+    const ta=document.createElement('textarea'); ta.value=g.testo; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+    if(ok)fatto(); else toast('Copia non riuscita: tieni premuto sul testo per copiarlo');
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(g.testo).then(fatto).catch(riserva);
   else riserva();
 }
 function recFatto(ke){
@@ -17281,6 +17333,7 @@ function apriCard(id){
   caricaRicevuteFatte();
   caricaRecensioniStato();   // Home → Recensioni: cosa è già copiato/fatto (uguale su tutti i dispositivi)
   caricaOrariCase();         // orari di check-in/check-out delle case, per il riepilogo della prenotazione
+  caricaPulizie();           // Home → 🧹 Pulizie di oggi e domani, col messaggio per il gruppo WhatsApp
   caricaIstatConfig();
   isRenderStorico();
   isWireDrop();

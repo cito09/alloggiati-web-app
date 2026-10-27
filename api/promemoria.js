@@ -9,6 +9,8 @@
 //        2) EMAIL "🚨 da registrare" (api/_promemoriaEmail.js) se qualcuno è arrivato IERI o
 //           prima e non è ancora registrato: ogni mattina finché non è fatto, anche senza ntfy
 //        3) è il giorno 3 del mese e c'è almeno una struttura Ross1000 (file da caricare entro il 5)
+//        4) oggi c'è una pulizia (parte qualcuno): notifica col testo per il gruppo WhatsApp di chi
+//           pulisce e il pulsante "Manda su WhatsApp" (api/_pulizie.js)
 //        Prima ancora rimanda a Ross1000 gli invii rimasti in coda perché la Regione non
 //        rispondeva (api/_ross.js) e avvisa quando sono arrivati.
 //        Se NTFY_TOPIC non è configurato non fa nulla. Con CRON_SECRET impostato, accetta
@@ -28,6 +30,7 @@ const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = req
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
 const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno } = require("./_calendari");
+const { pulizieProssime } = require("./_pulizie");
 const { mandaPromemoriaEmail } = require("./_promemoriaEmail");
 
 const KEY_PENDENTI = "bookings_pending";
@@ -406,6 +409,15 @@ module.exports = async (req, res) => {
       }
     }
 
+    // pulizie di oggi e di domani col testo pronto per il gruppo WhatsApp (Home → 🧹 Pulizie)
+    if ((req.body || {}).azione === "pulizie") {
+      try {
+        return res.status(200).json({ ok: true, giorni: await pulizieProssime(conn, oggiIsoRoma()) });
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
     // prenotazioni in anticipo dai calendari di Airbnb/Booking (link "esporta calendario"):
     // { link?:{idStruttura:"link"}, aggiorna?:true } — vedi api/_calendari.js
     if ((req.body || {}).azione === "calendari") {
@@ -546,5 +558,22 @@ module.exports = async (req, res) => {
       });
     } catch (e) { /* notifica non riuscita: riproverà domani */ }
   }
-  return res.status(200).json({ ok: true, inviati: avvisi.length, fascicolo, rinvioRoss, promemoriaEmail });
+
+  // 5) PULIZIE DI OGGI: il testo per il gruppo WhatsApp di chi pulisce, col pulsante che apre
+  //    WhatsApp col messaggio già scritto (si sceglie il gruppo e si invia). Pubblicata in JSON
+  //    perché titolo ed etichetta del pulsante hanno le emoji.
+  let pulizie = 0;
+  try {
+    const oggi = conn ? (await pulizieProssime(conn, oggiIsoRoma())).find((g) => g.quando === "oggi") : null;
+    if (oggi) {
+      await fetch("https://ntfy.sh/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, title: "🧹 Pulizie di oggi", message: oggi.testo.replace(/\*/g, ""), click: oggi.whatsapp,
+          actions: [{ action: "view", label: "📲 Manda su WhatsApp", url: oggi.whatsapp, clear: true }] }),
+      });
+      pulizie = oggi.pulizie.length;
+    }
+  } catch (e) { /* si vede comunque nella Home di KeyFlow */ }
+  return res.status(200).json({ ok: true, inviati: avvisi.length, pulizie, fascicolo, rinvioRoss, promemoriaEmail });
 };
