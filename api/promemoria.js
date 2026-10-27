@@ -159,6 +159,21 @@ async function elencoDaRegistrare(conn) {
     aggiungi(v.arrivo, v.strutturaNome, v.strutturaId, (v.ospiti || []).map((o) => `${o.cognome || ""} ${o.nome || ""}`.trim()), (v.ospiti || []).length));
   return out;
 }
+// Notifica "🧹 Pulizie di oggi": il testo per il gruppo WhatsApp di chi pulisce, col pulsante che
+// apre WhatsApp col messaggio già scritto (si sceglie il gruppo e si invia). Pubblicata in JSON
+// perché titolo ed etichetta del pulsante hanno le emoji. Dice per quante case c'è pulizia (0 = niente).
+async function notificaPulizie(conn, topic) {
+  const oggi = (await pulizieProssime(conn, oggiIsoRoma())).find((g) => g.quando === "oggi");
+  if (!oggi) return 0;
+  const r = await fetch("https://ntfy.sh/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic, title: "🧹 Pulizie di oggi", message: oggi.testo.replace(/\*/g, ""), click: oggi.whatsapp,
+      actions: [{ action: "view", label: "📲 Manda su WhatsApp", url: oggi.whatsapp, clear: true }] }),
+  });
+  if (!r.ok) throw new Error(`ntfy ha risposto ${r.status}`);
+  return oggi.pulizie.length;
+}
 function oggiIsoRoma() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
@@ -412,6 +427,12 @@ module.exports = async (req, res) => {
     // pulizie di oggi e di domani col testo pronto per il gruppo WhatsApp (Home → 🧹 Pulizie)
     if ((req.body || {}).azione === "pulizie") {
       try {
+        // "🔔 Mandami la notifica adesso" (per provarla senza aspettare il mattino dopo)
+        if ((req.body || {}).notifica) {
+          if (!process.env.NTFY_TOPIC) return res.status(200).json({ ok: false, error: "Le notifiche non sono configurate (manca NTFY_TOPIC su Vercel)" });
+          const n = await notificaPulizie(conn, process.env.NTFY_TOPIC);
+          return res.status(200).json({ ok: true, inviata: n > 0, case: n });
+        }
         return res.status(200).json({ ok: true, giorni: await pulizieProssime(conn, oggiIsoRoma()) });
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
@@ -559,21 +580,8 @@ module.exports = async (req, res) => {
     } catch (e) { /* notifica non riuscita: riproverà domani */ }
   }
 
-  // 5) PULIZIE DI OGGI: il testo per il gruppo WhatsApp di chi pulisce, col pulsante che apre
-  //    WhatsApp col messaggio già scritto (si sceglie il gruppo e si invia). Pubblicata in JSON
-  //    perché titolo ed etichetta del pulsante hanno le emoji.
+  // 5) PULIZIE DI OGGI (vedi notificaPulizie)
   let pulizie = 0;
-  try {
-    const oggi = conn ? (await pulizieProssime(conn, oggiIsoRoma())).find((g) => g.quando === "oggi") : null;
-    if (oggi) {
-      await fetch("https://ntfy.sh/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, title: "🧹 Pulizie di oggi", message: oggi.testo.replace(/\*/g, ""), click: oggi.whatsapp,
-          actions: [{ action: "view", label: "📲 Manda su WhatsApp", url: oggi.whatsapp, clear: true }] }),
-      });
-      pulizie = oggi.pulizie.length;
-    }
-  } catch (e) { /* si vede comunque nella Home di KeyFlow */ }
+  try { if (conn) pulizie = await notificaPulizie(conn, topic); } catch (e) { /* si vede comunque nella Home di KeyFlow */ }
   return res.status(200).json({ ok: true, inviati: avvisi.length, pulizie, fascicolo, rinvioRoss, promemoriaEmail });
 };

@@ -504,6 +504,7 @@
   .pul-testo{white-space:pre-line; font-size:12.5px; line-height:1.5; background:var(--surface2); border-radius:14px; padding:10px 12px; margin-top:8px}
   .pul-az{display:flex; gap:8px; margin-top:10px}
   .pul-az .btn{flex:1; width:auto; text-align:center; text-decoration:none}
+  .pul-prova{width:100%; margin-top:8px; font-size:12.5px; padding:8px 12px}
   .rec-riga{padding:10px 0; border-bottom:1px solid var(--line)}
   .rec-riga:last-child{border-bottom:none; padding-bottom:2px}
   .rec-riga.fatta{opacity:.55}
@@ -15787,7 +15788,21 @@ function renderPulizie(){
         <span class="muted">${(g.pulizie||[]).map(p=>`<span style="color:${strutturaInfo(p.nome).colore}">●</span> ${escText(p.nome)}`).join(' · ')}</span></div>
       <div class="pul-testo">${escText(g.testo).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>
       <div class="pul-az"><a class="btn primary sm" href="${escText(g.whatsapp)}" target="_blank" rel="noopener">📲 Manda su WhatsApp</a>
-        <button class="btn ghost sm" onclick="copiaPulizie('${g.giorno}')">📋 Copia</button></div></div>`).join('');
+        <button class="btn ghost sm" onclick="copiaPulizie('${g.giorno}')">📋 Copia</button></div>
+      ${g.giorno===oggi?`<button class="btn ghost sm pul-prova" id="pulProvaBtn" onclick="provaNotificaPulizie()">🔔 Mandami la notifica adesso</button>`:''}</div>`).join('');
+}
+// la stessa notifica che arriva ogni mattina, subito (per provarla)
+async function provaNotificaPulizie(){
+  const b=$('#pulProvaBtn'); if(b){ b.disabled=true; b.textContent='Invio…'; }
+  let msg='';
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'pulizie',notifica:true})});
+    const d=await r.json();
+    msg=!r.ok?('⚠️ '+(d.error||'Notifica non inviata')):!d.ok?('⚠️ '+d.error):d.inviata?'🔔 Notifica mandata: guarda il telefono':'Oggi non c\'è nessuna pulizia';
+  }catch(e){ msg='⚠️ Notifica non inviata: controlla la connessione'; }
+  toast(msg);
+  if(b){ b.disabled=false; b.textContent='🔔 Mandami la notifica adesso'; }
 }
 function copiaPulizie(giorno){
   const g=pulizie.find(x=>x.giorno===giorno); if(!g)return;
