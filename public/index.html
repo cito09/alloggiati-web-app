@@ -226,35 +226,44 @@
   .page.active{display:block}
   /* ===== layout da gestionale (ottobre 2026, l'utente: "vorrei più gestionale dashboard: così tutte
      le funzioni una sotto l'altra si perdono; organizza meglio, sia desktop che mobile app").
-     Telefono: in Home, sotto i riquadri arrivi/partenze/in casa/da fare, una fila di 3 riquadri
-     piccoli (#homeSezioni: Pulizie, Recensioni, Scadenze; l'utente: "li voglio come dei quadrati
-     affiancati", poi "troppo grandi, non vedo il calendario") e sotto il calendario intero; il tocco
-     su un riquadro (o su "da fare" in cima) apre SOLO quella scheda (#page-oggi.in-sez, con "← Home").
+     Home in due zone ben distinte (l'utente: "distingui le due zone, pulsanti più belli, UX/UI top"):
+     "Oggi" = un pannello con Check-in / Check-out / In casa (#dashSintesi) e "Da gestire" = 4 pulsanti
+     colorati in fila, Da fare, Pulizie, Recensioni, Scadenze (#homeSezioni). Telefono: una sotto
+     l'altra e poi il calendario intero; il tocco su un pulsante apre SOLO quella scheda
+     (#page-oggi.in-sez, con "← Home"). Da 900px: "Oggi" sopra il calendario, "Da gestire" sopra le schede.
      Da 900px: pagina larga, Home a due colonne (calendario grande a sinistra, Da fare / Pulizie /
      Recensioni / Scadenze a destra), Ospiti con l'elenco grande e il link di lato.
      Da 1100px: il menu sta a sinistra al posto della barra in basso. --hdr = altezza dell'intestazione.
      (body ha overflow-x:clip e non hidden: con hidden diventava un contenitore che scorre e
      position:sticky non funzionava) */
-  .home-tiles{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:-8px 0 16px}
-  .home-tiles:empty{display:none}
-  .tile{position:relative; border:none; border-radius:18px; background:var(--surface); color:var(--ink); font-family:inherit; text-align:left;
-    padding:10px 11px 10px; cursor:pointer; display:flex; flex-direction:column; align-items:flex-start; gap:1px; min-width:0; transition:transform .12s}
-  .tile:active{transform:scale(.97)}
+  /* zona "Da gestire" (renderSezioniHome): 4 pulsanti in fila, ognuno col suo colore (--c) */
+  .home-tiles{flex:1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:clamp(6px,1.8vw,8px)}
+  @media (max-width:359px){ .home-tiles{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .tile{--c:var(--amber); --cb:rgba(255,255,255,.06); position:relative; border:1px solid rgba(255,255,255,.05); border-radius:18px;
+    background:var(--surface); color:var(--ink); font-family:inherit; text-align:left; padding:10px clamp(7px,2.2vw,10px); cursor:pointer;
+    display:flex; flex-direction:column; align-items:flex-start; gap:1px; min-width:0; box-shadow:0 10px 24px -18px rgba(0,0,0,.8);
+    transition:transform .12s, background .15s}
+  @supports (background:color-mix(in srgb,red 10%,transparent)){ .tile{--cb:color-mix(in srgb,var(--c) 16%,transparent)} }
+  .tile:active{transform:scale(.96)}
+  @media (hover:hover){ .tile:hover{background:var(--surface2)} }
   .tile>*{flex-shrink:0}
-  .tile .t-ico{width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px;
-    background:rgba(132,227,211,.1); margin-bottom:5px}
-  .tile::after{content:'›'; position:absolute; top:9px; right:11px; font-size:17px; line-height:1; color:var(--muted)}
-  .tile .t-val{font-size:19px; font-weight:800; line-height:1.2; letter-spacing:-.02em; white-space:nowrap; max-width:100%;
+  .tile .t-ico{width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:14px;
+    background:var(--cb); margin-bottom:6px}
+  .tile .t-dot{position:absolute; top:11px; right:11px; width:8px; height:8px; border-radius:50%; background:var(--c); display:none}
+  .tile .t-val{font-size:20px; font-weight:800; line-height:1.15; letter-spacing:-.02em; white-space:nowrap; max-width:100%;
     overflow:hidden; text-overflow:ellipsis}
-  .tile .t-tit{font-size:12px; font-weight:800}
-  .tile .t-nota{font-size:10.5px; color:var(--muted); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
-    overflow:hidden; max-width:100%}
-  .tile.att .t-val{color:var(--amber)}
+  .tile .t-tit{font-size:clamp(10px,2.95vw,12px); font-weight:800; letter-spacing:-.01em; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis}
+  .tile .t-nota{font-size:10px; color:var(--muted); line-height:1.3; margin-top:1px; display:-webkit-box; -webkit-line-clamp:2;
+    -webkit-box-orient:vertical; overflow:hidden; max-width:100%}
+  .tile.att{border-color:var(--cb)}
+  .tile.att .t-val{color:var(--c)}
+  .tile.att .t-dot{display:block}
   .tile.ok .t-val,.tile.vuoto .t-val{color:var(--muted)}
-  .tile.vuoto{background:rgba(255,255,255,.03)}
-  .tile.urg{box-shadow:inset 0 0 0 2px var(--err); animation:urgenzaPulsa 1.6s ease-in-out infinite}
+  .tile.vuoto{background:rgba(255,255,255,.025); box-shadow:none}
+  .tile.vuoto .t-ico{filter:grayscale(.6); opacity:.75}
+  .tile.urg{--c:var(--err); border-color:transparent; animation:urgenzaPulsa 1.6s ease-in-out infinite}
   .tile.urg .t-val,.tile.urg .t-nota{color:var(--err)}
-  .tile.urg .t-ico{background:rgba(239,71,111,.15)}
+  .tile.urg .t-dot{display:block; box-shadow:0 0 0 4px rgba(239,71,111,.2)}
   .sez-barra{display:none; margin:0 0 10px}
   @media (max-width:899px){
     #page-oggi:not(.in-sez)>#oggiTodoCard,#page-oggi:not(.in-sez)>#oggiPulizieCard,
@@ -268,11 +277,12 @@
   @media (min-width:900px){
     .wrap{max-width:1180px; padding-left:24px; padding-right:24px}
     #page-registra.active{max-width:760px; margin-left:auto; margin-right:auto}
-    .home-tiles{display:none}
     #page-oggi>.card{scroll-margin-top:12px}
     #page-oggi.active{display:grid; grid-template-columns:minmax(0,1fr) minmax(330px,400px);
       grid-template-rows:auto auto auto auto auto 1fr; column-gap:18px; align-items:start}
     #page-oggi>*{grid-column:1/-1}
+    #page-oggi>#dashSintesi{grid-column:1; grid-row:1; align-self:stretch}
+    #page-oggi>#homeSezioni{grid-column:2; grid-row:1; align-self:stretch}
     #page-oggi>#oggiCalendarioCard{grid-column:1; grid-row:2/-1}
     #page-oggi>#oggiTodoCard,#page-oggi>#oggiPulizieCard,#page-oggi>#oggiRecensioniCard,#page-oggi>#oggiScadenzeCard{grid-column:2}
     #page-ospiti.active{display:grid; grid-template-columns:minmax(0,1fr) 360px; column-gap:18px; align-items:start}
@@ -318,20 +328,27 @@
   .storico-item.evidenzia{animation:storicoFocus 2.2s ease-out}
   @keyframes storicoFocus{ 0%,60%{background:rgba(132,227,211,.14); box-shadow:0 0 0 6px rgba(132,227,211,.14); border-radius:12px} 100%{background:transparent; box-shadow:none} }
   /* ===== Home come dashboard: riquadri di sintesi + calendario stile Google Calendar ===== */
-  .dash-data{font-size:12.5px; color:var(--muted); font-weight:700; margin:0 2px 8px}
-  .dash-kpi{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:16px}
-  @media (max-width:359px){ .dash-kpi{grid-template-columns:repeat(2,minmax(0,1fr))} }
-  .kpi{background:var(--surface); border:none; border-radius:18px; padding:12px 5px 11px; text-align:center; cursor:pointer;
-    font-family:inherit; color:var(--ink); box-shadow:0 10px 26px -18px rgba(0,0,0,.7); transition:transform .12s}
-  .kpi:active{transform:scale(.97)}
-  .kpi .ico{font-size:13px; line-height:1}
-  .kpi b{display:block; font-size:21px; font-weight:800; line-height:1.15; margin-top:2px}
-  .kpi span.et{display:block; font-size:9.5px; color:var(--muted); font-weight:700; line-height:1.25; margin-top:2px}
-  .kpi.alert b{color:var(--err)}
-  .kpi.calmo b{color:var(--muted)}
-  /* qualcuno è arrivato ieri (o prima) e non è ancora registrato: il riquadro "da fare" lampeggia */
-  .kpi.urgente{box-shadow:inset 0 0 0 2px var(--err); animation:urgenzaPulsa 1.6s ease-in-out infinite}
-  .kpi.urgente span.et{color:var(--err)}
+  /* zona "Oggi" (renderSintesi): UN pannello con Check-in / Check-out / In casa e i nomi sotto */
+  .zona-tit{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:0 4px 8px}
+  .zona-tit b{font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink)}
+  .zona-tit span{font-size:12px; font-weight:700; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .zona-tit span.urg{color:var(--err)}
+  #dashSintesi,#homeSezioni{display:flex; flex-direction:column; margin-bottom:16px}
+  #homeSezioni:empty{display:none}
+  .oggi-pan{flex:1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border-radius:22px; overflow:hidden;
+    background:linear-gradient(160deg,rgba(132,227,211,.10),rgba(132,227,211,.015) 65%),var(--surface); border:1px solid rgba(132,227,211,.13)}
+  .og-seg{border:none; background:none; color:var(--ink); font-family:inherit; text-align:left; cursor:pointer; padding:12px clamp(8px,2.6vw,12px) 11px;
+    display:flex; flex-direction:column; gap:2px; min-width:0; transition:background .15s}
+  .og-seg+.og-seg{border-left:1px solid rgba(255,255,255,.07)}
+  .og-seg:active{background:rgba(255,255,255,.04)}
+  @media (hover:hover){ .og-seg:hover{background:rgba(255,255,255,.03)} }
+  .og-top{display:flex; align-items:center; gap:5px; font-size:clamp(10.5px,3.05vw,11.5px); font-weight:800; color:var(--muted); white-space:nowrap}
+  .og-ico{width:21px; height:21px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;
+    background:rgba(255,255,255,.06); flex:0 0 auto}
+  .og-num{font-size:28px; font-weight:800; line-height:1.15; letter-spacing:-.02em; margin-top:4px}
+  .og-seg.in .og-num{color:var(--amber)} .og-seg.out .og-num{color:#ffb36b}
+  .og-seg.zero .og-num{color:var(--muted)}
+  .og-chi{font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%}
   @keyframes urgenzaPulsa{0%,100%{box-shadow:inset 0 0 0 2px rgba(239,71,111,.95)}50%{box-shadow:inset 0 0 0 2px rgba(239,71,111,.25)}}
   .gcal-head{display:flex; align-items:center; gap:7px; margin-bottom:10px}
   .gcal-head .mese{flex:1; font-size:15.5px; font-weight:800; text-transform:capitalize; letter-spacing:-.01em}
@@ -1000,7 +1017,7 @@ function doGet() {
 
   <div class="page" id="page-oggi">
     <div id="dashSintesi"></div>
-    <div class="home-tiles" id="homeSezioni" role="navigation" aria-label="Sezioni della Home"></div>
+    <div id="homeSezioni" role="navigation" aria-label="Da gestire"></div>
     <div class="sez-barra"><button class="btn ghost sm" style="width:auto" onclick="chiudiSezione()">← Home</button></div>
     <div class="card" id="oggiTodoCard">
       <h2><span class="n">📌</span> Da fare <span id="oggiTodoBadge" class="pill err" style="display:none"></span></h2>
@@ -15906,31 +15923,38 @@ async function provaNotificaPulizie(){
   toast(msg);
   if(b){ b.disabled=false; b.textContent='🔔 Mandami le notifiche adesso'; }
 }
-/* Home → riquadri delle sezioni (telefono, l'utente: "nel mobile li voglio più come dei quadrati
-   affiancati il da fare, recensioni ecc.", poi "troppo grandi, non vedo il calendario"): una fila
-   di 3 riquadri piccoli, Pulizie, Recensioni, Scadenze, sempre tutti e tre, ognuno col suo numero
-   o con ✓ se non c'è niente. "Da fare" non serve: è già il riquadro "da fare" in cima (vaiDaFare).
-   Il tocco apre SOLO quella scheda (vaiSezione), "← Home" o Indietro tornano ai riquadri. Da 900px non si vedono: lì le
+/* Home → zona "Da gestire" (l'utente: "li voglio come dei quadrati affiancati", "troppo grandi, non
+   vedo il calendario", poi "da fare in linea con pulizie, recensioni; distingui le due zone"): 4
+   pulsanti piccoli in fila, Da fare, Pulizie, Recensioni, Scadenze, sempre tutti e quattro, ognuno
+   col suo colore (--c) e il suo numero, o ✓ grigio se non c'è niente. Pallino = c'è qualcosa da
+   guardare, rosso che pulsa = urgente. Il tocco apre SOLO quella scheda (vaiSezione), "← Home" o
+   Indietro tornano alla Home; sul computer porta alla scheda nella colonna di destra. Da 900px non si vedono: lì le
    schede stanno già tutte nella colonna di destra. */
 const SEZ_VUOTE={oggiPulizieCard:'🧹 Nessuna pulizia nelle prossime 2 settimane',
   oggiRecensioniCard:'⭐ Nessuna recensione da scrivere adesso', oggiScadenzeCard:'⏰ Nessuna scadenza in vista'};
 function riquadriSezioni(){
   const vis=id=>{ const c=document.getElementById(id); return !!c&&c.style.display!=='none'; };
+  // Da fare = i check-in arrivati da registrare
+  const n=(checkinPending||[]).length, nUrg=pendingUrgenti().length;
+  const daFare={id:'oggiTodoCard', ico:'📌', c:'#84e3d3', tit:'Da fare', val:n||'✓',
+    nota:nUrg?`🚨 ${nUrg} urgent${nUrg===1?'e':'i'}`:n?'da registrare':'tutto fatto', st:nUrg?'urg':n?'att':'ok'};
   // Pulizie: la prossima (oggi / domani / il giorno), con la casa e gli ospiti
   let p=null; try{ p=pulizie&&pulizie.giorno===dataKey(new Date())?pulizie:null; }catch(e){}   // (si caricano dopo)
   const voci=p?(p.settimane||[]).flatMap(m=>(m.voci||[]).map(v=>({...v,nome:m.nome}))).sort((x,y)=>x.giorno<y.giorno?-1:x.giorno>y.giorno?1:0):[];
-  let pul={id:'oggiPulizieCard', ico:'🧹', tit:'Pulizie', val:p?'–':'…', nota:p?'nessuna in 2 settimane':'', st:p?'vuoto':''};
+  let pul={id:'oggiPulizieCard', ico:'🧹', c:'#6fb0ff', tit:'Pulizie', val:p?'–':'…', nota:p?'nessuna in 2 settimane':'', st:p?'vuoto':''};
   if(voci.length){
     const g=voci[0].giorno, prime=voci.filter(v=>v.giorno===g);
     const [aa,mm,dd]=g.split('-').map(Number), d=new Date(aa,mm-1,dd);
     const diff=Math.round((d-new Date(new Date().setHours(0,0,0,0)))/864e5);
     const quando=diff===0?'Oggi':diff===1?'Domani':`${['dom','lun','mar','mer','gio','ven','sab'][d.getDay()]} ${dd}/${mm}`;
     pul={...pul, val:quando, st:diff===0?'att':'', html:true,
-      nota:prime.map(v=>`<span style="color:${strutturaInfo(v.nome).colore}">●</span> ${escText(casaBreve(v.nome))}${v.ospiti?` · 👤${v.ospiti}`:''}`).join('<br>')};
+      nota:prime.length===1   // una casa: "● Alba Loft" e sotto "👤 2 ospiti"; più case: una riga ciascuna
+        ?`<span style="color:${strutturaInfo(prime[0].nome).colore}">●</span> ${escText(casaBreve(prime[0].nome))}${prime[0].ospiti?`<br>👤 ${prime[0].ospiti} ospit${prime[0].ospiti===1?'e':'i'}`:''}`
+        :prime.map(v=>`<span style="color:${strutturaInfo(v.nome).colore}">●</span> ${escText(casaBreve(v.nome))}${v.ospiti?` 👤${v.ospiti}`:''}`).join('<br>')};
   }
   // Recensioni: quante da scrivere
   const bd=$('#oggiRecBadge'), nRec=bd&&bd.style.display!=='none'?parseInt(bd.textContent,10)||0:0;
-  const rec={id:'oggiRecensioniCard', ico:'⭐', tit:'Recensioni', val:nRec||'✓', nota:nRec?'da scrivere':'tutte fatte',
+  const rec={id:'oggiRecensioniCard', ico:'⭐', c:'#ffc857', tit:'Recensioni', val:nRec||'✓', nota:nRec?'da scrivere':'tutte fatte',
     st:nRec?'att':vis('oggiRecensioniCard')?'ok':'vuoto'};
   // Scadenze: GEIS ed eventuali Ross1000 in coda (righe della scheda Scadenze)
   const righe=['#oggiRossCoda','#oggiGeis'].map(i=>$(i)).filter(r=>r&&r.style.display!=='none');
@@ -15939,16 +15963,19 @@ function riquadriSezioni(){
   const prima=daFareSc[0]||righe[0];
   const tPrima=prima?((prima.querySelector('b')||{}).textContent||'').trim().split(' · ')[0]:'';   // "GEIS", "Ross1000"
   const pPrima=prima?((prima.querySelector('.pill')||{}).textContent||'').trim():'';
-  const sca={id:'oggiScadenzeCard', ico:'⏰', tit:'Scadenze', val:daFareSc.length||'✓',
+  const sca={id:'oggiScadenzeCard', ico:'⏰', c:'#b49cff', tit:'Scadenze', val:daFareSc.length||'✓',
     nota:prima?escText(tPrima+(pPrima&&pPrima!=='✓'?' · '+pPrima:pPrima==='✓'?' a posto':' in coda')):'nessuna in vista', html:true,
     st:urgSc?'urg':daFareSc.length?'att':righe.length?'ok':'vuoto'};
-  return [pul,rec,sca];
+  return [daFare,pul,rec,sca];
 }
 function renderSezioniHome(){
   const w=$('#homeSezioni'); if(!w)return;
-  w.innerHTML=riquadriSezioni().map(t=>`<button class="tile ${t.st}" onclick="vaiSezione('${t.id}')">
-      <span class="t-ico">${t.ico}</span><span class="t-val">${escText(String(t.val))}</span>
-      <span class="t-tit">${t.tit}</span><span class="t-nota">${t.html?t.nota:escText(t.nota)}</span></button>`).join('');
+  const tiles=riquadriSezioni();
+  const daGuardare=tiles.filter(t=>t.st==='att'||t.st==='urg').length, urg=tiles.some(t=>t.st==='urg');
+  w.innerHTML=`<div class="zona-tit"><b>Da gestire</b><span${urg?' class="urg"':''}>${daGuardare?`${urg?'🚨 ':''}${daGuardare} da guardare`:'✓ tutto a posto'}</span></div>
+    <div class="home-tiles">${tiles.map(t=>`<button class="tile ${t.st}" style="--c:${t.c}" onclick="vaiSezione('${t.id}')">
+      <span class="t-ico">${t.ico}</span><span class="t-dot"></span><span class="t-val">${escText(String(t.val))}</span>
+      <span class="t-tit">${t.tit}</span><span class="t-nota">${t.html?t.nota:escText(t.nota)}</span></button>`).join('')}</div>`;
   // la scheda aperta da sola è sparita (es. ultima recensione fatta): si torna ai riquadri
   const pg=$('#page-oggi'), on=pg&&pg.querySelector(':scope>.sez-on');
   if(pg&&pg.classList.contains('in-sez')&&(!on||on.style.display==='none'))chiudiSezione();
@@ -16388,27 +16415,28 @@ function eventiCalendario(){
   Object.keys(ev).forEach(k=>ev[k].sort((a,b)=>a.tipo===b.tipo?0:(a.tipo==='p'?-1:1)));
   return ev;
 }
-// i quattro numeri in cima alla Home
+// zona "Oggi" in cima alla Home: Check-in, Check-out e In casa in un pannello solo, coi nomi sotto
+// (frecce ➡️/⬅️ e mai pallini rossi/verdi: si confondevano coi colori delle case)
 function renderSintesi(){
   const w=$('#dashSintesi'); if(!w)return;
   const oggi=new Date(); const mezzogiorno=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate(),12);
   const sogg=soggiorniHome();
   const delGiorno=(eventiCalendario()[dataKey(oggi)]||[]);
-  const arrivi=delGiorno.filter(e=>e.tipo==='a').length;
-  const partenze=delGiorno.filter(e=>e.tipo==='p').length;
-  const inCasa=sogg.filter(s=>s.arrivo<=mezzogiorno&&(!s.partenza||s.partenza>mezzogiorno))
-                   .reduce((a,s)=>a+(s.esterna?(s.ospiti||0):(s.ospiti||1)),0);   // da Airbnb solo se l'email lo dice
-  const daFare=checkinPending.length;
-  const urgenti=pendingUrgenti().length;
-  const data=maiuscola(oggi.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
-  const box=(cls,ico,num,et,click)=>`<button class="kpi ${num?cls:'calmo'}" onclick="${click}"><span class="ico">${ico}</span><b>${num}</b><span class="et">${et}</span></button>`;
-  w.innerHTML=`<div class="dash-data">${escText(data)} · oggi in casa e in arrivo</div>
-    <div class="dash-kpi">
-      ${box('','➡️',arrivi,'arrivi','calVaiOggi()')}
-      ${box('','⬅️',partenze,'partenze','calVaiOggi()')}
-      ${box('','🛏️',inCasa,'in casa','calVaiOggi()')}
-      ${urgenti?`<button class="kpi alert urgente" onclick="vaiDaFare()"><span class="ico">🚨</span><b>${daFare}</b><span class="et">${urgenti===1?'1 urgente':urgenti+' urgenti'}</span></button>`
-        :box('alert','📌',daFare,'da fare','vaiDaFare()')}
+  const nomeDi=e=>e.nomeBreve||(e.esterna?'Ospite Airbnb':calNomeCorto(e.nome));
+  const elenco=l=>!l.length?'nessuno':l.slice(0,2).map(nomeDi).join(', ')+(l.length>2?` +${l.length-2}`:'');
+  const arr=delGiorno.filter(e=>e.tipo==='a'), par=delGiorno.filter(e=>e.tipo==='p');
+  const dentro=sogg.filter(s=>s.arrivo<=mezzogiorno&&(!s.partenza||s.partenza>mezzogiorno));
+  const inCasa=dentro.reduce((a,s)=>a+(s.esterna?(s.ospiti||0):(s.ospiti||1)),0);   // da Airbnb solo se l'email lo dice
+  const case_=[...new Set(dentro.map(casaDelSoggiorno))];
+  const data=oggi.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  const seg=(cls,ico,et,num,sotto)=>`<button class="og-seg ${cls}${num?'':' zero'}" onclick="calVaiOggi()">
+      <span class="og-top"><span class="og-ico">${ico}</span>${et}</span><b class="og-num">${num}</b>
+      <span class="og-chi">${escText(sotto)}</span></button>`;
+  w.innerHTML=`<div class="zona-tit"><b>Oggi</b><span>${escText(maiuscola(data))}</span></div>
+    <div class="oggi-pan">
+      ${seg('in','➡️','Check-in',arr.length,elenco(arr))}
+      ${seg('out','⬅️','Check-out',par.length,elenco(par))}
+      ${seg('casa','🛏️','In casa',inCasa,case_.length?case_.map(casaBreve).join(', '):'case libere')}
     </div>`;
 }
 function vaiDaFare(){ vaiSezione('oggiTodoCard'); }
