@@ -216,8 +216,11 @@ async function aggiornaEmail(email, conn) {
       // quante sono uscite da Posta in arrivo (spostate davvero nella loro cartella), in tutto
       const fuori = { ...(prima.fuori || {}) };
       for (const [k, n] of Object.entries(x.r.fuoriInbox || {})) fuori[k] = (fuori[k] || 0) + n;
-      console.log("cartelle gmail", JSON.stringify({ principale: x.c.principale, destinazioni: x.r.destinazioni,
-        archiviate: x.r.archiviate, fuoriInbox: x.r.fuoriInbox, spostate: x.r.spostate, errore: x.r.erroreCartelle || null }));
+      console.log("cartelle gmail", JSON.stringify({ casella: x.c.utente, principale: x.c.principale, destinazioni: x.r.destinazioni,
+        archiviate: x.r.archiviate, fuoriInbox: x.r.fuoriInbox, spostate: x.r.spostate, errore: x.r.erroreCartelle || null,
+        // cosa ha letto da Airbnb questa volta (per controllare dai registri che le email arrivino nella casella giusta)
+        lette: { conferme: (x.r.nuove || []).length, cancellazioni: (x.r.cancellate || []).length,
+          richiesteModifica: (x.r.richieste || []).length, modificheAccettate: (x.r.modifiche || []).map((m) => m.codice) } }));
       stati[x.c.utente] = { stato: x.r.stato, cartelle: tot, traslochi, fuori,
         etichetteGmail: (x.r.etichetteGmail || []).slice(0, 150), destinazioni: x.r.destinazioni || prima.destinazioni || null,
         esito: { ok: true, ts: Date.now(), nuove: x.r.nuove.length, ...(x.r.erroreCartelle ? { erroreCartelle: x.r.erroreCartelle } : {}) } };
