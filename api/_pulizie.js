@@ -12,14 +12,15 @@
 // Un messaggio per casa, scritto come li scrive l'host nei gruppi (ogni casa ha il suo gruppo e
 // la sua persona: Betti ad Alba Loft, Claudia a Falegnami; si cambia in Impostazioni → Le case):
 //  - ogni giorno di pulizia: "Buongiorno Betti ☀️ ricordo la pulizia di oggi, per 3 ospiti 🧹 Grazie! 😊"
-//  - ogni lunedì il riepilogo delle pulizie delle prossime 2 settimane ("• sab 31/10 × 3 ospiti").
+//  - ogni lunedì il riepilogo delle pulizie delle prossime 3 settimane ("• sab 31/10 × 3 ospiti";
+//    erano 2, l'utente il 27/10/2026: "pulizie mettile di 3 settimane").
 // Il nome inizia con "_": è un aiuto, non conta nel limite di 12 funzioni del piano Vercel.
 const { redisCmd } = require("./_kv");
 const { leggiCalendari, vistaCalendari } = require("./_calendari");
 
 // chi fa le pulizie in ogni casa (uguale a PULIZIE_PREDEFINITE in public/index.html)
 const PULIZIE_PREDEFINITE = { canazei: "Betti", bologna: "Claudia" };
-const GIORNI_RIEPILOGO = 14;
+const GIORNI_RIEPILOGO = 21;
 const SETT_BREVE = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"];
 const GIORNO = 86400000;
 
@@ -73,6 +74,14 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
       nome: primoNome(p.nome), stato: "airbnb", fonte: p.fonte || "Airbnb",
       url: /^https?:\/\//i.test(p.url || "") ? p.url : "", fonteUrl: p.fonte || "Airbnb" });
   }
+  // Una notte (o due) CHIUSA fra due ospiti non è un soggiorno (l'utente: "se c'è solo una notte
+  // libera tra le due prenotazioni ed è chiusa, non contarla: metti il × ospiti di quella dopo").
+  // Su Airbnb i blocchi si riconoscono e non arrivano qui, ma Booking & co. chiamano "CLOSED" sia le
+  // prenotazioni sia le date chiuse: una "prenotazione" di 1-2 notti senza link, senza nome e senza
+  // ospiti, attaccata a un altro soggiorno della stessa casa, è una notte chiusa. Via.
+  const chiusaBreve = (x) => x.peso === 1 && !x.url && !x.nome && !x.ospiti && x.partenza - x.arrivo <= 2 * GIORNO
+    && tutti.some((y) => y !== x && y.casa === x.casa && (y.partenza === x.arrivo || y.arrivo === x.partenza));
+  for (let i = tutti.length - 1; i >= 0; i--) if (chiusaBreve(tutti[i])) tutti.splice(i, 1);
   const perCasa = {};
   for (const s of tutti.sort((a, b) => b.peso - a.peso)) {
     if (!s.casa) continue;
@@ -89,12 +98,15 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
 }
 
 // le pulizie di una casa tra due giorni (compresi): una voce per ogni giorno in cui parte qualcuno,
-// con gli ospiti del prossimo arrivo (null se non si sa ancora o se non c'è nessun arrivo)
+// con gli ospiti del prossimo arrivo (null se non si sa ancora o se non c'è nessun arrivo).
+// stato = da dove viene il prossimo arrivo ("airbnb" = solo dal calendario: senza email di conferma
+// letta né check-in fatto il numero non c'è ancora) → il gestionale spiega all'host perché manca.
 function pulizieCasa(lista, daMs, aMs) {
   const giorni = [...new Set(lista.filter((s) => s.partenza >= daMs && s.partenza <= aMs).map((s) => s.partenza))].sort((a, b) => a - b);
   return giorni.map((g) => {
     const prossimo = lista.filter((s) => s.arrivo >= g).sort((a, b) => a.arrivo - b.arrivo)[0] || null;
-    return { giorno: g, ospiti: (prossimo && prossimo.ospiti) || null, arrivo: prossimo ? prossimo.arrivo : null };
+    return { giorno: g, ospiti: (prossimo && prossimo.ospiti) || null, arrivo: prossimo ? prossimo.arrivo : null,
+      stato: prossimo ? prossimo.stato : null, fonte: prossimo ? prossimo.fonte || "" : "" };
   });
 }
 function datiCasa(casa, strutture, orari) {
@@ -116,7 +128,7 @@ function testoSettimane(c, voci) {
 }
 const linkWhatsApp = (testo) => `https://wa.me/?text=${encodeURIComponent(testo)}`;
 
-// le pulizie di oggi e quelle delle prossime 2 settimane, casa per casa, coi messaggi pronti:
+// le pulizie di oggi e quelle delle prossime 3 settimane, casa per casa, coi messaggi pronti:
 // per la Home e per le notifiche del mattino
 async function pulizieProssime(conn, oggiIso) {
   let strutture = [];
@@ -133,12 +145,13 @@ async function pulizieProssime(conn, oggiIso) {
     const c = datiCasa(casa, strutture, orari);
     const voci = pulizieCasa(perCasa[casa], oggiMs, oggiMs + (GIORNI_RIEPILOGO - 1) * GIORNO);
     if (!voci.length) continue;
-    const vociIso = voci.map((v) => ({ giorno: isoDa(v.giorno), ospiti: v.ospiti }));
+    const vociIso = voci.map((v) => ({ giorno: isoDa(v.giorno), ospiti: v.ospiti,
+      prossimo: v.arrivo ? isoDa(v.arrivo) : null, stato: v.stato, fonte: v.fonte }));
     const tS = testoSettimane(c, voci);
     settimane.push({ ...c, voci: vociIso, testo: tS, whatsapp: linkWhatsApp(tS) });
     if (voci[0].giorno === oggiMs) {
       const tO = testoOggi(c, voci[0]);
-      oggi.push({ ...c, ospiti: voci[0].ospiti, testo: tO, whatsapp: linkWhatsApp(tO) });
+      oggi.push({ ...c, ospiti: voci[0].ospiti, prossimo: vociIso[0].prossimo, stato: vociIso[0].stato, fonte: vociIso[0].fonte, testo: tO, whatsapp: linkWhatsApp(tO) });
     }
   }
   return { giorno: oggiIso, lunedi: new Date(oggiMs).getUTCDay() === 1, oggi, settimane };

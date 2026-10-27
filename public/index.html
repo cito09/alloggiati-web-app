@@ -265,6 +265,7 @@
   .tile.urg .t-val,.tile.urg .t-nota{color:var(--err)}
   .tile.urg .t-dot{display:block; box-shadow:0 0 0 4px rgba(239,71,111,.2)}
   .sez-barra{display:none; margin:0 0 10px}
+  .pul-manca{font-size:11.5px; line-height:1.45; margin:6px 2px 0}
   /* ===== collaboratori (api/_team.js): chi entra col SUO codice (es. Sofia) vede solo quello che l'host
      ha spuntato in Impostazioni → Collaboratori; niente menu, niente impostazioni ===== */
   .team-testa{display:none; align-items:center; gap:8px}
@@ -1445,7 +1446,7 @@ const PERMESSI_TEAM=[
   ['calendario','📆','Calendario','Vede le prenotazioni: date, casa, quante persone e gli orari di check-in e check-out.'],
   ['nomi','👤','Nomi degli ospiti','Nel calendario vede il nome di battesimo («Mario + 1»), senza vede «Ospite». Mai cognomi né documenti.'],
   ['eventi','✏️','Aggiungere eventi al calendario','Può aggiungere, cambiare e segnare fatti promemoria e chiusure (es. «Viene l\'idraulico»); ti arriva una notifica. Le prenotazioni non si toccano.'],
-  ['pulizie','🧹','Pulizie','Le pulizie di oggi e delle prossime 2 settimane, coi messaggi pronti per WhatsApp.'],
+  ['pulizie','🧹','Pulizie','Le pulizie di oggi e delle prossime 3 settimane, coi messaggi pronti per WhatsApp.'],
   ['link','🔗','Link del check-in','Può copiare il link del check-in online da mandare agli ospiti.'],
   ['completo','🔓','Accesso completo','Tutto KeyFlow come te: documenti, registrazioni, Questura, Ross1000 e Archivio. Il tuo codice e i collaboratori restano solo tuoi.'],
 ];
@@ -16196,6 +16197,9 @@ function recCopia(ke,campo){
    gruppo e la sua persona). Da qui si mandano con "📲 Manda a Betti" (link wa.me col testo già
    scritto: si sceglie il gruppo e si invia) oppure si copiano. ===== */
 let pulizie=(()=>{ try{ const c=JSON.parse(localStorage.getItem('pulizie_cache')||'null'); return c&&c.giorno&&!Array.isArray(c)?c:null; }catch(e){ return null; } })();
+// "Prossime 3 settimane" già aperto quando si apre la scheda (l'utente: "il menu del messaggio rendilo
+// già aperto"); se lo si chiude resta chiuso finché l'app è aperta
+var pulSettAperto=true;
 async function caricaPulizie(){
   renderPulizie();
   try{
@@ -16211,8 +16215,18 @@ function pulBlocco(m,k){
   return `<div class="pul-casa">
     <div class="pul-testa"><span style="color:${strutturaInfo(m.nome).colore}">●</span> <b>${escText(m.nome)}</b>${m.chi?` <span class="muted">· ${escText(m.chi)}</span>`:''}</div>
     <div class="pul-testo">${escText(m.testo)}</div>
+    ${pulPercheManca(k[0]==='o'?[{giorno:pulizie&&pulizie.giorno, ospiti:m.ospiti, prossimo:m.prossimo, stato:m.stato, fonte:m.fonte}]:(m.voci||[]))}
     <div class="pul-az"><a class="btn primary sm" href="${escText(m.whatsapp)}" target="_blank" rel="noopener">📲 Manda a ${escText(m.chi||'WhatsApp')}</a>
       <button class="btn ghost sm" onclick="copiaPulizie('${k}')">📋 Copia</button></div></div>`;
+}
+// sotto il messaggio (solo per chi guarda, non finisce nel messaggio): perché a un giorno manca "× N ospiti"
+function pulPercheManca(voci){
+  const g=iso=>{ const [a,m,d]=String(iso||'').split('-').map(Number); return a?new Date(a,m-1,d).toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'numeric'}):''; };
+  const righe=(voci||[]).filter(v=>v&&!v.ospiti).map(v=>!v.prossimo
+    ?`${escText(g(v.giorno))}: dopo non c'è ancora nessun arrivo in calendario`
+    :`${escText(g(v.giorno))}: il prossimo arrivo (${escText(g(v.prossimo))}) non ha ancora il numero di ospiti`
+      +(v.stato==='airbnb'?((v.fonte||'Airbnb')==='Airbnb'?' — arriva con l\'email di conferma di Airbnb o col check-in online':' — arriva col check-in online'):''));
+  return righe.length?`<div class="muted pul-manca">👤 ${righe.join('<br>👤 ')}</div>`:'';
 }
 function renderPulizie(){
   const card=$('#oggiPulizieCard'), w=$('#oggiPulizie'); if(!card||!w)return;
@@ -16222,13 +16236,13 @@ function renderPulizie(){
   const n=sett.reduce((a,m)=>a+(m.voci||[]).length,0);
   w.innerHTML=(oggi.length?`<div class="pul-sez">Oggi</div>${oggi.map((m,i)=>pulBlocco(m,'o'+i)).join('')}`
       :'<div class="muted" style="font-size:12.5px">Oggi nessuna pulizia.</div>')
-    +(sett.length?`<details class="pul-sett"${oggi.length?'':' open'}><summary>📅 Prossime 2 settimane · ${n} pulizi${n===1?'a':'e'}</summary>
+    +(sett.length?`<details class="pul-sett"${pulSettAperto?' open':''} ontoggle="pulSettAperto=this.open"><summary>📅 Prossime 3 settimane · ${n} pulizi${n===1?'a':'e'}</summary>
         ${sett.map((m,i)=>pulBlocco(m,'s'+i)).join('')}
         <div class="muted pul-nota-notifica" style="font-size:11.5px;margin-top:8px">Ogni lunedì mattina arriva anche con la notifica.</div></details>`:'')
     +`<button class="btn ghost sm pul-prova" id="pulProvaBtn" onclick="provaNotificaPulizie()">🔔 Mandami le notifiche adesso</button>`;
   renderSezioniHome();
 }
-// le stesse notifiche del mattino, subito (per provarle): quelle di oggi e il riepilogo delle 2 settimane
+// le stesse notifiche del mattino, subito (per provarle): quelle di oggi e il riepilogo delle 3 settimane
 async function provaNotificaPulizie(){
   const b=$('#pulProvaBtn'); if(b){ b.disabled=true; b.textContent='Invio…'; }
   let msg='';
@@ -16249,7 +16263,7 @@ async function provaNotificaPulizie(){
    guardare, rosso che pulsa = urgente. Il tocco apre SOLO quella scheda (vaiSezione), "← Home" o
    Indietro tornano alla Home; sul computer porta alla scheda nella colonna di destra. Da 900px non si vedono: lì le
    schede stanno già tutte nella colonna di destra. */
-const SEZ_VUOTE={oggiPulizieCard:'🧹 Nessuna pulizia nelle prossime 2 settimane',
+const SEZ_VUOTE={oggiPulizieCard:'🧹 Nessuna pulizia nelle prossime 3 settimane',
   oggiRecensioniCard:'⭐ Nessuna recensione da scrivere adesso', oggiScadenzeCard:'⏰ Nessuna scadenza in vista'};
 function riquadriSezioni(){
   const vis=id=>{ const c=document.getElementById(id); return !!c&&c.style.display!=='none'; };
@@ -16260,7 +16274,7 @@ function riquadriSezioni(){
   // Pulizie: la prossima (oggi / domani / il giorno), con la casa e gli ospiti
   let p=null; try{ p=pulizie&&pulizie.giorno===dataKey(new Date())?pulizie:null; }catch(e){}   // (si caricano dopo)
   const voci=p?(p.settimane||[]).flatMap(m=>(m.voci||[]).map(v=>({...v,nome:m.nome}))).sort((x,y)=>x.giorno<y.giorno?-1:x.giorno>y.giorno?1:0):[];
-  let pul={id:'oggiPulizieCard', ico:'🧹', c:'#6fb0ff', tit:'Pulizie', val:p?'–':'…', nota:p?'nessuna in 2 settimane':'', st:p?'vuoto':''};
+  let pul={id:'oggiPulizieCard', ico:'🧹', c:'#6fb0ff', tit:'Pulizie', val:p?'–':'…', nota:p?'nessuna in 3 settimane':'', st:p?'vuoto':''};
   if(voci.length){
     const g=voci[0].giorno, prime=voci.filter(v=>v.giorno===g);
     const [aa,mm,dd]=g.split('-').map(Number), d=new Date(aa,mm-1,dd);
@@ -17085,10 +17099,10 @@ function apriSommario(chiave){
     if(v.modificato)riga('✏️',`Modificato da te il ${gm(v.modificato.ts)}`);
   }else{
     riga('⏳',`<b>Check-in online non ancora fatto</b><br><span class="muted">Prenotazione letta dal calendario di ${escText(s.fonte||'Airbnb')}</span>`);
-    if(s.telefono4)riga('📞',`Telefono che finisce con <b>${escText(s.telefono4)}</b>`);
   }
   if(nomi.length)riga('👥',nomi.map(escText).join('<br>'));
   else if(n)riga('👥',`${n} ospit${n===1?'e':'i'}`);
+  const pul=infoPulizia(s); if(pul)riga('🧹',pul);   // (al posto delle ultime cifre del telefono: "inutile")
   const az=[];
   if(url)az.push(bottonePortale({url,fonte},'padding:11px 14px;font-size:13.5px'));
   if(s.esterna){
@@ -17117,6 +17131,24 @@ function apriSommario(chiave){
     </div>
     <div class="som-az">${az.join('')}</div>`;
   const box=$('#sommarioPren'); box.classList.add('open'); box.querySelector('.box').scrollTop=0;
+}
+// nel riepilogo: quando va fatta la pulizia di questa prenotazione e chi la fa, e se è un cambio in
+// giornata (lo stesso giorno parte qualcuno e arriva qualcun altro: casa da pulire in poche ore).
+// Ha preso il posto delle ultime cifre del telefono (l'utente: "inutile, sostituisci con un'altra
+// cosa se può essere utile"). Solo per i soggiorni non ancora finiti.
+function infoPulizia(s){
+  if(!s||!s.partenza||!s.arrivo)return '';
+  const oggi0=new Date(); oggi0.setHours(0,0,0,0);
+  if(s.partenza<oggi0)return '';
+  const id=s.strutturaId||idCasaDaNome(s.struttura), chi=orariDi(id).chi;
+  const casa=casaDelSoggiorno(s), altri=soggiorniHome().filter(x=>x!==s&&casaDelSoggiorno(x)===casa&&!(x.uid&&x.uid===s.uid));
+  const kP=dataKey(s.partenza), kA=dataKey(s.arrivo);
+  const dopo=altri.some(x=>dataKey(x.arrivo)===kP), prima=altri.some(x=>x.partenza&&dataKey(x.partenza)===kA);
+  const giorno=s.partenza.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
+  const righe=[`<b>Pulizia ${escText(giorno)}</b>${chi?' · '+escText(chi):''}`];
+  if(dopo)righe.push('<span class="muted">⚡ Cambio in giornata: lo stesso giorno arrivano altri ospiti</span>');
+  if(prima&&s.arrivo>=oggi0)righe.push('<span class="muted">⚡ Il giorno del loro arrivo parte chi c\'è prima: pulizia in giornata</span>');
+  return righe.join('<br>');
 }
 function chiudiSommario(){ const b=$('#sommarioPren'); if(b)b.classList.remove('open'); }
 // un pulsante del sommario fa la sua cosa e chiude il sommario (tranne "Copia", che resta lì per dire "Copiato")
@@ -17150,7 +17182,7 @@ function calRigaEvento(e){
     return `<div class="gcal-riga" ${calApriAttr(e)}><span class="barra" style="background:${e.colore};opacity:.55"></span>
     <span style="flex:1;min-width:0">
       <b style="font-size:13px">${cosa} · ${escText(e.nomeBello||e.nome)}</b>
-      <span class="muted" style="display:block;font-size:11.5px">${e.ospiti?`👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'} · `:''}${e.ospiti||e.nomeCorto?escText(e.fonte)+', ':''}check-in non ancora fatto${quando?' · '+escText(quando):''}${e.telefono4?' · tel. …'+escText(e.telefono4):''}</span>
+      <span class="muted" style="display:block;font-size:11.5px">${e.ospiti?`👤 ${e.ospiti} ospit${e.ospiti===1?'e':'i'} · `:''}${e.ospiti||e.nomeCorto?escText(e.fonte)+', ':''}check-in non ancora fatto${quando?' · '+escText(quando):''}</span>
       ${link&&e.tipo!=='p'?`<button class="btn ghost sm" id="${bid}" style="width:auto;margin-top:7px;padding:7px 11px;font-size:12px" onclick="event.stopPropagation();copiaLinkCheckin('${link}','${bid}')">📋 Copia il link del check-in</button>`:''}</span>
     ${e.url?'<span class="vai">›</span>':''}</div>`;
   }

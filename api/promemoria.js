@@ -11,7 +11,7 @@
 //        3) è il giorno 3 del mese e c'è almeno una struttura Ross1000 (file da caricare entro il 5)
 //        4) oggi c'è una pulizia (parte qualcuno): una notifica per casa col messaggio per il gruppo
 //           WhatsApp di chi pulisce e il pulsante "Manda a Betti/Claudia"; il lunedì anche il riepilogo
-//           delle pulizie delle prossime 2 settimane (api/_pulizie.js)
+//           delle pulizie delle prossime 3 settimane (api/_pulizie.js)
 //        Prima ancora rimanda a Ross1000 gli invii rimasti in coda perché la Regione non
 //        rispondeva (api/_ross.js) e avvisa quando sono arrivati.
 //        Se NTFY_TOPIC non è configurato non fa nulla. Con CRON_SECRET impostato, accetta
@@ -164,7 +164,7 @@ async function elencoDaRegistrare(conn) {
 }
 // Notifiche delle pulizie, una per casa: il messaggio per il gruppo WhatsApp di chi pulisce col
 // pulsante "📲 Manda a Betti" che apre WhatsApp col testo già scritto (si sceglie il gruppo e si
-// invia). Ogni giorno quelle di oggi; il lunedì (o con riepilogo:true) anche le prossime 2
+// invia). Ogni giorno quelle di oggi; il lunedì (o con riepilogo:true) anche le prossime 3
 // settimane. Pubblicate in JSON perché titolo ed etichetta hanno le emoji. Dice quante ne ha mandate.
 async function notificaPulizie(conn, topic, { riepilogo = false } = {}) {
   const p = await pulizieProssime(conn, oggiIsoRoma());
@@ -179,7 +179,7 @@ async function notificaPulizie(conn, topic, { riepilogo = false } = {}) {
   };
   let n = 0;
   for (const m of p.oggi) { await manda(`🧹 Pulizia di oggi · ${m.nome}`, m); n++; }
-  if (riepilogo || p.lunedi) for (const m of p.settimane) { await manda(`📅 Pulizie delle prossime 2 settimane · ${m.nome}`, m); n++; }
+  if (riepilogo || p.lunedi) for (const m of p.settimane) { await manda(`📅 Pulizie delle prossime 3 settimane · ${m.nome}`, m); n++; }
   return n;
 }
 function oggiIsoRoma() {
@@ -479,7 +479,7 @@ module.exports = async (req, res) => {
     if ((req.body || {}).azione === "pulizie") {
       try {
         // "🔔 Mandami le notifiche adesso" (per provarle senza aspettare il mattino dopo): quelle di
-        // oggi e il riepilogo delle 2 settimane, anche se non è lunedì
+        // oggi e il riepilogo delle 3 settimane, anche se non è lunedì
         if ((req.body || {}).notifica) {
           if (!process.env.NTFY_TOPIC) return res.status(200).json({ ok: false, error: "Le notifiche non sono configurate (manca NTFY_TOPIC su Vercel)" });
           const n = await notificaPulizie(conn, process.env.NTFY_TOPIC, { riepilogo: true });
