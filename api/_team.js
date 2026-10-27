@@ -130,7 +130,7 @@ async function datiTeam(conn, membro, oggiIso) {
   }
   if (p.pulizie) {
     const { pulizieProssime } = require("./_pulizie");
-    try { const pu = await pulizieProssime(conn, oggiIso); out.pulizie = { giorno: pu.giorno, oggi: pu.oggi, settimane: pu.settimane }; }
+    try { const pu = await pulizieProssime(conn, oggiIso); out.pulizie = { giorno: pu.giorno, oggi: pu.oggi, settimane: pu.settimane, mandate: pu.mandate }; }
     catch { out.pulizie = null; }
   }
   // il codice del check-in online, per il link da mandare agli ospiti (lo stesso del gestionale)

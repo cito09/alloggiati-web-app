@@ -266,6 +266,10 @@
   .tile.urg .t-dot{display:block; box-shadow:0 0 0 4px rgba(239,71,111,.2)}
   .sez-barra{display:none; margin:0 0 10px}
   .pul-manca{font-size:11.5px; line-height:1.45; margin:6px 2px 0}
+  .pul-ok{display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; color:var(--ok); font-size:12.5px; font-weight:700; margin:8px 2px 0}
+  .pul-annulla{background:none; border:none; color:var(--muted); text-decoration:underline; font:inherit; font-size:11.5px; font-weight:500; cursor:pointer; padding:0}
+  .pul-cambiato{color:#ffb703; font-size:12.5px; font-weight:700; margin:8px 2px 0}
+  .pul-casa.mandato .pul-testo{opacity:.6}
   /* ===== collaboratori (api/_team.js): chi entra col SUO codice (es. Sofia) vede solo quello che l'host
      ha spuntato in Impostazioni → Collaboratori; niente menu, niente impostazioni ===== */
   .team-testa{display:none; align-items:center; gap:8px}
@@ -1391,7 +1395,7 @@ async function caricaTeam(){
   TEAM.nome=d.nome||TEAM.nome; TEAM.permessi=d.permessi||{}; TEAM.soggiorni=d.soggiorni||[];
   if(Array.isArray(d.strutture)&&d.strutture.length&&!struttureList.length)struttureList=d.strutture;
   if(d.orari)orariCase=d.orari;
-  pulizie=d.pulizie?{giorno:d.pulizie.giorno, oggi:d.pulizie.oggi||[], settimane:d.pulizie.settimane||[]}:null;
+  pulizie=d.pulizie?{giorno:d.pulizie.giorno, oggi:d.pulizie.oggi||[], settimane:d.pulizie.settimane||[], mandate:d.pulizie.mandate||{}}:null;
   blocchiAuto=d.blocchi||[]; eventiCal=d.eventi||{lista:[], blocchi:{}};   // chiusure e promemoria: solo da leggere
   window.linkCheckinPerStruttura={};
   if(d.codiceCheckin)(struttureList||[]).forEach(c=>{ window.linkCheckinPerStruttura[c.id]=linkCheckinDa(d.codiceCheckin,c.id); });
@@ -1539,8 +1543,8 @@ function collabInvito(k,whatsapp){
   const p=m.permessi||{};
   const cosa=p.completo?'tutto KeyFlow':[p.calendario&&'il calendario delle case',p.pulizie&&'le pulizie',p.link&&'i link del check-in'].filter(Boolean).join(', ').replace(/, ([^,]*)$/,' e $1')||'KeyFlow';
   const agg=!p.completo&&p.calendario&&p.eventi?' (e aggiungere promemoria, tipo «viene l\'idraulico», col tasto + del calendario)':'';
-  const testo=`Ciao ${m.nome}! 👋 Ecco KeyFlow, per vedere ${cosa}${agg}:\n${location.origin}\n\nIl tuo codice d'accesso è: ${m.codice}\nLo metti solo la prima volta, poi resta ricordato. Dal telefono puoi aggiungerla alla schermata Home (menu del browser → «Aggiungi a schermata Home»).`;
-  if(whatsapp){ window.open('https://wa.me/?text='+encodeURIComponent(testo),'_blank','noopener'); return; }
+  const testo=`Ciao ${m.nome}! 👋 Ecco KeyFlow, per vedere ${cosa}${agg}:\n${location.origin}\n\nIl tuo codice d'accesso è: ${m.codice}\nLo metti solo la prima volta, poi resta ricordato. Per averla come un'app: su iPhone aprila con Safari → tasto Condividi (il quadrato con la freccia) → «Aggiungi alla schermata Home»; su Android menu ⋮ di Chrome → «Aggiungi a schermata Home».`;
+  if(whatsapp){ apriWhatsApp(testo); return; }
   const fatto=()=>toast('📋 Invito copiato: incollalo nella chat con '+m.nome);
   const riserva=()=>{ const ta=document.createElement('textarea'); ta.value=testo; ta.style.position='fixed'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
@@ -16206,18 +16210,71 @@ async function caricaPulizie(){
     const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({azione:'pulizie'})});
     const d=await r.json(); if(!r.ok||!d.giorno)return;
-    pulizie={giorno:d.giorno, oggi:d.oggi||[], settimane:d.settimane||[]};
+    pulizie={giorno:d.giorno, oggi:d.oggi||[], settimane:d.settimane||[], mandate:d.mandate||{}};
     try{ localStorage.setItem('pulizie_cache',JSON.stringify(pulizie)); }catch(e){}
   }catch(e){ /* senza rete resta quello di prima */ }
   renderPulizie();
 }
 function pulBlocco(m,k){
-  return `<div class="pul-casa">
+  // "✓ Mandato": tocco su Manda o Copia, salvato online (come le recensioni); se poi il testo cambia
+  // (es. una prenotazione nuova nel riepilogo) si vede che va rimandato
+  const key=pulChiave(m,k), st=((pulizie&&pulizie.mandate)||{})[key], fatto=!!(st&&st.h===impronta(m.testo)), cambiato=!!(st&&!fatto);
+  const chi=escText(m.chi||'WhatsApp');
+  const quando=st?new Date(st.ts).toLocaleString('it-IT',k[0]==='o'?{hour:'2-digit',minute:'2-digit'}:{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  const daChi=st&&st.da&&!(window.TEAM&&TEAM.nome===st.da)?` da ${escText(st.da)}`:'';
+  return `<div class="pul-casa${fatto?' mandato':''}">
     <div class="pul-testa"><span style="color:${strutturaInfo(m.nome).colore}">●</span> <b>${escText(m.nome)}</b>${m.chi?` <span class="muted">· ${escText(m.chi)}</span>`:''}</div>
     <div class="pul-testo">${escText(m.testo)}</div>
     ${pulPercheManca(k[0]==='o'?[{giorno:pulizie&&pulizie.giorno, ospiti:m.ospiti, prossimo:m.prossimo, stato:m.stato, fonte:m.fonte}]:(m.voci||[]))}
-    <div class="pul-az"><a class="btn primary sm" href="${escText(m.whatsapp)}" target="_blank" rel="noopener">📲 Manda a ${escText(m.chi||'WhatsApp')}</a>
+    ${fatto?`<div class="pul-ok">✓ Mandato a ${chi}${daChi} ${k[0]==='o'?'alle':'·'} ${escText(quando)} <button class="pul-annulla" onclick="pulSegna('${k}',true)">annulla</button></div>`
+      :cambiato?`<div class="pul-cambiato">✏️ Cambiato da quando ${st.da&&!(window.TEAM&&TEAM.nome===st.da)?escText(st.da)+' l\'ha mandato':'l\'hai mandato'} (${escText(quando)}): rimandalo</div>`:''}
+    <div class="pul-az"><button class="btn ${fatto?'ghost':'primary'} sm" onclick="pulManda('${k}')">📲 ${fatto?'Rimanda':'Manda a '+chi}</button>
       <button class="btn ghost sm" onclick="copiaPulizie('${k}')">📋 Copia</button></div></div>`;
+}
+// impronta del testo: se il messaggio cambia dopo l'invio, non è più "mandato"
+function impronta(t){ let h=5381; t=String(t||''); for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0; return (h>>>0).toString(36)+'.'+t.length; }
+function pulChiave(m,k){ return k[0]==='o'?`o|${pulizie&&pulizie.giorno}|${m.casa}`:`s|${m.casa}`; }
+function pulMessaggio(k){ return pulizie&&(k[0]==='o'?pulizie.oggi:pulizie.settimane)[+k.slice(1)]; }
+// segna (o toglie) "mandato": subito a video, poi online. Un collaboratore a cui hanno tolto il
+// permesso non vede errori: la pagina si aggiorna da sola
+async function pulSegna(k,annulla){
+  const m=pulMessaggio(k); if(!m)return;
+  const key=pulChiave(m,k), h=impronta(m.testo);
+  pulizie.mandate=pulizie.mandate||{};
+  const prima=pulizie.mandate[key];
+  if(annulla)delete pulizie.mandate[key]; else pulizie.mandate[key]={ts:Date.now(), h, da:window.TEAM?TEAM.nome:''};
+  renderPulizie();
+  try{
+    // keepalive: su iPhone, appena si apre WhatsApp la pagina si ferma e una richiesta normale
+    // verrebbe interrotta (il segno si vedrebbe solo su questo telefono)
+    const r=await fetch('/api/promemoria',{method:'POST',keepalive:true,headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify({azione:'pulizieMandato', chiave:key, h, annulla:!!annulla})});
+    if(r.status===401&&window.TEAM){ if(teamRistretto())caricaTeam(); return; }
+    const d=await r.json(); if(!r.ok||!d.ok)throw new Error(d.error||'');
+    pulizie.mandate=d.mandate||{};
+    try{ localStorage.setItem('pulizie_cache',JSON.stringify(pulizie)); }catch(e){}
+    renderPulizie();
+  }catch(e){ if(prima)pulizie.mandate[key]=prima; else delete pulizie.mandate[key]; renderPulizie(); if(!window.TEAM)toast('⚠️ Non sono riuscito a segnarlo: controlla la connessione'); }
+}
+// "📲 Manda a Claudia": apre WhatsApp col testo già scritto (si sceglie il gruppo e si invia)
+function pulManda(k){
+  const m=pulMessaggio(k); if(!m)return;
+  pulSegna(k);   // prima il segno (parte subito), poi WhatsApp
+  apriWhatsApp(m.testo);
+}
+// WhatsApp col testo già scritto. Su iPhone (Sofia ha l'iPhone) i link wa.me aperti dall'app sulla
+// schermata Home a volte si fermano sulla pagina web di WhatsApp: lì si usa il collegamento diretto
+// all'app (whatsapp://send?text=…, quello indicato da WhatsApp per iPhone) e, se l'app non si apre
+// entro un secondo e mezzo, la pagina wa.me. Su Android e computer resta wa.me come prima.
+function eIphone(){ return /iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1); }
+function apriWhatsApp(testo){
+  const web='https://wa.me/?text='+encodeURIComponent(testo);
+  if(!eIphone()){ window.open(web,'_blank','noopener'); return; }
+  let uscita=false;
+  const via=()=>{ uscita=true; };
+  document.addEventListener('visibilitychange',via,{once:true}); window.addEventListener('pagehide',via,{once:true}); window.addEventListener('blur',via,{once:true});
+  location.href='whatsapp://send?text='+encodeURIComponent(testo);
+  setTimeout(()=>{ if(!uscita&&!document.hidden)location.href=web; },1500);
 }
 // sotto il messaggio (solo per chi guarda, non finisce nel messaggio): perché a un giorno manca "× N ospiti"
 function pulPercheManca(voci){
@@ -16280,10 +16337,12 @@ function riquadriSezioni(){
     const [aa,mm,dd]=g.split('-').map(Number), d=new Date(aa,mm-1,dd);
     const diff=Math.round((d-new Date(new Date().setHours(0,0,0,0)))/864e5);
     const quando=diff===0?'Oggi':diff===1?'Domani':`${['dom','lun','mar','mer','gio','ven','sab'][d.getDay()]} ${dd}/${mm}`;
-    pul={...pul, val:quando, st:diff===0?'att':'', html:true,
+    const oggiMandati=diff===0&&(p.oggi||[]).length&&(p.oggi||[]).every(m=>{ const st=(p.mandate||{})[`o|${p.giorno}|${m.casa}`]; return st&&st.h===impronta(m.testo); });
+    pul={...pul, val:quando, st:diff===0&&!oggiMandati?'att':oggiMandati?'ok':'', html:true,
       nota:prime.length===1   // una casa: "● Alba Loft" e sotto "👤 2 ospiti"; più case: una riga ciascuna
         ?`<span style="color:${strutturaInfo(prime[0].nome).colore}">●</span> ${escText(casaBreve(prime[0].nome))}${prime[0].ospiti?`<br>👤 ${prime[0].ospiti} ospit${prime[0].ospiti===1?'e':'i'}`:''}`
         :prime.map(v=>`<span style="color:${strutturaInfo(v.nome).colore}">●</span> ${escText(casaBreve(v.nome))}${v.ospiti?` 👤${v.ospiti}`:''}`).join('<br>')};
+    if(oggiMandati)pul.nota='✓ messaggio mandato';
   }
   // Recensioni: quante da scrivere
   const bd=$('#oggiRecBadge'), nRec=bd&&bd.style.display!=='none'?parseInt(bd.textContent,10)||0:0;
@@ -16338,7 +16397,7 @@ function misuraIntestazione(){ const h=document.querySelector('header'); if(h)do
 window.addEventListener('resize',misuraIntestazione);
 function copiaPulizie(k){
   const m=pulizie&&(k[0]==='o'?pulizie.oggi:pulizie.settimane)[+k.slice(1)]; if(!m)return;
-  const fatto=()=>toast(`🧹 Messaggio copiato: incollalo nel gruppo${m.chi?' di '+m.chi:''}`);
+  const fatto=()=>{ toast(`🧹 Messaggio copiato: incollalo nel gruppo${m.chi?' di '+m.chi:''}`); pulSegna(k); };
   const riserva=()=>{
     const ta=document.createElement('textarea'); ta.value=m.testo; ta.style.position='fixed'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.focus(); ta.select();

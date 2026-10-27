@@ -128,13 +128,36 @@ function testoSettimane(c, voci) {
 }
 const linkWhatsApp = (testo) => `https://wa.me/?text=${encodeURIComponent(testo)}`;
 
+// "✓ Mandato a Claudia alle 9:12" (l'utente: "dopo che clicchi su manda a Claudia ti dà confermato
+// mandato, come le recensioni"): chi ha toccato "Manda"/"Copia" e quando, uguale su tutti i telefoni
+// (anche per Sofia, che coordina le pulizie). KV "pulizie_mandate" = { chiave: { ts, h, da } }:
+// chiave "o|aaaa-mm-gg|casa" = messaggio di oggi, "s|casa" = ultimo riepilogo delle settimane;
+// h = impronta del testo mandato (se il riepilogo cambia, il gestionale dice "rimandalo"); da = nome
+// del collaboratore ("" = l'host). Quelli di oggi spariscono dopo 30 giorni.
+const KEY_MANDATE = "pulizie_mandate";
+async function leggiMandate(conn) {
+  try { const raw = await redisCmd(conn, ["GET", KEY_MANDATE]); const d = raw ? JSON.parse(raw) : {}; return d && typeof d === "object" ? d : {}; }
+  catch { return {}; }
+}
+async function segnaMandato(conn, { chiave, h, annulla } = {}, da = "") {
+  const k = String(chiave || "");
+  if (!/^(o\|\d{4}-\d{2}-\d{2}|s)\|[\w-]{1,40}$/.test(k)) return { ok: false, error: "Messaggio non riconosciuto" };
+  const d = await leggiMandate(conn);
+  if (annulla) delete d[k];
+  else d[k] = { ts: Date.now(), h: String(h || "").slice(0, 40), da: String(da || "").slice(0, 30) };
+  const limite = Date.now() - 30 * 864e5;
+  for (const [kk, v] of Object.entries(d)) if (kk.startsWith("o|") && (!v || v.ts < limite)) delete d[kk];
+  await redisCmd(conn, ["SET", KEY_MANDATE, JSON.stringify(d)]);
+  return { ok: true, mandate: d };
+}
+
 // le pulizie di oggi e quelle delle prossime 3 settimane, casa per casa, coi messaggi pronti:
 // per la Home e per le notifiche del mattino
 async function pulizieProssime(conn, oggiIso) {
   let strutture = [];
   try { strutture = require("./_alloggiati").getStrutture() || []; } catch { strutture = []; }
   const leggi = async (k) => { try { const raw = await redisCmd(conn, ["GET", k]); return raw ? JSON.parse(raw) : null; } catch { return null; } };
-  const [storico, pending, orari, cal] = await Promise.all([leggi("storico_schedine"), leggi("checkin_pending"), leggi("orari_case"), leggiCalendari(conn)]);
+  const [storico, pending, orari, cal, mandate] = await Promise.all([leggi("storico_schedine"), leggi("checkin_pending"), leggi("orari_case"), leggiCalendari(conn), leggiMandate(conn)]);
   const esterne = vistaCalendari(cal).prenotazioni || [];
   const perCasa = soggiorniPerCasa({ storico, pending, esterne, strutture });
   const oggiMs = msDaIso(oggiIso);
@@ -154,7 +177,7 @@ async function pulizieProssime(conn, oggiIso) {
       oggi.push({ ...c, ospiti: voci[0].ospiti, prossimo: vociIso[0].prossimo, stato: vociIso[0].stato, fonte: vociIso[0].fonte, testo: tO, whatsapp: linkWhatsApp(tO) });
     }
   }
-  return { giorno: oggiIso, lunedi: new Date(oggiMs).getUTCDay() === 1, oggi, settimane };
+  return { giorno: oggiIso, lunedi: new Date(oggiMs).getUTCDay() === 1, oggi, settimane, mandate };
 }
 
-module.exports = { pulizieProssime, soggiorniPerCasa, msDa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };
+module.exports = { pulizieProssime, segnaMandato, soggiorniPerCasa, msDa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };

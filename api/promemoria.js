@@ -33,7 +33,7 @@ const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = req
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
 const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno } = require("./_calendari");
-const { pulizieProssime } = require("./_pulizie");
+const { pulizieProssime, segnaMandato } = require("./_pulizie");
 const { mandaPromemoriaEmail } = require("./_promemoriaEmail");
 
 const KEY_PENDENTI = "bookings_pending";
@@ -341,6 +341,21 @@ module.exports = async (req, res) => {
           try { await fetch(`https://ntfy.sh/${encodeURIComponent(process.env.NTFY_TOPIC)}`, { method: "POST", headers: { Title: "Calendario KeyFlow" }, body: riga }); }
           catch (e) { /* la modifica c'è comunque */ }
         }
+        return res.status(esito.ok ? 200 : 400).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+    // pulizie → "✓ Mandato a Claudia alle 9:12": lo segna l'host o un collaboratore col permesso
+    // delle pulizie (es. Sofia, che le coordina); resta scritto chi è stato
+    if ((req.body || {}).azione === "pulizieMandato") {
+      if (!conn) return res.status(200).json({ configurato: false });
+      try {
+        let da = "";
+        const team = req.headers["x-team-code"] && !req.headers["x-admin-code"] ? await trovaCollaboratore(conn, req.headers["x-team-code"]) : null;
+        if (team) { if (!(team.permessi.pulizie || team.permessi.completo)) return res.status(401).json({ error: "Codice non più valido" }); da = team.nome; }
+        else if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
+        const esito = await segnaMandato(conn, req.body || {}, da);
         return res.status(esito.ok ? 200 : 400).json(esito);
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
