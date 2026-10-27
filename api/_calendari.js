@@ -187,6 +187,12 @@ async function aggiornaEmail(email, conn) {
   // codici di TUTTE le conferme lette (le "conferme" si tolgono 120 giorni dopo la partenza): servono
   // ad aprire su Airbnb anche i soggiorni vecchi, quelli che il calendario .ics non riporta più
   const codici = { ...(e.codici || {}) };            // codice HM… → {a, p, n, ts}
+  // modifiche accettate dall'host: codice HM… → {ospiti, ts}. Le richieste dell'ospite ("X vorrebbe
+  // modificare…", senza codice) aspettano qui l'email "Prenotazione aggiornata" (col codice) e si
+  // abbinano per nome; una richiesta mai accettata si dimentica dopo 30 giorni.
+  const modifiche = { ...(e.modifiche || {}) };
+  let richieste = [...(e.richiesteModifica || [])];
+  const accettate = [];
   const risultati = await Promise.all(caselle.map(async (c) => {
     try {
       const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {},
@@ -200,6 +206,8 @@ async function aggiornaEmail(email, conn) {
       x.r.nuove.forEach((c) => { conferme[c.codice] = { nome: c.nome, ospiti: c.ospiti, arrivo: c.arrivo, partenza: c.partenza, ts: c.ts, casella: x.c.utente };
         if (c.arrivo && c.partenza) codici[c.codice] = { a: c.arrivo, p: c.partenza, n: c.nome || "", ts: c.ts, casella: x.c.utente }; });
       (x.r.cancellate || []).forEach((c) => { if (!cancellate[c.codice] || cancellate[c.codice].ts < c.ts) cancellate[c.codice] = { ts: c.ts, casella: x.c.utente }; });
+      richieste.push(...(x.r.richieste || []));
+      accettate.push(...(x.r.modifiche || []));
       // quante email sono finite in ogni cartella di archivio (in tutto, da quando è collegata)
       const tot = { ...(prima.cartelle || {}) };
       for (const [k, n] of Object.entries(x.r.archiviate || {})) tot[k] = (tot[k] || 0) + n;
@@ -219,6 +227,21 @@ async function aggiornaEmail(email, conn) {
   }
   // via le caselle tolte
   for (const k of Object.keys(stati)) if (!caselle.some((c) => c.utente === k)) delete stati[k];
+  // modifiche: ogni "Prenotazione aggiornata" prende la richiesta dello stesso ospite arrivata prima
+  // (al massimo 14 giorni prima); la stessa email letta da due caselle conta una volta
+  const nomeUguale = (a, b) => { const n = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    return n(a) && (n(a) === n(b) || n(a).split(/\s+/)[0] === n(b).split(/\s+/)[0]); };
+  const viste = new Set();
+  richieste = richieste.filter((r) => { const k = `${r.nome}|${r.ts}`; if (viste.has(k)) return false; viste.add(k); return true; });
+  for (const a of accettate.sort((x, y) => x.ts - y.ts)) {
+    const r = richieste.filter((q) => nomeUguale(q.nome, a.nome) && q.ts <= a.ts + 60000 && q.ts >= a.ts - 14 * 86400000)
+      .sort((x, y) => y.ts - x.ts)[0];
+    if (!r) continue;
+    if (!modifiche[a.codice] || modifiche[a.codice].ts <= a.ts) modifiche[a.codice] = { ospiti: r.ospiti, ts: a.ts };
+    richieste = richieste.filter((q) => q !== r);
+  }
+  richieste = richieste.filter((q) => q.ts > Date.now() - 30 * 86400000).slice(-50);
+  for (const [k, v] of Object.entries(modifiche)) if (v.ts < Date.now() - 400 * 86400000) delete modifiche[k];
   // non tengo per sempre le conferme dei soggiorni finiti da mesi
   const limite = Date.now() - 120 * 86400000;
   for (const [k, v] of Object.entries(conferme)) {
@@ -240,6 +263,8 @@ async function aggiornaEmail(email, conn) {
   const limiteCodici = Date.now() - 3 * 365 * 86400000;
   for (const [k, v] of Object.entries(codici)) if (giornoUtc(aaaammgg(v.p)) < limiteCodici) delete codici[k];
   e.codici = codici;
+  e.modifiche = modifiche;
+  e.richiesteModifica = richieste;
   const ko = risultati.filter((x) => !x.ok);
   e.esito = ko.length === risultati.length
     ? { ok: false, ts: Date.now(), errore: ko[0].errore }
@@ -324,17 +349,20 @@ async function sincronizzaCalendari(conn, stato) {
 // Ogni prenotazione del calendario prende nome e ospiti dalla sua email di conferma: prima
 // per codice (HM…, è lo stesso nei due posti), poi, se manca, per date d'arrivo e partenza
 // uguali (solo se c'è una sola prenotazione con quelle date, sennò meglio non indovinare).
-function conNomi(prenotazioni, conferme) {
+function conNomi(prenotazioni, conferme, modifiche) {
   const lista = Object.entries(conferme || {}).map(([codice, c]) => ({ codice, ...c }));
   return (prenotazioni || []).map((p) => {
     if (p.nome) return p;   // ha già il nome (da ProhostAI)
+    // numero di ospiti cambiato dopo la conferma (modifica accettata dall'host): vince
+    const mod = p.codice && modifiche && modifiche[String(p.codice).toUpperCase()];
     let c = p.codice && conferme && conferme[String(p.codice).toUpperCase()];
     if (!c) {
       const stesse = lista.filter((x) => x.arrivo && x.arrivo === p.arrivo && x.partenza === p.partenza);
       const altre = (prenotazioni || []).filter((q) => q.arrivo === p.arrivo && q.partenza === p.partenza);
       if (stesse.length === 1 && altre.length === 1) c = stesse[0];
     }
-    return c ? { ...p, nome: c.nome || "", ospiti: c.ospiti || null } : p;
+    if (c) return { ...p, nome: c.nome || "", ospiti: (mod && mod.ospiti) || c.ospiti || null };
+    return mod ? { ...p, ospiti: mod.ospiti } : p;
   });
 }
 // per il gestionale: tutti i link alle prenotazioni, anche dei soggiorni vecchi.
@@ -364,7 +392,7 @@ function vistaCalendari(stato) {
   // non si è ancora aggiornato
   const canc = emailAccesa(em) ? (em.cancellate || {}) : {};
   const attive = (stato.prenotazioni || []).filter((p) => !(p.codice && canc[String(p.codice).toUpperCase()]));
-  const prenotazioni = emailAccesa(em) ? conNomi(attive, em.conferme) : attive;
+  const prenotazioni = emailAccesa(em) ? conNomi(attive, em.conferme, em.modifiche) : attive;
   return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0, linkPrenotazioni: linkPrenotazioni(stato, canc),
     email: { attivo: emailAccesa(em), configurato: caselleEmail(em).length > 0, casella: process.env.GMAIL_USER || "",
       esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,

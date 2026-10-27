@@ -14474,9 +14474,10 @@ async function loadStrutture(){
   }catch(e){/* offline: i pulsanti mostreranno l'errore al click */}
 }
 /* ===== Le case: orari di check-in e check-out (ottobre 2026), per il riepilogo della prenotazione.
-   In KV (azione "orari" di /api/promemoria), copia sul telefono in localStorage. Alba Loft parte con
-   16:00 / 10:00, gli orari del suo annuncio su Airbnb. ===== */
-const ORARI_PREDEFINITI={canazei:{in:'16:00',out:'10:00'}};
+   In KV (azione "orari" di /api/promemoria), copia sul telefono in localStorage. Si parte dagli
+   orari degli annunci su Airbnb (dalle prenotazioni mandate dall'utente): Alba Loft 16:00 / 10:00,
+   Falegnami 15:00 / 10:00. ===== */
+const ORARI_PREDEFINITI={canazei:{in:'16:00',out:'10:00'}, bologna:{in:'15:00',out:'10:00'}};
 let orariCase=(()=>{ try{ return JSON.parse(localStorage.getItem('orari_case')||'null')||{}; }catch(e){ return {}; } })();
 function orariDi(idCasa){ return orariCase[idCasa]||ORARI_PREDEFINITI[idCasa]||{}; }
 function idCasaDaNome(nome){

@@ -10,7 +10,7 @@
 const MESI = { gen: 1, feb: 2, mar: 3, apr: 4, mag: 5, giu: 6, lug: 7, ago: 8, set: 9, ott: 10, nov: 11, dic: 12,
   jan: 1, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, dec: 12 };
 const ATTESA_MS = 28000;
-const VERSIONE_LETTURA = 3;   // 2 = si leggono anche le email di cancellazione; 3 = si ripassano le conferme vecchie per l'archivio dei link ad Airbnb
+const VERSIONE_LETTURA = 4;   // 2 = si leggono anche le email di cancellazione; 3 = si ripassano le conferme vecchie per l'archivio dei link ad Airbnb; 4 = anche le modifiche (numero di ospiti)
 
 // solo le conferme che arrivano a chi OSPITA ("Prenotazione confermata - Anna Rossi arriverà
 // il …"); non quelle dei viaggi fatti come ospite ("La tua prenotazione … è confermata"),
@@ -38,6 +38,45 @@ function datiCancellazione({ subject, text, date }) {
     || (/reservations\/details\/([A-Z0-9]{6,14})/i.exec(t)) || (/\b(HM[A-Z0-9]{8})\b/.exec(t)) || [])[1];
   if (!codice) return null;
   return { codice: codice.toUpperCase(), ts: date instanceof Date && !isNaN(date) ? date.getTime() : Date.now() };
+}
+
+// Modifiche della prenotazione (ottobre 2026, caso Marie-Inez: da 2 ospiti a 1, e nel calendario
+// di KeyFlow restava 2). Airbnb manda DUE email: la richiesta dell'ospite "Marie-Inez vorrebbe
+// modificare la sua prenotazione" con "OSPITI RICHIESTI · 1 ospite" ma SENZA il codice HM…, e,
+// quando l'host accetta, "Prenotazione aggiornata" ("La tua prenotazione con Marie-Inez è stata
+// aggiornata") col codice ma SENZA il numero. Si abbinano per nome in _calendari.js (aggiornaEmail).
+// Se l'host rifiuta, la seconda email non arriva e non cambia niente. Le date cambiate le porta
+// già il calendario .ics.
+const PRIMA_FWD = "^(?:\\s*(?:fwd?|i|r|tr):\\s*)*";
+function eRichiestaModifica(oggetto) {
+  return /vorrebbe modificare|would like to (?:change|alter|modify)|wants to (?:change|alter|modify)/i.test(String(oggetto || ""));
+}
+function eModificaAccettata(oggetto) {
+  return new RegExp(PRIMA_FWD + "(?:prenotazione aggiornata|reservation (?:updated|altered|changed)|booking updated)", "i").test(String(oggetto || ""));
+}
+// la riga sotto (o accanto) a un'etichetta: "OSPITI RICHIESTI\n\n2 adulti, 1 bambino" → 3
+function ospitiDopo(t, etichetta) {
+  const m = new RegExp("(?:^|\\n)\\s*(?:" + etichetta + ")\\s*:?\\s*(?:\\n\\s*)*([^\\n]+)", "i").exec(t);
+  const n = m ? (m[1].match(/\d+/g) || []).reduce((a, x) => a + Number(x), 0) : 0;
+  return n > 0 && n <= 30 ? n : null;
+}
+const tsDi = (date) => (date instanceof Date && !isNaN(date) ? date.getTime() : Date.now());
+function datiRichiestaModifica({ subject, text, date }) {
+  if (!eRichiestaModifica(subject)) return null;
+  const nome = (new RegExp(PRIMA_FWD + "(.+?)\\s+(?:vorrebbe modificare|would like to|wants to)", "i").exec(subject || "") || [])[1];
+  const t = String(text || "").replace(/\r/g, "");
+  const ospiti = ospitiDopo(t, "ospiti richiesti|requested guests|new guests");
+  if (!nome || !ospiti) return null;   // es. solo le date: ci pensa il calendario .ics
+  return { nome: nome.trim().slice(0, 80), ospiti, prima: ospitiDopo(t, "ospiti originari|original guests"), ts: tsDi(date) };
+}
+function datiModificaAccettata({ subject, text, date }) {
+  if (!eModificaAccettata(subject)) return null;
+  const t = String(text || "").replace(/\r/g, "");
+  const codice = ((/reservations\/details\/([A-Z0-9]{6,14})/i.exec(t)) || (/\b(HM[A-Z0-9]{8})\b/.exec(t)) || [])[1];
+  if (!codice) return null;
+  const nome = ((/prenotazione con\s+(.+?)\s+è stata aggiornata/i.exec(t)) || (/reservation with\s+(.+?)\s+(?:has been|was)\s+(?:updated|changed|altered)/i.exec(t))
+    || (/reservations\/details\/[A-Z0-9]+\S*\s+([^\n[\]]{2,80})/i.exec(t)) || [])[1] || "";
+  return { codice: codice.toUpperCase(), nome: nome.trim().slice(0, 80), ts: tsDi(date) };
 }
 
 const due = (n) => String(n).padStart(2, "0");
@@ -112,7 +151,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
       // le cartelle (etichette) che l'host ha già in questa casella: le email vanno lì
       const etichetteGmail = etichetteUtente(caselle);
       const dest = cartelle ? destinazioni(etichetteGmail, cartelle.scelte) : null;
-      const nuove = [], cancellate = [];
+      const nuove = [], cancellate = [], richieste = [], modifiche = [];
       const nuovoStato = { cartelle: {}, etichette: (stato && stato.etichette) || {} };
       let lette = 0;
       let archiviate = null, erroreCartelle = null, fuoriInbox = null;
@@ -133,7 +172,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
           const minimo = daCapo ? 0 : Number(st.ultimoUid) || 0;
           const uids = ((await client.search(criteri, { uid: true })) || []).filter((u) => u > minimo);
           let ultimoUid = minimo;
-          const daLeggere = [], daCancellare = [];
+          const daLeggere = [], daCancellare = [], daModifiche = [];
           if (uids.length) {
             // prima solo l'oggetto (leggero), poi il testo intero solo delle conferme e delle cancellazioni
             for await (const m of client.fetch(uids, { envelope: true, uid: true }, { uid: true })) {
@@ -141,6 +180,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
               const ogg = m.envelope && m.envelope.subject;
               if (eConfermaHost(ogg)) daLeggere.push(m.uid);
               else if (eCancellazione(ogg)) daCancellare.push(m.uid);
+              else if (eRichiestaModifica(ogg) || eModificaAccettata(ogg)) daModifiche.push(m.uid);
             }
           }
           for (const uid of daCancellare.slice(-100)) {
@@ -149,6 +189,14 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
             const p = await simpleParser(m.source);
             const d = datiCancellazione({ subject: p.subject, text: p.text || "", date: p.date });
             if (d) cancellate.push(d);
+          }
+          for (const uid of daModifiche.slice(-100)) {
+            const m = await client.fetchOne(String(uid), { source: true }, { uid: true });
+            if (!m || !m.source) continue;
+            const p = await simpleParser(m.source);
+            const dati = { subject: p.subject, text: p.text || "", date: p.date };
+            const r = datiRichiestaModifica(dati); if (r) richieste.push(r);
+            const a = datiModificaAccettata(dati); if (a) modifiche.push(a);
           }
           for (const uid of daLeggere.slice(-200)) {
             const m = await client.fetchOne(String(uid), { source: true }, { uid: true });
@@ -175,7 +223,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
         try { spostate = await traslocaCartelleKeyFlow(client, caselle.map((c) => c.path), dest); }
         catch (e) { erroreCartelle = String((e && (e.responseText || e.message)) || e).slice(0, 160); }
       }
-      return { stato: nuovoStato, nuove, cancellate, lette, archiviate, fuoriInbox, erroreCartelle, etichetteGmail, destinazioni: dest, spostate };
+      return { stato: nuovoStato, nuove, cancellate, richieste, modifiche, lette, archiviate, fuoriInbox, erroreCartelle, etichetteGmail, destinazioni: dest, spostate };
     } finally { await client.logout().catch(() => {}); }
   })();
   try {
@@ -422,4 +470,5 @@ function spiegaErroreGmail(e) {
 }
 
 module.exports = { eConfermaHost, datiDaEmailAirbnb, eCancellazione, datiCancellazione, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail,
+  eRichiestaModifica, eModificaAccettata, datiRichiestaModifica, datiModificaAccettata,
   archiviaInCartelle, traslocaCartelleKeyFlow, destinazioni, filtriGmailXml, cartellaEsistente, etichetteUtente, CARTELLE, VERSIONE_ARCHIVIO };
