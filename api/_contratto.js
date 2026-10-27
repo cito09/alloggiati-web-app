@@ -406,6 +406,100 @@ function testoPL(cfg, d) {
   ];
 }
 
+function testoCS(cfg, d) {
+  return [
+    { t: "titolo", v: "SMLOUVA O TURISTICKÉM PRONÁJMU" },
+    { t: "p", v: `Pan/paní ${cfg.locatoreNome}, dále jen pronajímatel` },
+    { t: "p", v: `Daňový kód ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-mail ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Pronajímá" },
+    { t: "sep" },
+    { t: "p", v: `Panu/paní ${d.conduttoreNome}, dále jen nájemce` },
+    { t: "p", v: `Číslo dokladu totožnosti ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "KTERÝ/Á PŘIJÍMÁ" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `Bytovou jednotku na adrese ${cfg.indirizzoVia}: ${cfg.vani ? `počet místností ${cfg.vani}, ` : ""}počet lůžek ${cfg.postiLetto}, počet koupelen ${cfg.wc}. ${cfg.accessori ? `Zařízená jednotka zahrnuje kromě kuchyně tyto doplňkové prostory (${cfg.accessori})` : "Zařízená jednotka s kuchyní"}. Zapsaná v katastru budov obce ${cfg.comune}, mapový list ${cfg.foglio}, parcela ${cfg.particella}, podjednotka ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "Nájem se řídí těmito ujednáními:" },
+    { t: "sep" },
+    { t: "p", v: `1. Smlouva se uzavírá od ${d.arrivo} do ${d.partenza} a skončí bez nutnosti výpovědi.` },
+    {
+      t: "p",
+      v: `2. Nemovitost smí být užívána výhradně k turistickým účelům; celkový počet ubytovaných osob včetně nájemce: ${d.numOspiti}.`,
+    },
+    {
+      t: "p",
+      v: "3. Nájemce NESMÍ nemovitost zcela ani zčásti podnajmout ani přenechat k bezplatnému užívání, jinak smlouva ze zákona zaniká.",
+    },
+    {
+      t: "p",
+      v: `4. Nájemné odpovídá částce již uhrazené při rezervaci a je uvedeno v podrobnostech transakce na použité platformě ${cfg.piattaforma}. Tato částka se považuje za přijatou oběma stranami bez nutnosti dalšího potvrzení.`,
+    },
+    {
+      t: "p",
+      v: "5. Nájemce je povinen oznámit vlastníkovi nebo jeho zástupci případné vady nemovitosti a nábytku do čtyřiceti osmi hodin od předání klíčů.",
+    },
+    {
+      t: "p",
+      v: "6. Náklady na dodávky služeb, jako je elektřina, voda, plyn a poplatky za společné prostory domu, nese pronajímatel (vlastník).",
+    },
+    { t: "sep" },
+    { t: "p", v: `Přečteno, schváleno a podepsáno v obci ${cfg.comune} dne ${d.dataFirma}` },
+  ];
+}
+
+function testoSL(cfg, d) {
+  return [
+    { t: "titolo", v: "POGODBA O TURISTIČNEM NAJEMU" },
+    { t: "p", v: `G./ga ${cfg.locatoreNome}, v nadaljevanju najemodajalec` },
+    { t: "p", v: `Davčna številka ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-pošta ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Daje v najem" },
+    { t: "sep" },
+    { t: "p", v: `G./ga ${d.conduttoreNome}, v nadaljevanju najemnik` },
+    { t: "p", v: `Številka osebnega dokumenta ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "KI SPREJME" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `Nepremičnino na naslovu ${cfg.indirizzoVia}: ${cfg.vani ? `število prostorov ${cfg.vani}, ` : ""}število ležišč ${cfg.postiLetto}, število kopalnic ${cfg.wc}. ${cfg.accessori ? `Opremljena enota poleg kuhinje vključuje naslednje pomožne prostore (${cfg.accessori})` : "Opremljena enota s kuhinjo"}. Vpisana v kataster stavb občine ${cfg.comune}, list ${cfg.foglio}, parcela ${cfg.particella}, podenota ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "Za najem veljajo naslednja določila:" },
+    { t: "sep" },
+    { t: "p", v: `1. Pogodba je sklenjena od ${d.arrivo} do ${d.partenza} in preneha brez kakršne koli odpovedi.` },
+    {
+      t: "p",
+      v: `2. Nepremičnina se sme uporabljati izključno v turistične namene; skupno število nastanjenih oseb, vključno z najemnikom: ${d.numOspiti}.`,
+    },
+    {
+      t: "p",
+      v: "3. Najemnik nepremičnine NE sme v celoti ali delno oddati v podnajem ali v brezplačno uporabo, sicer pogodba preneha po samem zakonu.",
+    },
+    {
+      t: "p",
+      v: `4. Najemnina je znesek, ki je bil plačan že ob rezervaciji in je razviden iz podrobnosti transakcije na uporabljeni platformi ${cfg.piattaforma}. Šteje se, da sta ta znesek sprejeli obe stranki brez potrebe po dodatni potrditvi.`,
+    },
+    {
+      t: "p",
+      v: "5. Najemnik mora lastnika ali njegovega zastopnika obvestiti o morebitnih napakah nepremičnine in pohištva v oseminštiridesetih urah od predaje ključev.",
+    },
+    {
+      t: "p",
+      v: "6. Stroške storitev, kot so elektrika, voda, plin in stroški skupnih prostorov, krije najemodajalec (lastnik).",
+    },
+    { t: "sep" },
+    { t: "p", v: `Prebrano, odobreno in podpisano v kraju ${cfg.comune}, dne ${d.dataFirma}` },
+  ];
+}
+
 // etichetta della riga firma nel PDF, per lingua
 const FIRMA_LABEL = {
   it: "Firma del conduttore:",
@@ -416,11 +510,13 @@ const FIRMA_LABEL = {
   ro: "Semnătura chiriașului:",
   pt: "Assinatura do locatário:",
   pl: "Podpis najemcy:",
+  cs: "Podpis nájemce:",
+  sl: "Podpis najemnika:",
 };
 
 // restituisce i blocchi del contratto nella lingua chiesta (default italiano)
 function testoContratto(cfg, d, lang) {
-  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES, de: testoDE, ro: testoRO, pt: testoPT, pl: testoPL }[lang] || testoIT;
+  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES, de: testoDE, ro: testoRO, pt: testoPT, pl: testoPL, cs: testoCS, sl: testoSL }[lang] || testoIT;
   return fn(cfg, d);
 }
 function firmaLabel(lang) {

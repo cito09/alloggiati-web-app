@@ -284,9 +284,10 @@ function destinazioni(nomi, scelte) {
   }
   return d;
 }
-// oggetti delle email dei contratti (copia all'host e all'ospite, nelle 8 lingue del check-in)
+// oggetti delle email dei contratti (copia all'host e all'ospite, nelle 10 lingue del check-in)
 const OGGETTI_CONTRATTO = ["Contratto firmato", "copia del contratto", "copy of the agreement", "copie du contrat",
-  "copia del contrato", "Vertragskopie", "Copia contractului", "do contrato", "kopia umowy"];
+  "copia del contrato", "Vertragskopie", "Copia contractului", "do contrato", "kopia umowy",
+  "kopie smlouvy", "kopija pogodbe"];
 const unoOPiu = (lista) => (lista.length === 1 ? lista[0] : { or: lista });
 // viaggi fatti dall'host come OSPITE: non sono prenotazioni delle case
 const viaggioDaOspite = (o) => /^(?:\s*(?:fwd?|i|r|re|tr):\s*)*(la tua prenotazione|your reservation|your trip|il tuo viaggio)/i.test(String(o || ""));
