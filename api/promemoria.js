@@ -9,8 +9,9 @@
 //        2) EMAIL "🚨 da registrare" (api/_promemoriaEmail.js) se qualcuno è arrivato IERI o
 //           prima e non è ancora registrato: ogni mattina finché non è fatto, anche senza ntfy
 //        3) è il giorno 3 del mese e c'è almeno una struttura Ross1000 (file da caricare entro il 5)
-//        4) oggi c'è una pulizia (parte qualcuno): notifica col testo per il gruppo WhatsApp di chi
-//           pulisce e il pulsante "Manda su WhatsApp" (api/_pulizie.js)
+//        4) oggi c'è una pulizia (parte qualcuno): una notifica per casa col messaggio per il gruppo
+//           WhatsApp di chi pulisce e il pulsante "Manda a Betti/Claudia"; il lunedì anche il riepilogo
+//           delle pulizie delle prossime 2 settimane (api/_pulizie.js)
 //        Prima ancora rimanda a Ross1000 gli invii rimasti in coda perché la Regione non
 //        rispondeva (api/_ross.js) e avvisa quando sono arrivati.
 //        Se NTFY_TOPIC non è configurato non fa nulla. Con CRON_SECRET impostato, accetta
@@ -159,20 +160,25 @@ async function elencoDaRegistrare(conn) {
     aggiungi(v.arrivo, v.strutturaNome, v.strutturaId, (v.ospiti || []).map((o) => `${o.cognome || ""} ${o.nome || ""}`.trim()), (v.ospiti || []).length));
   return out;
 }
-// Notifica "🧹 Pulizie di oggi": il testo per il gruppo WhatsApp di chi pulisce, col pulsante che
-// apre WhatsApp col messaggio già scritto (si sceglie il gruppo e si invia). Pubblicata in JSON
-// perché titolo ed etichetta del pulsante hanno le emoji. Dice per quante case c'è pulizia (0 = niente).
-async function notificaPulizie(conn, topic) {
-  const oggi = (await pulizieProssime(conn, oggiIsoRoma())).find((g) => g.quando === "oggi");
-  if (!oggi) return 0;
-  const r = await fetch("https://ntfy.sh/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ topic, title: "🧹 Pulizie di oggi", message: oggi.testo.replace(/\*/g, ""), click: oggi.whatsapp,
-      actions: [{ action: "view", label: "📲 Manda su WhatsApp", url: oggi.whatsapp, clear: true }] }),
-  });
-  if (!r.ok) throw new Error(`ntfy ha risposto ${r.status}`);
-  return oggi.pulizie.length;
+// Notifiche delle pulizie, una per casa: il messaggio per il gruppo WhatsApp di chi pulisce col
+// pulsante "📲 Manda a Betti" che apre WhatsApp col testo già scritto (si sceglie il gruppo e si
+// invia). Ogni giorno quelle di oggi; il lunedì (o con riepilogo:true) anche le prossime 2
+// settimane. Pubblicate in JSON perché titolo ed etichetta hanno le emoji. Dice quante ne ha mandate.
+async function notificaPulizie(conn, topic, { riepilogo = false } = {}) {
+  const p = await pulizieProssime(conn, oggiIsoRoma());
+  const manda = async (title, m) => {
+    const r = await fetch("https://ntfy.sh/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, title, message: m.testo, click: m.whatsapp,
+        actions: [{ action: "view", label: `📲 Manda a ${m.chi || "WhatsApp"}`, url: m.whatsapp, clear: true }] }),
+    });
+    if (!r.ok) throw new Error(`ntfy ha risposto ${r.status}`);
+  };
+  let n = 0;
+  for (const m of p.oggi) { await manda(`🧹 Pulizia di oggi · ${m.nome}`, m); n++; }
+  if (riepilogo || p.lunedi) for (const m of p.settimane) { await manda(`📅 Pulizie delle prossime 2 settimane · ${m.nome}`, m); n++; }
+  return n;
 }
 function oggiIsoRoma() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -402,7 +408,7 @@ module.exports = async (req, res) => {
     }
 
     // orari di check-in e check-out di ogni casa (Impostazioni → Le case), per il riepilogo della
-    // prenotazione. { orari?: { idCasa: { in, out } } } — "" toglie l'orario.
+    // prenotazione, e chi ci fa le pulizie. { orari?: { idCasa: { in, out, chi } } } — "" toglie il dato.
     if ((req.body || {}).azione === "orari") {
       try {
         const raw = await redisCmd(conn, ["GET", KEY_ORARI]);
@@ -413,8 +419,9 @@ module.exports = async (req, res) => {
           const ora = (v) => { const m = /^([01]?\d|2[0-3])[:.]([0-5]\d)$/.exec(String(v || "").trim()); return m ? `${m[1].padStart(2, "0")}:${m[2]}` : ""; };
           for (const [id, o] of Object.entries(nuovi).slice(0, 20)) {
             const k = String(id).slice(0, 40);
-            const voce = { in: ora(o && o.in), out: ora(o && o.out) };
-            if (voce.in || voce.out) orari[k] = voce; else delete orari[k];
+            // chi fa le pulizie (Betti, Claudia…): il nome nei messaggi del promemoria pulizie
+            const voce = { in: ora(o && o.in), out: ora(o && o.out), chi: String((o && o.chi) || "").replace(/\s+/g, " ").trim().slice(0, 30) };
+            if (voce.in || voce.out || voce.chi) orari[k] = voce; else delete orari[k];
           }
           await redisCmd(conn, ["SET", KEY_ORARI, JSON.stringify(orari)]);
         }
@@ -427,13 +434,14 @@ module.exports = async (req, res) => {
     // pulizie di oggi e di domani col testo pronto per il gruppo WhatsApp (Home → 🧹 Pulizie)
     if ((req.body || {}).azione === "pulizie") {
       try {
-        // "🔔 Mandami la notifica adesso" (per provarla senza aspettare il mattino dopo)
+        // "🔔 Mandami le notifiche adesso" (per provarle senza aspettare il mattino dopo): quelle di
+        // oggi e il riepilogo delle 2 settimane, anche se non è lunedì
         if ((req.body || {}).notifica) {
           if (!process.env.NTFY_TOPIC) return res.status(200).json({ ok: false, error: "Le notifiche non sono configurate (manca NTFY_TOPIC su Vercel)" });
-          const n = await notificaPulizie(conn, process.env.NTFY_TOPIC);
-          return res.status(200).json({ ok: true, inviata: n > 0, case: n });
+          const n = await notificaPulizie(conn, process.env.NTFY_TOPIC, { riepilogo: true });
+          return res.status(200).json({ ok: true, inviate: n });
         }
-        return res.status(200).json({ ok: true, giorni: await pulizieProssime(conn, oggiIsoRoma()) });
+        return res.status(200).json({ ok: true, ...(await pulizieProssime(conn, oggiIsoRoma())) });
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }

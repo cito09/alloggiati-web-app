@@ -498,8 +498,11 @@
   .som-az{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
   .som-az .btn{flex:1 1 140px; width:auto}
   /* Home → Recensioni: una riga per ospite partito, due pulsanti che copiano il testo */
-  .pul-giorno{padding:6px 0 12px; border-bottom:1px solid var(--line)}
-  .pul-giorno:last-child{border-bottom:none; padding-bottom:2px}
+  .pul-sez{font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:2px 0 2px}
+  .pul-casa{padding:8px 0 12px; border-bottom:1px solid var(--line)}
+  .pul-casa:last-of-type{border-bottom:none}
+  .pul-sett{margin-top:6px; border-top:1px solid var(--line); padding-top:10px}
+  .pul-sett>summary{cursor:pointer; font-weight:700; font-size:13.5px}
   .pul-testa{font-size:13.5px; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:baseline}
   .pul-testo{white-space:pre-line; font-size:12.5px; line-height:1.5; background:var(--surface2); border-radius:14px; padding:10px 12px; margin-top:8px}
   .pul-az{display:flex; gap:8px; margin-top:10px}
@@ -609,7 +612,7 @@
     <div class="menu-gruppo">Prenotazioni e ospiti</div>
     <button class="link-row menu-riga" onclick="apriCalendari()"><span class="mi">📅</span><span style="flex:1;text-align:left">Calendari Airbnb · prenotazioni in anticipo</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
-    <button class="link-row menu-riga" id="rowStruttura" onclick="apriCase()"><span class="mi">🏠</span><span style="flex:1;text-align:left">Le case · orari di check-in e check-out</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" id="rowStruttura" onclick="apriCase()"><span class="mi">🏠</span><span style="flex:1;text-align:left">Le case · orari e pulizie</span><span class="freccia">›</span></button>
     <div class="menu-gruppo">Comunicazioni obbligatorie</div>
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
@@ -631,10 +634,10 @@
     <h2>🏠 Le case</h2>
   </div>
   <div class="pp-body">
-        <div style="font-weight:700;font-size:13px">🕓 Orari di check-in e check-out</div>
-        <div class="muted" style="font-size:12px;margin:4px 0 8px">Compaiono nel riepilogo della prenotazione che si apre dal calendario.</div>
+        <div style="font-weight:700;font-size:13px">🕓 Orari e pulizie</div>
+        <div class="muted" style="font-size:12px;margin:4px 0 8px">Gli orari compaiono nel riepilogo della prenotazione che si apre dal calendario; il nome di chi pulisce nei messaggi delle pulizie.</div>
         <div id="orariCase"></div>
-        <button class="btn primary sm" style="width:100%;margin-top:10px" id="orariSalvaBtn" onclick="salvaOrariCase()">💾 Salva orari</button>
+        <button class="btn primary sm" style="width:100%;margin-top:10px" id="orariSalvaBtn" onclick="salvaOrariCase()">💾 Salva</button>
         <div id="strutturaPrefWrap" style="display:none;margin-top:22px;border-top:1px solid var(--line);padding-top:14px">
           <div style="font-weight:700;font-size:13px">📝 Struttura predefinita</div>
           <div class="muted" style="font-size:12px;margin:4px 0 6px">Quella già selezionata quando apri una nuova registrazione.</div>
@@ -14487,10 +14490,13 @@ async function loadStrutture(){
 /* ===== Le case: orari di check-in e check-out (ottobre 2026), per il riepilogo della prenotazione.
    In KV (azione "orari" di /api/promemoria), copia sul telefono in localStorage. Si parte dagli
    orari degli annunci su Airbnb (dalle prenotazioni mandate dall'utente): Alba Loft 16:00 / 10:00,
-   Falegnami 15:00 / 10:00. ===== */
+   Falegnami 15:00 / 10:00. Qui anche chi fa le pulizie (Betti ad Alba Loft, Claudia a Falegnami):
+   il nome va nei messaggi del promemoria pulizie (api/_pulizie.js, PULIZIE_PREDEFINITE). ===== */
 const ORARI_PREDEFINITI={canazei:{in:'16:00',out:'10:00'}, bologna:{in:'15:00',out:'10:00'}};
+const PULIZIE_PREDEFINITE={canazei:'Betti', bologna:'Claudia'};
 let orariCase=(()=>{ try{ return JSON.parse(localStorage.getItem('orari_case')||'null')||{}; }catch(e){ return {}; } })();
-function orariDi(idCasa){ return orariCase[idCasa]||ORARI_PREDEFINITI[idCasa]||{}; }
+function orariDi(idCasa){ const o=orariCase[idCasa]||{}, d=ORARI_PREDEFINITI[idCasa]||{};
+  return {in:o.in||d.in||'', out:o.out||d.out||'', chi:o.chi||PULIZIE_PREDEFINITE[idCasa]||''}; }
 function idCasaDaNome(nome){
   const c=nomeStrutturaCanonico(nome||'');
   const s=struttureList.find(x=>nomeStrutturaCanonico(x.nome||'')===c||x.id===nome);
@@ -14513,17 +14519,20 @@ function renderOrariCase(){
       <div style="display:flex;gap:10px;margin-top:6px">
         <label style="flex:1;margin:0">Check-in dalle<input type="time" id="orarioIn_${escText(c.id)}" value="${escText(o.in||'')}"></label>
         <label style="flex:1;margin:0">Check-out entro le<input type="time" id="orarioOut_${escText(c.id)}" value="${escText(o.out||'')}"></label>
-      </div></div>`; }).join('')||'<div class="muted" style="font-size:12px">Case non ancora caricate.</div>';
+      </div>
+      <label style="margin:8px 0 0">🧹 Chi fa le pulizie<input type="text" id="orarioChi_${escText(c.id)}" value="${escText(o.chi||'')}" placeholder="es. Betti" maxlength="30"></label></div>`; }).join('')||'<div class="muted" style="font-size:12px">Case non ancora caricate.</div>';
 }
 function apriCase(){ apriPagina('strutturaOverlay'); renderOrariCase(); caricaOrariCase().then(renderOrariCase); }
 async function salvaOrariCase(){
   const orari={};
-  struttureList.forEach(c=>{ orari[c.id]={in:(document.getElementById('orarioIn_'+c.id)||{}).value||'', out:(document.getElementById('orarioOut_'+c.id)||{}).value||''}; });
+  struttureList.forEach(c=>{ orari[c.id]={in:(document.getElementById('orarioIn_'+c.id)||{}).value||'', out:(document.getElementById('orarioOut_'+c.id)||{}).value||'',
+    chi:(document.getElementById('orarioChi_'+c.id)||{}).value||''}; });
   const b=$('#orariSalvaBtn'); if(b){ b.disabled=true; b.textContent='Salvo…'; }
   const ok=await caricaOrariCase(orari);
-  if(b){ b.disabled=false; b.textContent='💾 Salva orari'; }
-  toast(ok?'✓ Orari salvati':'⚠️ Orari non salvati: controlla la connessione');
+  if(b){ b.disabled=false; b.textContent='💾 Salva'; }
+  toast(ok?'✓ Salvato':'⚠️ Non salvato: controlla la connessione');
   renderOrariCase();
+  if(ok)caricaPulizie();   // il nome di chi pulisce cambia nei messaggi
 }
 function setStrutturaPreferita(id){
   const cambiata=currentStruttura()!==id;
@@ -15762,36 +15771,45 @@ function recCopia(ke,campo){
   else riserva();
 }
 /* ===== Home → 🧹 Pulizie (ottobre 2026, l'utente: "un reminder automatico: tutti i giorni che c'è
-   una pulizia un messaggio tipo 'ricordo che oggi c'è la pulizia per 5 ospiti', da girare al gruppo
-   WhatsApp delle pulizie"). Un bot dentro un gruppo WhatsApp non si può avere gratis e nelle regole:
-   il testo lo prepara il server (api/_pulizie.js, azione "pulizie"), uguale a quello della notifica
-   del mattino, e da qui si manda al gruppo con "Manda su WhatsApp" (link wa.me col testo già
-   scritto: si sceglie il gruppo e si invia) oppure si copia. Oggi e domani, solo se c'è qualcosa. ===== */
-let pulizie=(()=>{ try{ return JSON.parse(localStorage.getItem('pulizie_cache')||'null')||[]; }catch(e){ return []; } })();
+   una pulizia un messaggio tipo 'Buongiorno Betti, ricordo la pulizia di oggi, per 3 ospiti', con
+   le emoji; e uno settimanale con le pulizie delle prossime 2 settimane"). Un bot dentro un gruppo
+   WhatsApp non si può avere gratis e nelle regole: i messaggi li prepara il server (api/_pulizie.js,
+   azione "pulizie"), uguali a quelli delle notifiche del mattino, uno per casa (ogni casa ha il suo
+   gruppo e la sua persona). Da qui si mandano con "📲 Manda a Betti" (link wa.me col testo già
+   scritto: si sceglie il gruppo e si invia) oppure si copiano. ===== */
+let pulizie=(()=>{ try{ const c=JSON.parse(localStorage.getItem('pulizie_cache')||'null'); return c&&c.giorno&&!Array.isArray(c)?c:null; }catch(e){ return null; } })();
 async function caricaPulizie(){
   renderPulizie();
   try{
     const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({azione:'pulizie'})});
-    const d=await r.json(); if(!r.ok||!Array.isArray(d.giorni))return;
-    pulizie=d.giorni; try{ localStorage.setItem('pulizie_cache',JSON.stringify(pulizie)); }catch(e){}
+    const d=await r.json(); if(!r.ok||!d.giorno)return;
+    pulizie={giorno:d.giorno, oggi:d.oggi||[], settimane:d.settimane||[]};
+    try{ localStorage.setItem('pulizie_cache',JSON.stringify(pulizie)); }catch(e){}
   }catch(e){ /* senza rete resta quello di prima */ }
   renderPulizie();
 }
+function pulBlocco(m,k){
+  return `<div class="pul-casa">
+    <div class="pul-testa"><span style="color:${strutturaInfo(m.nome).colore}">●</span> <b>${escText(m.nome)}</b>${m.chi?` <span class="muted">· ${escText(m.chi)}</span>`:''}</div>
+    <div class="pul-testo">${escText(m.testo)}</div>
+    <div class="pul-az"><a class="btn primary sm" href="${escText(m.whatsapp)}" target="_blank" rel="noopener">📲 Manda a ${escText(m.chi||'WhatsApp')}</a>
+      <button class="btn ghost sm" onclick="copiaPulizie('${k}')">📋 Copia</button></div></div>`;
+}
 function renderPulizie(){
   const card=$('#oggiPulizieCard'), w=$('#oggiPulizie'); if(!card||!w)return;
-  const oggi=dataKey(new Date());
-  const giorni=pulizie.filter(g=>g&&g.giorno>=oggi&&g.testo);   // quelle di ieri non valgono più
-  card.style.display=giorni.length?'':'none';
-  w.innerHTML=giorni.map(g=>`<div class="pul-giorno">
-      <div class="pul-testa"><b>${g.giorno===oggi?'Oggi':'Domani'}</b>
-        <span class="muted">${(g.pulizie||[]).map(p=>`<span style="color:${strutturaInfo(p.nome).colore}">●</span> ${escText(p.nome)}`).join(' · ')}</span></div>
-      <div class="pul-testo">${escText(g.testo).replace(/\*([^*\n]+)\*/g,'<b>$1</b>')}</div>
-      <div class="pul-az"><a class="btn primary sm" href="${escText(g.whatsapp)}" target="_blank" rel="noopener">📲 Manda su WhatsApp</a>
-        <button class="btn ghost sm" onclick="copiaPulizie('${g.giorno}')">📋 Copia</button></div>
-      ${g.giorno===oggi?`<button class="btn ghost sm pul-prova" id="pulProvaBtn" onclick="provaNotificaPulizie()">🔔 Mandami la notifica adesso</button>`:''}</div>`).join('');
+  const p=pulizie&&pulizie.giorno===dataKey(new Date())?pulizie:null;   // quelle di ieri non valgono più
+  const oggi=(p&&p.oggi)||[], sett=(p&&p.settimane)||[];
+  card.style.display=(oggi.length||sett.length)?'':'none';
+  const n=sett.reduce((a,m)=>a+(m.voci||[]).length,0);
+  w.innerHTML=(oggi.length?`<div class="pul-sez">Oggi</div>${oggi.map((m,i)=>pulBlocco(m,'o'+i)).join('')}`
+      :'<div class="muted" style="font-size:12.5px">Oggi nessuna pulizia.</div>')
+    +(sett.length?`<details class="pul-sett"${oggi.length?'':' open'}><summary>📅 Prossime 2 settimane · ${n} pulizi${n===1?'a':'e'}</summary>
+        ${sett.map((m,i)=>pulBlocco(m,'s'+i)).join('')}
+        <div class="muted" style="font-size:11.5px;margin-top:8px">Ogni lunedì mattina arriva anche con la notifica.</div></details>`:'')
+    +`<button class="btn ghost sm pul-prova" id="pulProvaBtn" onclick="provaNotificaPulizie()">🔔 Mandami le notifiche adesso</button>`;
 }
-// la stessa notifica che arriva ogni mattina, subito (per provarla)
+// le stesse notifiche del mattino, subito (per provarle): quelle di oggi e il riepilogo delle 2 settimane
 async function provaNotificaPulizie(){
   const b=$('#pulProvaBtn'); if(b){ b.disabled=true; b.textContent='Invio…'; }
   let msg='';
@@ -15799,22 +15817,23 @@ async function provaNotificaPulizie(){
     const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
       body:JSON.stringify({azione:'pulizie',notifica:true})});
     const d=await r.json();
-    msg=!r.ok?('⚠️ '+(d.error||'Notifica non inviata')):!d.ok?('⚠️ '+d.error):d.inviata?'🔔 Notifica mandata: guarda il telefono':'Oggi non c\'è nessuna pulizia';
-  }catch(e){ msg='⚠️ Notifica non inviata: controlla la connessione'; }
+    msg=!r.ok?('⚠️ '+(d.error||'Notifiche non inviate')):!d.ok?('⚠️ '+d.error)
+      :d.inviate?`🔔 ${d.inviate} notific${d.inviate===1?'a mandata':'he mandate'}: guarda il telefono`:'Nessuna pulizia in programma';
+  }catch(e){ msg='⚠️ Notifiche non inviate: controlla la connessione'; }
   toast(msg);
-  if(b){ b.disabled=false; b.textContent='🔔 Mandami la notifica adesso'; }
+  if(b){ b.disabled=false; b.textContent='🔔 Mandami le notifiche adesso'; }
 }
-function copiaPulizie(giorno){
-  const g=pulizie.find(x=>x.giorno===giorno); if(!g)return;
-  const fatto=()=>toast('🧹 Messaggio copiato: incollalo nel gruppo delle pulizie');
+function copiaPulizie(k){
+  const m=pulizie&&(k[0]==='o'?pulizie.oggi:pulizie.settimane)[+k.slice(1)]; if(!m)return;
+  const fatto=()=>toast(`🧹 Messaggio copiato: incollalo nel gruppo${m.chi?' di '+m.chi:''}`);
   const riserva=()=>{
-    const ta=document.createElement('textarea'); ta.value=g.testo; ta.style.position='fixed'; ta.style.opacity='0';
+    const ta=document.createElement('textarea'); ta.value=m.testo; ta.style.position='fixed'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.focus(); ta.select();
     let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
     document.body.removeChild(ta);
     if(ok)fatto(); else toast('Copia non riuscita: tieni premuto sul testo per copiarlo');
   };
-  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(g.testo).then(fatto).catch(riserva);
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(m.testo).then(fatto).catch(riserva);
   else riserva();
 }
 function recFatto(ke){
