@@ -68,8 +68,10 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
   for (const p of esterne || []) {
     const arr = msDa(p.arrivo), par = msDa(p.partenza);
     if (!arr || !par || par <= arr) continue;
+    // url = la prenotazione su Airbnb (serve al calendario dei collaboratori: "🔗 Apri su Airbnb")
     tutti.push({ casa: idCasa(p.strutturaId, strutture), arrivo: arr, partenza: par, ospiti: p.ospiti || null, peso: 1,
-      nome: primoNome(p.nome), stato: "airbnb", fonte: p.fonte || "Airbnb" });
+      nome: primoNome(p.nome), stato: "airbnb", fonte: p.fonte || "Airbnb",
+      url: /^https?:\/\//i.test(p.url || "") ? p.url : "", fonteUrl: p.fonte || "Airbnb" });
   }
   const perCasa = {};
   for (const s of tutti.sort((a, b) => b.peso - a.peso)) {
@@ -80,6 +82,8 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
     // lo stesso soggiorno, ma col check-in fatto si sa quanti sono anche se l'altro non lo sa
     if (!uguale.ospiti && s.ospiti) uguale.ospiti = s.ospiti;
     if (!uguale.nome && s.nome) uguale.nome = s.nome;
+    // dopo il check-in la prenotazione su Airbnb resta apribile (come nel gestionale dell'host)
+    if (!uguale.url && s.url) { uguale.url = s.url; uguale.fonteUrl = s.fonteUrl; }
   }
   return perCasa;
 }

@@ -5,9 +5,9 @@
 // Ogni collaboratore ha un nome, un codice d'accesso SUO e i permessi a spunta. Entra dallo stesso
 // indirizzo del gestionale: il codice lo riconosce /api/admin-code e la pagina mostra solo quello che
 // è spuntato. I dati gli arrivano da UNA azione ("team" di /api/promemoria) che manda il minimo:
-// date, casa, numero di ospiti e, se permesso, il nome di battesimo (più chiusure e promemoria
-// del calendario, solo da leggere). Mai cognomi, documenti, foto,
-// date di nascita: quelli restano dietro il codice del titolare (o "Accesso completo").
+// date, casa, numero di ospiti, il link alla prenotazione su Airbnb e, se permesso, il nome di
+// battesimo (più chiusure e promemoria del calendario). Mai cognomi, documenti, foto, date di
+// nascita, telefoni: quelli restano dietro il codice del titolare (o "Accesso completo").
 // In KV la chiave "collaboratori" = { lista: [{ id, nome, codice, permessi, creato, accesso }] }.
 // Il nome inizia con "_": è un aiuto, non conta nel limite di 12 funzioni del piano Vercel.
 const { upstash, redisCmd } = require("./_kv");
@@ -104,12 +104,26 @@ async function datiTeam(conn, membro, oggiIso) {
     out.eventi = await require("./_eventi").leggiEventi(conn);
     const oggi = msDa(oggiIso.split("-").reverse().join("/"));
     const da = oggi - 62 * 864e5, a = oggi + 400 * 864e5;   // ~2 mesi indietro, un anno avanti
+    // il link alla prenotazione su Airbnb ("🔗 Apri su Airbnb", come per l'host; l'utente: "Sofia deve
+    // avere l'apri su Airbnb come ce l'ho io"). Si apre solo a chi è host/co-host su Airbnb. Per i
+    // soggiorni già usciti dal calendario .ics si cerca nell'archivio dei link: stessa casa e date
+    // che si accavallano, oppure (link dalle email, senza casa) stesse date d'arrivo e partenza.
+    const archivio = vista.linkPrenotazioni || [];
+    const linkDi = (casa, s) => {
+      if (s.url) return { u: s.url, f: s.fonteUrl || "Airbnb" };
+      const arr = itDa(s.arrivo), par = itDa(s.partenza);
+      const t = archivio.find((l) => l.s === casa && msDa(l.a) < s.partenza && msDa(l.p) > s.arrivo)
+        || (() => { const x = archivio.filter((l) => !l.s && l.a === arr && l.p === par); return x.length === 1 ? x[0] : null; })();
+      return t && /^https?:\/\//i.test(t.u || "") ? { u: t.u, f: t.f || "Airbnb" } : null;
+    };
     const soggiorni = [];
     for (const [casa, lista] of Object.entries(perCasa)) {
       for (const s of lista) {
         if (s.partenza < da || s.arrivo > a) continue;
+        const l = linkDi(casa, s);
         soggiorni.push({ k: `${casa}-${s.arrivo / 864e5}`, s: casa, a: itDa(s.arrivo), p: itDa(s.partenza), o: s.ospiti || null,
-          st: s.stato, f: s.stato === "airbnb" ? s.fonte : undefined, n: p.nomi && s.nome ? s.nome : undefined });
+          st: s.stato, f: s.stato === "airbnb" ? s.fonte : undefined, n: p.nomi && s.nome ? s.nome : undefined,
+          u: l ? l.u : undefined, fu: l ? l.f : undefined });
       }
     }
     out.soggiorni = soggiorni.sort((x, y) => (x.a.split("/").reverse().join("") < y.a.split("/").reverse().join("") ? -1 : 1));

@@ -1356,6 +1356,15 @@ function entraTeam(codice,info){
 }
 // collaboratore con accesso limitato (senza "Accesso completo")
 function teamRistretto(){ return !!(window.TEAM&&!window.TEAM.permessi.completo); }
+// collaboratore con accesso completo: se l'host glielo toglie, la pagina si ricarica con i permessi
+// nuovi invece di riempirsi di errori (controllo al rientro nell'app e ogni 10 minuti)
+async function controllaAccessoCompleto(){
+  if(!window.TEAM||teamRistretto())return;
+  const d=await verificaAdminCode(window.TEAM_CODE);
+  if(d.offline)return;
+  if(!d.team||!d.team.permessi.completo)location.reload();
+}
+setInterval(()=>{ if(!document.hidden)controllaAccessoCompleto(); },10*60*1000);
 async function avviaTeam(){
   initCardToggles();
   document.body.classList.add('ready');
@@ -1405,9 +1414,13 @@ function soggiorniTeam(){
     const arr=parseIt(t.a), par=parseIt(t.p); if(!arr)return null;
     const casa=nomeCasaDaId(t.s), nb=nomeProprio(t.n||''), est=t.st==='airbnb';
     const senza=est?'Ospite '+(t.f||'Airbnb'):'Ospite';
+    // il link alla prenotazione su Airbnb, come per l'host: sulla barra a righe (esterna) è url,
+    // dopo il check-in è urlEst (pulsante "🔗 Apri su Airbnb" nel riepilogo e nel giorno)
+    const link=/^https?:\/\//i.test(t.u||'')?t.u:'';
     return {arrivo:arr, partenza:par, nome:nb||senza, nomeBello:nb||senza, nomeBreve:nb, ospiti:t.o||null,
       struttura:casa, strutturaId:t.s, colore:strutturaInfo(casa).colore, registrato:false, esterna:est,
-      fonte:t.f||'Airbnb', uid:'t'+t.k, team:t.st||'airbnb'};
+      fonte:t.f||'Airbnb', uid:'t'+t.k, team:t.st||'airbnb',
+      url:est?link:'', urlEst:est?'':link, fonteEst:t.fu||'Airbnb'};
   }).filter(Boolean);
 }
 // la scheda in più del collaboratore: i link del check-in (se permesso), o l'avviso se non ha niente
@@ -15526,6 +15539,7 @@ document.addEventListener('visibilitychange',()=>{
   const via=appNascostaDa?Date.now()-appNascostaDa:0;
   appNascostaDa=0;
   if(teamRistretto()){ if(via>60*1000)caricaTeam(); return; }   // collaboratore: si riprende solo i suoi dati
+  if(window.TEAM&&via>60*1000)controllaAccessoCompleto();
   riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
   allarmeGiaVisto=false;                    // check-in in scadenza: l'avviso si rivede al rientro
@@ -16477,8 +16491,17 @@ function calRigaChiusura(c){
       <span class="muted" style="display:block;font-size:11.5px">${escText(periodoChiusura(c))}${c.auto?' · bloccata su '+escText(c.fonte):''}${c.nota?' · '+escText(c.nota):''}</span></span>
     <span class="vai">›</span></div>`;
 }
+// errore di un salvataggio: il messaggio vero, tranne quando la pagina si è già aggiornata da sola
+function avvisoEventi(e){ if(!e||!e.silenzioso)toast('⚠️ '+((e&&e.message)||'Non riuscito, riprova')); }
 async function chiamaEventi(corpo){
   const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(Object.assign({azione:'eventi'},corpo))});
+  // collaboratore a cui l'host ha appena tolto il permesso: niente "non autorizzato", la pagina si
+  // aggiorna da sola (spariscono + e ✓) con un messaggio neutro
+  if(r.status===401&&window.TEAM){
+    chiudiSommario(); toast('🔄 Il calendario si è aggiornato');
+    if(teamRistretto())await caricaTeam(); else location.reload();
+    const e=new Error(''); e.silenzioso=true; throw e;
+  }
   const d=await r.json().catch(()=>({}));
   if(!r.ok||!d.ok)throw new Error(d.error||'Non riuscito, riprova');
   return d;
@@ -16580,19 +16603,19 @@ async function salvaEvento(){
     const d=await chiamaEventi({op:'salva', evento:{id:b.id||undefined, tipo:b.tipo, s:b.s, titolo:b.titolo, dal:itDaIso(b.dal), al:itDaIso(al), ora:b.tipo==='chiusura'?'':b.ora, nota:b.nota}});
     applicaEventi(d); chiudiSommario();
     toast(b.tipo==='chiusura'?(b.id?'🔒 Chiusura aggiornata':'🔒 Chiusura salvata · ricordati di bloccare le date anche su Airbnb'):'📌 Promemoria salvato');
-  }catch(e){ toast('⚠️ '+e.message); if(bt){ bt.disabled=false; bt.textContent='💾 Salva'; } }
+  }catch(e){ avvisoEventi(e); if(bt){ bt.disabled=false; bt.textContent='💾 Salva'; } }
 }
 async function eventoFatto(id,val,dalFoglio){
   const e=(eventiCal.lista||[]).find(x=>x.id===id); if(e)e.fatto=val?Date.now():null;   // subito a video
   if(dalFoglio)chiudiSommario();
   ridisegnaDopoEventi();
   try{ applicaEventi(await chiamaEventi({op:'fatto', id, fatto:!!val})); toast(val?'✓ Fatto':'↺ Rimesso da fare'); }
-  catch(err){ toast('⚠️ '+err.message); caricaEventi(); }
+  catch(err){ avvisoEventi(err); caricaEventi(); }
 }
 async function eliminaEvento(id){
   if(!confirm('Eliminare questo evento dal calendario?'))return;
   try{ applicaEventi(await chiamaEventi({op:'togli', id})); chiudiSommario(); toast('🗑 Eliminato'); }
-  catch(e){ toast('⚠️ '+e.message); }
+  catch(e){ avvisoEventi(e); }
 }
 // una chiusura letta da Airbnb: si scrive il perché, oppure "non è una chiusura" (la toglie dal calendario)
 function apriChiusura(kEnc){
@@ -16621,13 +16644,13 @@ function apriChiusura(kEnc){
 async function salvaMotivoBlocco(kEnc){
   const k=decodeURIComponent(kEnc), motivo=(($('#ev-motivo')||{}).value||'').trim();
   try{ applicaEventi(await chiamaEventi({op:'blocco', chiave:k, motivo})); chiudiSommario(); toast(motivo?'🔒 Motivo salvato':'Motivo tolto'); }
-  catch(e){ toast('⚠️ '+e.message); }
+  catch(e){ avvisoEventi(e); }
 }
 async function nascondiBlocco(kEnc){
   if(!confirm('Non è una chiusura vera? La tolgo dal calendario di KeyFlow (su Airbnb le date restano bloccate).'))return;
   const k=decodeURIComponent(kEnc), motivo=(($('#ev-motivo')||{}).value||'').trim();
   try{ applicaEventi(await chiamaEventi({op:'blocco', chiave:k, motivo, nascosto:true})); chiudiSommario(); toast('🙈 Tolta dal calendario'); }
-  catch(e){ toast('⚠️ '+e.message); }
+  catch(e){ avvisoEventi(e); }
 }
 function apriCalendari(){
   apriPagina('calendariOverlay');
