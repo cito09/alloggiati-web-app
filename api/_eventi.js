@@ -38,8 +38,10 @@ async function salvaEventi(conn, d) {
 }
 
 // { op:"lista" } | { op:"salva", evento } | { op:"togli", id } | { op:"fatto", id, fatto } |
-// { op:"blocco", chiave, motivo?, nascosto? } — risponde sempre con tutto aggiornato
-async function azioneEventi(conn, body) {
+// { op:"blocco", chiave, motivo?, nascosto? } — risponde sempre con tutto aggiornato.
+// autore = il nome del collaboratore che fa la modifica (permesso "eventi", es. Sofia): resta scritto
+// sull'evento (da, modDa, fattoDa) così l'host sa chi l'ha messo; vuoto = l'host stesso.
+async function azioneEventi(conn, body, { autore = "" } = {}) {
   const d = await leggiEventi(conn);
   const op = String(body.op || "lista");
   if (op === "salva") {
@@ -56,10 +58,10 @@ async function azioneEventi(conn, body) {
     const ora = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(e.ora || "")) ? e.ora : "";
     const voce = { tipo, s, titolo, dal: e.dal.trim(), al: (e.al || e.dal).trim(), ora: tipo === "promemoria" ? ora : "", nota: testo(e.nota, 300) };
     const i = e.id ? d.lista.findIndex((x) => x.id === e.id) : -1;
-    if (i >= 0) d.lista[i] = { ...d.lista[i], ...voce };
+    if (i >= 0) d.lista[i] = { ...d.lista[i], ...voce, modDa: autore || "" };
     else {
       if (d.lista.length >= MAX) return { ok: false, error: "Troppi eventi" };
-      d.lista.push({ id: "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), ...voce, fatto: null, creato: Date.now() });
+      d.lista.push({ id: "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), ...voce, fatto: null, creato: Date.now(), da: autore || "" });
     }
     await salvaEventi(conn, d);
   } else if (op === "togli") {
@@ -68,12 +70,12 @@ async function azioneEventi(conn, body) {
     if (d.lista.length !== prima) await salvaEventi(conn, d);
   } else if (op === "fatto") {
     const v = d.lista.find((x) => x.id === body.id);
-    if (v) { v.fatto = body.fatto ? Date.now() : null; await salvaEventi(conn, d); }
+    if (v) { v.fatto = body.fatto ? Date.now() : null; v.fattoDa = body.fatto ? autore || "" : ""; await salvaEventi(conn, d); }
   } else if (op === "blocco") {
     const k = String(body.chiave || "");
     if (!/^[\w-]{1,40}\|\d{4}-\d{2}-\d{2}$/.test(k)) return { ok: false, error: "Chiusura non riconosciuta" };
     const motivo = testo(body.motivo, 60), nascosto = !!body.nascosto;
-    if (motivo || nascosto) d.blocchi[k] = { motivo, nascosto, ts: Date.now() };
+    if (motivo || nascosto) d.blocchi[k] = { motivo, nascosto, ts: Date.now(), da: autore || "" };
     else delete d.blocchi[k];
     await salvaEventi(conn, d);
   }
@@ -87,4 +89,21 @@ function promemoriaDelGiorno(d, iso) {
     .sort((a, b) => String(a.ora || "99").localeCompare(String(b.ora || "99")));
 }
 
-module.exports = { leggiEventi, azioneEventi, promemoriaDelGiorno };
+// la riga della notifica all'host quando un collaboratore cambia il calendario ("" = niente da dire)
+function descriviModifica(prima, dopo, body, nome) {
+  const op = String(body.op || "");
+  const trova = (d, id) => (d.lista || []).find((x) => x.id === id);
+  const quando = (e) => (e.dal === e.al || !e.al ? e.dal : `${e.dal}–${e.al}`).replace(/\/\d{4}/g, "");
+  const cosa = (e) => `${e.tipo === "chiusura" ? "🔒 chiusura" : "📌"} ${e.titolo} (${quando(e)}${e.ora ? " alle " + e.ora : ""})`;
+  if (op === "salva") {
+    const id = body.evento && body.evento.id;
+    const e = id ? trova(dopo, id) : (dopo.lista || []).filter((x) => !trova(prima, x.id)).pop();
+    return e ? `✏️ ${nome} ha ${id ? "cambiato" : "aggiunto"} nel calendario: ${cosa(e)}` : "";
+  }
+  if (op === "togli") { const e = trova(prima, body.id); return e ? `🗑 ${nome} ha tolto dal calendario: ${cosa(e)}` : ""; }
+  if (op === "fatto") { const e = trova(dopo, body.id); return e && body.fatto ? `✅ ${nome} ha segnato fatto: ${cosa(e)}` : ""; }
+  if (op === "blocco") return `🔒 ${nome} ha ${body.nascosto ? "tolto dal calendario una chiusura di Airbnb" : "scritto il motivo di una chiusura: " + (body.motivo || "(tolto)")}`;
+  return "";
+}
+
+module.exports = { leggiEventi, azioneEventi, promemoriaDelGiorno, descriviModifica };

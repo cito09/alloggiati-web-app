@@ -494,7 +494,7 @@
   .ev-sugg button{border:none; background:var(--surface2); color:var(--ink); border-radius:999px; padding:7px 11px; font:inherit; font-size:12.5px; cursor:pointer}
   .ev-date{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .ev-form .gcal-case{margin:2px 0 0}
-  body.modo-team .gcal-piu, body.modo-team .gcal-agg, body.modo-team .ev-ok{display:none!important}
+  body.modo-team:not(.team-eventi) .gcal-piu, body.modo-team:not(.team-eventi) .gcal-agg, body.modo-team:not(.team-eventi) .ev-ok{display:none!important}
   .gcal-riga .vai,.agenda-ev .vai{color:var(--muted); font-size:17px; font-weight:700; flex:0 0 auto; line-height:1}
   .agenda-g{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
   .agenda-g:last-child{border-bottom:none}
@@ -1389,6 +1389,7 @@ async function caricaTeam(){
   b.classList.toggle('team-cal',!!TEAM.permessi.calendario);
   b.classList.toggle('team-pul',!!TEAM.permessi.pulizie);
   b.classList.toggle('team-link',!!d.codiceCheckin);
+  b.classList.toggle('team-eventi',puoEventi());
   const t=$('#teamChi'); if(t)t.textContent=TEAM.nome;
   renderSintesi(); renderCalendario(); renderPulizie(); renderTeamExtra();
 }
@@ -1430,11 +1431,12 @@ function renderTeamExtra(){
 const PERMESSI_TEAM=[
   ['calendario','📆','Calendario','Vede le prenotazioni: date, casa, quante persone e gli orari di check-in e check-out.'],
   ['nomi','👤','Nomi degli ospiti','Nel calendario vede il nome di battesimo («Mario + 1»), senza vede «Ospite». Mai cognomi né documenti.'],
+  ['eventi','✏️','Aggiungere eventi al calendario','Può aggiungere, cambiare e segnare fatti promemoria e chiusure (es. «Viene l\'idraulico»); ti arriva una notifica. Le prenotazioni non si toccano.'],
   ['pulizie','🧹','Pulizie','Le pulizie di oggi e delle prossime 2 settimane, coi messaggi pronti per WhatsApp.'],
   ['link','🔗','Link del check-in','Può copiare il link del check-in online da mandare agli ospiti.'],
   ['completo','🔓','Accesso completo','Tutto KeyFlow come te: documenti, registrazioni, Questura, Ross1000 e Archivio. Il tuo codice e i collaboratori restano solo tuoi.'],
 ];
-const PERMESSI_TEAM_BASE={calendario:true, nomi:true, pulizie:true, link:false, completo:false};
+const PERMESSI_TEAM_BASE={calendario:true, nomi:true, eventi:false, pulizie:true, link:false, completo:false};
 let collab={lista:[], bozza:null};
 async function apriCollaboratori(){ apriPagina('collabOverlay'); await caricaCollaboratori(); }
 async function chiamaCollab(corpo){
@@ -1480,7 +1482,7 @@ function collabCard(m){
         oninput="this.dataset.auto='0'"${m.id?'':' data-auto="1"'}>
       <button class="btn ghost sm" style="width:auto;flex:0 0 auto" title="Codice nuovo" onclick="const c=$('#cb-${k}-codice');c.value=generaCodiceTeam($('#cb-${k}-nome').value);c.dataset.auto='0'">🎲</button></div>
     <div style="font-size:12px;font-weight:700;margin-top:14px">Cosa può vedere e fare</div>
-    <div>${PERMESSI_TEAM.map(([id,ic,tit,desc])=>`<label class="perm${id==='completo'?' rischio':''}${id==='nomi'&&!p.calendario?' spento':''}" id="cb-${k}-r-${id}">
+    <div>${PERMESSI_TEAM.map(([id,ic,tit,desc])=>`<label class="perm${id==='completo'?' rischio':''}${(id==='nomi'||id==='eventi')&&!p.calendario?' spento':''}" id="cb-${k}-r-${id}">
         <span class="pi">${ic}</span><span class="pt">${tit}<span>${desc}</span></span>
         <input type="checkbox" id="cb-${k}-p-${id}"${p[id]?' checked':''} onchange="collabSpunta('${k}')"><span class="sw"></span></label>`).join('')}</div>
     <div class="collab-az">
@@ -1498,10 +1500,10 @@ function renderCollab(){
     :'<div class="muted" style="font-size:13px">Nessun collaboratore. Tocca «Aggiungi» per dare un accesso a chi ti aiuta.</div>';
   const ag=$('#collabAggiungi'); if(ag)ag.style.display=collab.bozza?'none':'';
 }
-// i "Nomi degli ospiti" hanno senso solo col calendario
+// "Nomi degli ospiti" e "Aggiungere eventi" hanno senso solo col calendario
 function collabSpunta(k){
-  const cal=$(`#cb-${k}-p-calendario`), r=$(`#cb-${k}-r-nomi`);
-  if(cal&&r)r.classList.toggle('spento',!cal.checked);
+  const cal=$(`#cb-${k}-p-calendario`);
+  ['nomi','eventi'].forEach(id=>{ const r=$(`#cb-${k}-r-${id}`); if(cal&&r)r.classList.toggle('spento',!cal.checked); });
 }
 function collabLeggi(k){
   const permessi={}; PERMESSI_TEAM.forEach(([id])=>{ const c=$(`#cb-${k}-p-${id}`); permessi[id]=!!(c&&c.checked); });
@@ -1522,7 +1524,8 @@ function collabInvito(k,whatsapp){
   const m=collab.lista.find(x=>x.id===k); if(!m)return;
   const p=m.permessi||{};
   const cosa=p.completo?'tutto KeyFlow':[p.calendario&&'il calendario delle case',p.pulizie&&'le pulizie',p.link&&'i link del check-in'].filter(Boolean).join(', ').replace(/, ([^,]*)$/,' e $1')||'KeyFlow';
-  const testo=`Ciao ${m.nome}! 👋 Ecco KeyFlow, per vedere ${cosa}:\n${location.origin}\n\nIl tuo codice d'accesso è: ${m.codice}\nLo metti solo la prima volta, poi resta ricordato. Dal telefono puoi aggiungerla alla schermata Home (menu del browser → «Aggiungi a schermata Home»).`;
+  const agg=!p.completo&&p.calendario&&p.eventi?' (e aggiungere promemoria, tipo «viene l\'idraulico», col tasto + del calendario)':'';
+  const testo=`Ciao ${m.nome}! 👋 Ecco KeyFlow, per vedere ${cosa}${agg}:\n${location.origin}\n\nIl tuo codice d'accesso è: ${m.codice}\nLo metti solo la prima volta, poi resta ricordato. Dal telefono puoi aggiungerla alla schermata Home (menu del browser → «Aggiungi a schermata Home»).`;
   if(whatsapp){ window.open('https://wa.me/?text='+encodeURIComponent(testo),'_blank','noopener'); return; }
   const fatto=()=>toast('📋 Invito copiato: incollalo nella chat con '+m.nome);
   const riserva=()=>{ const ta=document.createElement('textarea'); ta.value=testo; ta.style.position='fixed'; ta.style.opacity='0';
@@ -16409,6 +16412,10 @@ async function caricaCalendariEsterni(opz={}){
    - promemoria: segno sul giorno, righe nel giorno scelto e nei prossimi giorni, Scadenze della Home,
      notifica del mattino; ✓ = fatto. Dati in KV via azione "eventi" (api/_eventi.js). ===== */
 function escAttr(x){ return escText(x).replace(/"/g,'&quot;'); }
+// chi può aggiungere e cambiare promemoria e chiusure: l'host e i collaboratori col permesso "eventi"
+function puoEventi(){ return !teamRistretto()||!!(TEAM.permessi.eventi&&TEAM.permessi.calendario); }
+// dopo una modifica: l'host ridisegna tutta la Home, il collaboratore solo quello che vede
+function ridisegnaDopoEventi(){ if(teamRistretto()){ renderSintesi(); renderCalendario(); } else aggiornaOggi(); }
 const isoDaIt=a=>String(a||'').split('/').reverse().join('-');
 const itDaIso=i=>String(i||'').split('-').reverse().join('/');
 // l'emoji in testa al titolo ("🔧 Viene l'idraulico") fa da icona; senza, 📌
@@ -16441,7 +16448,7 @@ function promemoriaCal(){
     const dal=parseIt(e.dal), al=parseIt(e.al||e.dal)||dal; if(!dal)return null;
     const casa=e.s?nomeCasaDaId(e.s):'';
     return {id:e.id, s:e.s||'', casa, colore:e.s?strutturaInfo(casa).colore:'var(--amber)', dal, al, titolo:e.titolo, ora:e.ora||'',
-      nota:e.nota||'', fatto:e.fatto||null, ico:iconaEvento(e.titolo)};
+      nota:e.nota||'', fatto:e.fatto||null, ico:iconaEvento(e.titolo), da:e.da||'', fattoDa:e.fattoDa||''};
   }).filter(Boolean);
 }
 function promemoriaDelGiorno(k){
@@ -16458,7 +16465,7 @@ function calSegnoEventi(pg,cella){
 }
 function calRigaPromemoria(e){
   const dett=[e.ora&&('alle '+e.ora), e.casa?`<span style="color:${e.colore}">●</span> ${escText(casaBreve(e.casa))}`:'tutte le case',
-    dataKey(e.al)!==dataKey(e.dal)&&periodoEvento(e), e.nota&&escText(e.nota)].filter(Boolean).join(' · ');
+    dataKey(e.al)!==dataKey(e.dal)&&periodoEvento(e), e.nota&&escText(e.nota), e.da&&('da '+escText(e.da)), e.fatto&&e.fattoDa&&('fatto da '+escText(e.fattoDa))].filter(Boolean).join(' · ');
   return `<div class="gcal-riga${e.fatto?' fatto':''}" onclick="apriEvento('${e.id}')"><span class="ev-ic">${e.ico}</span>
     <span style="flex:1;min-width:0"><b style="font-size:13px">${escText(titoloSenzaIcona(e.titolo))}</b>
       <span class="muted" style="display:block;font-size:11.5px">${dett}</span></span>
@@ -16479,7 +16486,7 @@ async function chiamaEventi(corpo){
 function applicaEventi(d){
   eventiCal={lista:d.lista||[], blocchi:d.blocchi||{}};
   try{ localStorage.setItem('eventi_cache',JSON.stringify(eventiCal)); }catch(e){}
-  aggiornaOggi();
+  ridisegnaDopoEventi();
 }
 async function caricaEventi(){ try{ applicaEventi(await chiamaEventi({op:'lista'})); }catch(e){ /* resta la copia di prima */ } }
 // Home → Scadenze: i promemoria da fare nei prossimi 7 giorni (e quelli rimasti indietro)
@@ -16505,7 +16512,7 @@ const SUGG_EVENTI={promemoria:['🔧 Viene l\'idraulico','⚡ Viene l\'elettrici
 let evBozza=null;
 function apriFoglioEventi(){ const box=$('#sommarioPren'); if(!box)return; box.classList.add('open'); box.querySelector('.box').scrollTop=0; }
 function nuovoEvento(k){
-  if(teamRistretto())return;
+  if(!puoEventi())return;
   const g=k||dataKey(new Date());
   const casa=calCasa?struttureList.find(x=>nomeStrutturaCanonico(x.nome)===calCasa):null;
   evBozza={id:'', tipo:'promemoria', s:casa?casa.id:'', titolo:'', dal:g, al:g, ora:'', nota:''};
@@ -16514,9 +16521,9 @@ function nuovoEvento(k){
 }
 function apriEvento(id){
   const e=(eventiCal.lista||[]).find(x=>x.id===id); if(!e){ toast('Questo evento non c\'è più'); return; }
-  if(teamRistretto()){ vistaEvento(e); return; }   // il collaboratore lo legge e basta
+  if(!puoEventi()){ vistaEvento(e); return; }   // il collaboratore senza permesso lo legge e basta
   evBozza={id:e.id, tipo:e.tipo, s:e.s||'', titolo:e.tipo==='chiusura'&&e.titolo==='Chiusa'?'':e.titolo, dal:isoDaIt(e.dal), al:isoDaIt(e.al||e.dal),
-    ora:e.ora||'', nota:e.nota||'', fatto:e.fatto||null};
+    ora:e.ora||'', nota:e.nota||'', fatto:e.fatto||null, da:e.da||'', modDa:e.modDa||'', fattoDa:e.fattoDa||''};
   renderEventoForm(); apriFoglioEventi();
 }
 function vistaEvento(e){
@@ -16543,6 +16550,7 @@ function renderEventoForm(){
   const case_=[{id:'',nome:'Tutte'}].concat(struttureList.map(x=>({id:x.id,nome:x.nome})));
   body.innerHTML=`<div class="ev-form">
     <h3 class="som-tit" id="sommarioTitolo" style="text-align:left;font-size:21px;padding-right:44px">${b.id?'Modifica':'Nuovo'} ${chi?'chiusura':'promemoria'}</h3>
+    ${b.da||b.modDa||b.fattoDa?`<div class="muted" style="font-size:12px;margin-top:4px">${[b.da&&'Aggiunto da '+escText(b.da), b.modDa&&'cambiato da '+escText(b.modDa), b.fatto&&b.fattoDa&&'fatto da '+escText(b.fattoDa)].filter(Boolean).join(' · ')}</div>`:''}
     <div class="ev-tipi"><button class="${chi?'':'on'}" onclick="evTipo('promemoria')">📌 Promemoria</button><button class="${chi?'on':''}" onclick="evTipo('chiusura')">🔒 Chiusura</button></div>
     <div class="muted ev-spiega">${chi?'La casa non è disponibile (lavori, uso personale): nel calendario diventa grigia. <b>Ricordati di bloccare le date anche su Airbnb</b> (le date già bloccate lì le riconosco da solo).'
       :'Una cosa da fare o una scadenza, anche con ospiti in casa: la vedi nel calendario, nelle Scadenze della Home e nella notifica del mattino (il giorno prima e quel giorno).'}</div>
@@ -16577,7 +16585,7 @@ async function salvaEvento(){
 async function eventoFatto(id,val,dalFoglio){
   const e=(eventiCal.lista||[]).find(x=>x.id===id); if(e)e.fatto=val?Date.now():null;   // subito a video
   if(dalFoglio)chiudiSommario();
-  aggiornaOggi();
+  ridisegnaDopoEventi();
   try{ applicaEventi(await chiamaEventi({op:'fatto', id, fatto:!!val})); toast(val?'✓ Fatto':'↺ Rimesso da fare'); }
   catch(err){ toast('⚠️ '+err.message); caricaEventi(); }
 }
@@ -16592,7 +16600,7 @@ function apriChiusura(kEnc){
   if(k.startsWith('m:')){ apriEvento(k.slice(2)); return; }
   const c=chiusureCal().find(x=>x.k===k); if(!c){ toast('Questa chiusura non c\'è più'); return; }
   const body=$('#sommarioBody'); if(!body)return;
-  const team=teamRistretto();
+  const team=!puoEventi();
   body.innerHTML=`
     <div class="som-avatar"><span class="av" style="background:#3a3a44;font-size:42px">🔒</span></div>
     <h3 class="som-tit" id="sommarioTitolo">${escText(c.motivo?titoloSenzaIcona(c.motivo):'Casa chiusa')}</h3>

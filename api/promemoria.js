@@ -27,7 +27,7 @@
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin, checkTitolare, getAdminCode } = require("./_admin");
 const { trovaCollaboratore, azioneCollaboratori, datiTeam } = require("./_team");
-const { leggiEventi, azioneEventi, promemoriaDelGiorno } = require("./_eventi");
+const { leggiEventi, azioneEventi, promemoriaDelGiorno, descriviModifica } = require("./_eventi");
 const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
@@ -322,6 +322,26 @@ module.exports = async (req, res) => {
         const m = await trovaCollaboratore(conn, req.headers["x-team-code"]);
         if (!m) return res.status(401).json({ error: "Codice non più valido" });
         return res.status(200).json(await datiTeam(conn, m, oggiIsoRoma()));
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+    // un collaboratore col permesso "Aggiungere eventi al calendario" (es. Sofia) aggiunge, cambia e
+    // segna fatti promemoria e chiusure: SOLO questa azione, col suo codice. Resta scritto chi è stato
+    // e all'host arriva una notifica.
+    if ((req.body || {}).azione === "eventi" && req.headers["x-team-code"] && !req.headers["x-admin-code"]) {
+      if (!conn) return res.status(200).json({ configurato: false });
+      try {
+        const m = await trovaCollaboratore(conn, req.headers["x-team-code"]);
+        if (!m || !(m.permessi.completo || (m.permessi.eventi && m.permessi.calendario))) return res.status(401).json({ error: "Non hai il permesso di cambiare il calendario" });
+        const prima = await leggiEventi(conn);
+        const esito = await azioneEventi(conn, req.body || {}, { autore: m.nome });
+        const riga = esito.ok ? descriviModifica(prima, esito, req.body || {}, m.nome) : "";
+        if (riga && process.env.NTFY_TOPIC) {
+          try { await fetch(`https://ntfy.sh/${encodeURIComponent(process.env.NTFY_TOPIC)}`, { method: "POST", headers: { Title: "Calendario KeyFlow" }, body: riga }); }
+          catch (e) { /* la modifica c'è comunque */ }
+        }
+        return res.status(esito.ok ? 200 : 400).json(esito);
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }

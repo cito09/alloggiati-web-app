@@ -14,8 +14,9 @@ const { upstash, redisCmd } = require("./_kv");
 
 const KEY = "collaboratori";
 // i permessi, nell'ordine in cui li mostra la pagina Impostazioni → Collaboratori
-const PERMESSI = ["calendario", "nomi", "pulizie", "link", "completo"];
-const PREDEFINITI = { calendario: true, nomi: true, pulizie: true, link: false, completo: false };
+// eventi = può aggiungere, cambiare e segnare fatti promemoria e chiusure del calendario (azione "eventi")
+const PERMESSI = ["calendario", "nomi", "eventi", "pulizie", "link", "completo"];
+const PREDEFINITI = { calendario: true, nomi: true, eventi: false, pulizie: true, link: false, completo: false };
 const MAX = 10;
 
 function pulisciPermessi(p) {
