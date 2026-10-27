@@ -226,29 +226,28 @@
   .page.active{display:block}
   /* ===== layout da gestionale (ottobre 2026, l'utente: "vorrei più gestionale dashboard: così tutte
      le funzioni una sotto l'altra si perdono; organizza meglio, sia desktop che mobile app").
-     Telefono: in Home i riquadri quadrati affiancati (#homeSezioni: Da fare, Pulizie, Recensioni,
-     Scadenze, ognuno col suo numero; l'utente: "nel mobile li voglio più come dei quadrati affiancati")
-     e sotto il calendario intero; il tocco su un riquadro apre SOLO quella scheda (#page-oggi.in-sez,
-     con "← Home" per tornare).
+     Telefono: in Home, sotto i riquadri arrivi/partenze/in casa/da fare, una fila di 3 riquadri
+     piccoli (#homeSezioni: Pulizie, Recensioni, Scadenze; l'utente: "li voglio come dei quadrati
+     affiancati", poi "troppo grandi, non vedo il calendario") e sotto il calendario intero; il tocco
+     su un riquadro (o su "da fare" in cima) apre SOLO quella scheda (#page-oggi.in-sez, con "← Home").
      Da 900px: pagina larga, Home a due colonne (calendario grande a sinistra, Da fare / Pulizie /
      Recensioni / Scadenze a destra), Ospiti con l'elenco grande e il link di lato.
      Da 1100px: il menu sta a sinistra al posto della barra in basso. --hdr = altezza dell'intestazione.
      (body ha overflow-x:clip e non hidden: con hidden diventava un contenitore che scorre e
      position:sticky non funzionava) */
-  .home-tiles{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:0 0 16px}
+  .home-tiles{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:-8px 0 16px}
   .home-tiles:empty{display:none}
-  .tile{position:relative; aspect-ratio:6/5; border:none; border-radius:22px; background:var(--surface); color:var(--ink);
-    font-family:inherit; text-align:left; padding:13px 14px 12px; cursor:pointer; display:flex; flex-direction:column; align-items:flex-start;
-    gap:1px; transition:transform .12s}
+  .tile{position:relative; border:none; border-radius:18px; background:var(--surface); color:var(--ink); font-family:inherit; text-align:left;
+    padding:10px 11px 10px; cursor:pointer; display:flex; flex-direction:column; align-items:flex-start; gap:1px; min-width:0; transition:transform .12s}
   .tile:active{transform:scale(.97)}
-  .tile>*{flex-shrink:0}   /* il riquadro si allunga invece di tagliare il testo (telefoni stretti) */
-  .tile .t-ico{width:36px; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px;
-    background:rgba(132,227,211,.1); margin-bottom:auto}
-  .tile::after{content:'›'; position:absolute; top:12px; right:14px; font-size:20px; line-height:1; color:var(--muted)}
-  .tile .t-val{font-size:26px; font-weight:800; line-height:1.2; letter-spacing:-.02em; margin-top:8px; white-space:nowrap; max-width:100%;
+  .tile>*{flex-shrink:0}
+  .tile .t-ico{width:28px; height:28px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px;
+    background:rgba(132,227,211,.1); margin-bottom:5px}
+  .tile::after{content:'›'; position:absolute; top:9px; right:11px; font-size:17px; line-height:1; color:var(--muted)}
+  .tile .t-val{font-size:19px; font-weight:800; line-height:1.2; letter-spacing:-.02em; white-space:nowrap; max-width:100%;
     overflow:hidden; text-overflow:ellipsis}
-  .tile .t-tit{font-size:13.5px; font-weight:800}
-  .tile .t-nota{font-size:11.5px; color:var(--muted); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  .tile .t-tit{font-size:12px; font-weight:800}
+  .tile .t-nota{font-size:10.5px; color:var(--muted); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
     overflow:hidden; max-width:100%}
   .tile.att .t-val{color:var(--amber)}
   .tile.ok .t-val,.tile.vuoto .t-val{color:var(--muted)}
@@ -257,7 +256,6 @@
   .tile.urg .t-val,.tile.urg .t-nota{color:var(--err)}
   .tile.urg .t-ico{background:rgba(239,71,111,.15)}
   .sez-barra{display:none; margin:0 0 10px}
-  @media (min-width:600px){ .home-tiles{grid-template-columns:repeat(4,minmax(0,1fr))} }
   @media (max-width:899px){
     #page-oggi:not(.in-sez)>#oggiTodoCard,#page-oggi:not(.in-sez)>#oggiPulizieCard,
     #page-oggi:not(.in-sez)>#oggiRecensioniCard,#page-oggi:not(.in-sez)>#oggiScadenzeCard{display:none!important}
@@ -15909,19 +15907,15 @@ async function provaNotificaPulizie(){
   if(b){ b.disabled=false; b.textContent='🔔 Mandami le notifiche adesso'; }
 }
 /* Home → riquadri delle sezioni (telefono, l'utente: "nel mobile li voglio più come dei quadrati
-   affiancati il da fare, recensioni ecc."): Da fare, Pulizie, Recensioni, Scadenze, sempre tutti e
-   quattro (2 per riga), ognuno col suo numero o con ✓ se non c'è niente. Il tocco apre SOLO quella
-   scheda (vaiSezione), "← Home" o Indietro tornano ai riquadri. Da 900px non si vedono: lì le
+   affiancati il da fare, recensioni ecc.", poi "troppo grandi, non vedo il calendario"): una fila
+   di 3 riquadri piccoli, Pulizie, Recensioni, Scadenze, sempre tutti e tre, ognuno col suo numero
+   o con ✓ se non c'è niente. "Da fare" non serve: è già il riquadro "da fare" in cima (vaiDaFare).
+   Il tocco apre SOLO quella scheda (vaiSezione), "← Home" o Indietro tornano ai riquadri. Da 900px non si vedono: lì le
    schede stanno già tutte nella colonna di destra. */
 const SEZ_VUOTE={oggiPulizieCard:'🧹 Nessuna pulizia nelle prossime 2 settimane',
   oggiRecensioniCard:'⭐ Nessuna recensione da scrivere adesso', oggiScadenzeCard:'⏰ Nessuna scadenza in vista'};
 function riquadriSezioni(){
   const vis=id=>{ const c=document.getElementById(id); return !!c&&c.style.display!=='none'; };
-  // Da fare = i check-in arrivati (come il riquadro "da fare" in cima)
-  const n=(checkinPending||[]).length, nUrg=pendingUrgenti().length;
-  const daFare={id:'oggiTodoCard', ico:'📌', tit:'Da fare', val:n||'✓',
-    nota:nUrg?`🚨 ${nUrg} urgent${nUrg===1?'e':'i'}`:n?`check-in da registrare`:'tutto fatto',
-    st:nUrg?'urg':n?'att':'ok'};
   // Pulizie: la prossima (oggi / domani / il giorno), con la casa e gli ospiti
   let p=null; try{ p=pulizie&&pulizie.giorno===dataKey(new Date())?pulizie:null; }catch(e){}   // (si caricano dopo)
   const voci=p?(p.settimane||[]).flatMap(m=>(m.voci||[]).map(v=>({...v,nome:m.nome}))).sort((x,y)=>x.giorno<y.giorno?-1:x.giorno>y.giorno?1:0):[];
@@ -15931,26 +15925,24 @@ function riquadriSezioni(){
     const [aa,mm,dd]=g.split('-').map(Number), d=new Date(aa,mm-1,dd);
     const diff=Math.round((d-new Date(new Date().setHours(0,0,0,0)))/864e5);
     const quando=diff===0?'Oggi':diff===1?'Domani':`${['dom','lun','mar','mer','gio','ven','sab'][d.getDay()]} ${dd}/${mm}`;
-    const altre=voci.length-prime.length;
-    pul={...pul, val:quando, st:diff===0?'att':'',
-      nota:prime.map(v=>`<span style="color:${strutturaInfo(v.nome).colore}">●</span> ${escText(casaBreve(v.nome))}${v.ospiti?` · ${v.ospiti} ospit${v.ospiti===1?'e':'i'}`:''}`).join('<br>')
-        +(altre&&prime.length<2?`<br>+${altre} nelle 2 settimane`:''), html:true};
+    pul={...pul, val:quando, st:diff===0?'att':'', html:true,
+      nota:prime.map(v=>`<span style="color:${strutturaInfo(v.nome).colore}">●</span> ${escText(casaBreve(v.nome))}${v.ospiti?` · 👤${v.ospiti}`:''}`).join('<br>')};
   }
   // Recensioni: quante da scrivere
   const bd=$('#oggiRecBadge'), nRec=bd&&bd.style.display!=='none'?parseInt(bd.textContent,10)||0:0;
-  const rec={id:'oggiRecensioniCard', ico:'⭐', tit:'Recensioni', val:nRec||'✓', nota:nRec?'da scrivere su Airbnb':'tutte fatte',
+  const rec={id:'oggiRecensioniCard', ico:'⭐', tit:'Recensioni', val:nRec||'✓', nota:nRec?'da scrivere':'tutte fatte',
     st:nRec?'att':vis('oggiRecensioniCard')?'ok':'vuoto'};
   // Scadenze: GEIS ed eventuali Ross1000 in coda (righe della scheda Scadenze)
   const righe=['#oggiRossCoda','#oggiGeis'].map(i=>$(i)).filter(r=>r&&r.style.display!=='none');
   const daFareSc=righe.filter(r=>!r.querySelector('.pill.ok'));
   const urgSc=righe.some(r=>r.querySelector('.pill.err'));
   const prima=daFareSc[0]||righe[0];
-  const tPrima=prima?((prima.querySelector('b')||{}).textContent||'').trim():'';
+  const tPrima=prima?((prima.querySelector('b')||{}).textContent||'').trim().split(' · ')[0]:'';   // "GEIS", "Ross1000"
   const pPrima=prima?((prima.querySelector('.pill')||{}).textContent||'').trim():'';
   const sca={id:'oggiScadenzeCard', ico:'⏰', tit:'Scadenze', val:daFareSc.length||'✓',
-    nota:prima?escText(tPrima+(pPrima&&pPrima!=='✓'?' · '+pPrima:'')):'nessuna in vista', html:true,
+    nota:prima?escText(tPrima+(pPrima&&pPrima!=='✓'?' · '+pPrima:pPrima==='✓'?' a posto':' in coda')):'nessuna in vista', html:true,
     st:urgSc?'urg':daFareSc.length?'att':righe.length?'ok':'vuoto'};
-  return [daFare,pul,rec,sca];
+  return [pul,rec,sca];
 }
 function renderSezioniHome(){
   const w=$('#homeSezioni'); if(!w)return;
