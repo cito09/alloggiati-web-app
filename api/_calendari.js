@@ -105,6 +105,45 @@ function prenotazioniDaEventi(eventi, { strutturaId, url, oggi = Date.now(), gio
   return out;
 }
 
+// Le date BLOCCATE dall'host su Airbnb ("Airbnb (Not available)": lavori, uso personale…): il
+// calendario di KeyFlow le mostra come casa chiusa (ottobre 2026, l'utente: "la settimana dal 30/11
+// al 6/1 in Falegnami è bloccata su Airbnb perché facciamo lavori: riconoscilo da solo"). dal =
+// prima notte chiusa, fino = il giorno in cui torna libera (come la partenza di una prenotazione).
+// Fuori i blocchi enormi in fondo al calendario (finestra di disponibilità di Airbnb, non sono una
+// chiusura vera) e quelli vecchi. Booking chiama "CLOSED" anche le prenotazioni: lì niente blocchi.
+// I blocchi che coincidono con una prenotazione vera (calendari sincronizzati, notte di preparazione
+// prima/dopo un ospite) li toglie il gestionale, che conosce tutti i soggiorni.
+function blocchiDaEventi(eventi, { strutturaId, url, oggi = Date.now() }) {
+  const fonte = fonteDi(url), sorgente = sorgenteDi(url);
+  if (fonte === "Booking") return [];
+  const out = [];
+  for (const ev of eventi) {
+    if (!/^\d{8}$/.test(ev.inizio || "") || !/^\d{8}$/.test(ev.fine || "")) continue;
+    if (/\/reservations\/details\//i.test(ev.descrizione || "")) continue;
+    if (!/not available|non disponibile|blocked|bloccat/i.test(ev.titolo || "")) continue;
+    const ini = giornoUtc(ev.inizio), fin = giornoUtc(ev.fine);
+    const notti = Math.round((fin - ini) / 86400000);
+    if (!(notti > 0 && notti <= 200)) continue;
+    if (fin < oggi - 45 * 86400000 || ini > oggi + 330 * 86400000) continue;
+    out.push({ uid: String(ev.uid || `${sorgente}-${ev.inizio}`).slice(0, 200), strutturaId, sorgente, fonte,
+      dal: ggmmaaaa(ev.inizio), fino: ggmmaaaa(ev.fine), notti });
+  }
+  return out;
+}
+// blocchi uno di seguito all'altro nella stessa casa = una chiusura sola
+function unisciBlocchi(lista) {
+  const ord = (lista || []).slice().sort((a, b) => (a.strutturaId + aaaammgg(a.dal)).localeCompare(b.strutturaId + aaaammgg(b.dal)));
+  const out = [];
+  for (const b of ord) {
+    const u = out[out.length - 1];
+    if (u && u.strutturaId === b.strutturaId && aaaammgg(b.dal) <= aaaammgg(u.fino)) {
+      if (aaaammgg(b.fino) > aaaammgg(u.fino)) u.fino = b.fino;
+      u.notti = Math.round((giornoUtc(aaaammgg(u.fino)) - giornoUtc(aaaammgg(u.dal))) / 86400000);
+    } else out.push({ ...b });
+  }
+  return out;
+}
+
 async function scaricaCalendario(url) {
   const r = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (KeyFlow; calendario host)", Accept: "text/calendar, text/plain, */*" },
@@ -131,8 +170,8 @@ async function leggiCalendari(conn) {
   try {
     const raw = await redisCmd(conn, ["GET", KEY]);
     const s = raw ? JSON.parse(raw) : {};
-    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {}, prohost: s.prohost || {}, archivio: s.archivio || {} };
-  } catch { return { link: {}, prenotazioni: [], esiti: {}, aggiornato: 0, email: {}, prohost: {}, archivio: {} }; }
+    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], blocchi: s.blocchi || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {}, prohost: s.prohost || {}, archivio: s.archivio || {} };
+  } catch { return { link: {}, prenotazioni: [], blocchi: [], esiti: {}, aggiornato: 0, email: {}, prohost: {}, archivio: {} }; }
 }
 async function salvaCalendari(conn, stato) {
   await redisCmd(conn, ["SET", KEY, JSON.stringify(stato)]);
@@ -320,18 +359,21 @@ async function sincronizzaCalendari(conn, stato) {
   const risultati = await Promise.all(lavori.map(async (l) => {
     try {
       // tutte quelle del file vanno nell'archivio dei link; nel calendario solo le recenti
-      const tutte = prenotazioniDaEventi(leggiIcal(await scaricaCalendario(l.url)), { ...l, giorniPassati: 3650 });
+      const eventi = leggiIcal(await scaricaCalendario(l.url));
+      const tutte = prenotazioniDaEventi(eventi, { ...l, giorniPassati: 3650 });
       const limite = Date.now() - 45 * 86400000;
       const pren = tutte.filter((p) => giornoUtc(aaaammgg(p.partenza)) >= limite);
-      return { ...l, ok: true, pren, tutte };
+      return { ...l, ok: true, pren, tutte, blocchi: blocchiDaEventi(eventi, l) };
     } catch (e) { return { ...l, ok: false, errore: spiegaErrore(e) }; }
   }));
   const sorgentiAttive = new Set(lavori.map((l) => l.sorgente));
   const fallite = new Set(risultati.filter((r) => !r.ok).map((r) => r.sorgente));
   const prenotazioni = (stato.prenotazioni || []).filter((p) => sorgentiAttive.has(p.sorgente) && fallite.has(p.sorgente));
+  // anche le date bloccate: se un link non risponde restano quelle lette l'ultima volta
+  const blocchi = (stato.blocchi || []).filter((b) => sorgentiAttive.has(b.sorgente) && fallite.has(b.sorgente));
   const esiti = {};
   for (const r of risultati) {
-    if (r.ok) { prenotazioni.push(...r.pren); archivia(archivio, r.tutte); }
+    if (r.ok) { prenotazioni.push(...r.pren); blocchi.push(...r.blocchi); archivia(archivio, r.tutte); }
     esiti[r.sorgente] = r.ok
       ? { ok: true, quante: r.pren.length, ts: Date.now(), strutturaId: r.strutturaId, fonte: fonteDi(r.url) }
       : { ok: false, errore: r.errore, ts: Date.now(), strutturaId: r.strutturaId, fonte: fonteDi(r.url),
@@ -341,7 +383,7 @@ async function sincronizzaCalendari(conn, stato) {
   // ProhostAI non ha risposto: restano le sue prenotazioni lette l'ultima volta
   prenotazioni.push(...(ph.pren || (stato.prenotazioni || []).filter((p) => p.sorgente === "prohost")));
   archivia(archivio, ph.pren || []);
-  const nuovo = { link: stato.link || {}, prenotazioni, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost, archivio };
+  const nuovo = { link: stato.link || {}, prenotazioni, blocchi, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost, archivio };
   await salvaCalendari(conn, nuovo);
   await avvisaCancellazioni(stato, nuovo);
   return nuovo;
@@ -396,7 +438,10 @@ function vistaCalendari(stato) {
   const canc = emailAccesa(em) ? (em.cancellate || {}) : {};
   const attive = (stato.prenotazioni || []).filter((p) => !(p.codice && canc[String(p.codice).toUpperCase()]));
   const prenotazioni = emailAccesa(em) ? conNomi(attive, em.conferme, em.modifiche) : attive;
-  return { ok: true, link, prenotazioni, aggiornato: stato.aggiornato || 0, linkPrenotazioni: linkPrenotazioni(stato, canc),
+  // date bloccate dall'host (chiusure): k = casa|aaaa-mm-gg, la chiave del motivo scritto in KeyFlow
+  const blocchi = unisciBlocchi(stato.blocchi).map((b) => ({ k: `${b.strutturaId}|${aaaammgg(b.dal).replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3")}`,
+    s: b.strutturaId, dal: b.dal, fino: b.fino, notti: b.notti, f: b.fonte }));
+  return { ok: true, link, prenotazioni, blocchi, aggiornato: stato.aggiornato || 0, linkPrenotazioni: linkPrenotazioni(stato, canc),
     email: { attivo: emailAccesa(em), configurato: caselleEmail(em).length > 0, casella: process.env.GMAIL_USER || "",
       esito: em.esito || null, conferme: Object.keys(em.conferme || {}).length,
       conNome: prenotazioni.filter((p) => p.nome).length,
@@ -582,7 +627,7 @@ async function azioneCalendariInTurno(conn, corpo) {
       await salvaCalendari(conn, stato);
     }
   } else if (cambiati) {
-    stato = { ...stato, prenotazioni: [], esiti: {}, aggiornato: Date.now() };
+    stato = { ...stato, prenotazioni: [], blocchi: [], esiti: {}, aggiornato: Date.now() };
     await salvaCalendari(conn, stato);
   }
   const vista = vistaCalendari(stato);
@@ -590,4 +635,4 @@ async function azioneCalendariInTurno(conn, corpo) {
   return vista;
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, vistaCalendari, azioneCalendari, conNomi, haFonti, conTurno };
+module.exports = { leggiIcal, prenotazioniDaEventi, blocchiDaEventi, unisciBlocchi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, vistaCalendari, azioneCalendari, conNomi, haFonti, conTurno };

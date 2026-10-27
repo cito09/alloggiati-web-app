@@ -437,6 +437,16 @@
   .gcal-b.passato{opacity:.42}
   /* prenotazione letta dal calendario di Airbnb/Booking, check-in non ancora fatto: a righe */
   .gcal-b.est{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 4px,transparent 4px 9px)}
+  /* chiusure (🔒 a righe grigie: date bloccate su Airbnb o chiusure scritte a mano) e promemoria (segno sul giorno) */
+  .gcal-g{position:relative}
+  .gcal-b.chiuso{background:repeating-linear-gradient(135deg,rgba(255,255,255,.17) 0 5px,rgba(255,255,255,.06) 5px 10px)!important; color:var(--ink);
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+  .gcal-b.chiuso .ini{background:none; width:auto; font-size:10px}
+  .gcal-evm{position:absolute; top:3px; right:3px; display:flex; align-items:center; gap:3px; max-width:calc(100% - 26px); height:18px; padding:0 5px;
+    border-radius:999px; background:rgba(132,227,211,.16); font-size:10.5px; line-height:1; white-space:nowrap; overflow:hidden; pointer-events:none}
+  .gcal-evm .t{overflow:hidden; text-overflow:ellipsis; font-weight:700; color:var(--ink); font-size:10.5px}
+  .gcal-evm b{font-size:9.5px; color:var(--amber)}
+  .gcal-evm.fatto{opacity:.4}
   .gcal-mese.alta .gcal-b{height:30px; font-size:12.5px; gap:6px; padding-left:4px}
   .gcal-mese.alta .gcal-b .ini{width:22px; height:22px; line-height:22px; font-size:11px}
   .gcal-mese.alta .gcal-b.tsx{padding-left:7px}
@@ -467,6 +477,24 @@
     color:var(--muted); margin:12px 0 2px}
   .gcal-casa .pallo{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
   .gcal-libera{font-size:12.5px; color:var(--muted); padding:5px 0 8px}
+  .gcal-riga .ev-ic{width:28px; height:28px; border-radius:9px; background:rgba(132,227,211,.1); display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:14px}
+  .gcal-riga.fatto b{text-decoration:line-through; color:var(--muted)}
+  .gcal-riga.chiusa .barra{background:repeating-linear-gradient(135deg,rgba(255,255,255,.4) 0 3px,rgba(255,255,255,.08) 3px 6px)}
+  .ev-ok{flex:0 0 auto; width:32px; height:32px; border-radius:50%; border:1.5px solid rgba(255,255,255,.18); background:none; color:var(--muted);
+    font-size:14px; font-weight:800; cursor:pointer; font-family:inherit}
+  .ev-ok.on{background:var(--ok); border-color:var(--ok); color:#fff}
+  .gcal-agg{width:100%; margin-top:10px}
+  .gcal-piu{font-size:18px; font-weight:700}
+  /* modulo promemoria / chiusura (nel foglio del riepilogo) */
+  .ev-tipi{display:flex; gap:4px; background:var(--bg,#0a0a0c); border-radius:14px; padding:4px; margin-top:16px}
+  .ev-tipi button{flex:1; border:none; background:none; color:var(--muted); font:inherit; font-weight:700; font-size:13.5px; padding:10px 6px; border-radius:11px; cursor:pointer}
+  .ev-tipi button.on{background:var(--surface2); color:var(--ink)}
+  .ev-spiega{font-size:12px; line-height:1.45; margin-top:8px}
+  .ev-sugg{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .ev-sugg button{border:none; background:var(--surface2); color:var(--ink); border-radius:999px; padding:7px 11px; font:inherit; font-size:12.5px; cursor:pointer}
+  .ev-date{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .ev-form .gcal-case{margin:2px 0 0}
+  body.modo-team .gcal-piu, body.modo-team .gcal-agg, body.modo-team .ev-ok{display:none!important}
   .gcal-riga .vai,.agenda-ev .vai{color:var(--muted); font-size:17px; font-weight:700; flex:0 0 auto; line-height:1}
   .agenda-g{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
   .agenda-g:last-child{border-bottom:none}
@@ -1100,6 +1128,7 @@ function doGet() {
     </div>
     <div class="card" id="oggiScadenzeCard" style="display:none">
       <h2><span class="n">⏰</span> Scadenze</h2>
+      <div id="oggiEventi"></div>
       <div class="scad-riga" id="oggiRossCoda" style="display:none" onclick="apriPagina('rossOverlay')"></div>
       <div class="scad-riga" id="oggiGeis" style="display:none" onclick="apriGeis()"></div>
     </div>
@@ -1353,6 +1382,7 @@ async function caricaTeam(){
   if(Array.isArray(d.strutture)&&d.strutture.length&&!struttureList.length)struttureList=d.strutture;
   if(d.orari)orariCase=d.orari;
   pulizie=d.pulizie?{giorno:d.pulizie.giorno, oggi:d.pulizie.oggi||[], settimane:d.pulizie.settimane||[]}:null;
+  blocchiAuto=d.blocchi||[]; eventiCal=d.eventi||{lista:[], blocchi:{}};   // chiusure e promemoria: solo da leggere
   window.linkCheckinPerStruttura={};
   if(d.codiceCheckin)(struttureList||[]).forEach(c=>{ window.linkCheckinPerStruttura[c.id]=linkCheckinDa(d.codiceCheckin,c.id); });
   const b=document.body;
@@ -15496,7 +15526,7 @@ document.addEventListener('visibilitychange',()=>{
   riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
   allarmeGiaVisto=false;                    // check-in in scadenza: l'avviso si rivede al rientro
-  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); caricaCalendariEsterni(); caricaPulizie(); }catch(e){}
+  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); caricaCalendariEsterni(); caricaPulizie(); caricaEventi(); }catch(e){}
   if(registrazioneAMeta()){ aggiornaOggi(); return; }
   tornaAllaHome();
 });
@@ -15785,12 +15815,13 @@ function aggiornaOggi(){
   // "Ross1000 · flussi del mese" non c'è più (ottobre 2026, l'utente: "è inutile, è tutto automatico")
   if(typeof geisAvvisoHome==='function')geisAvvisoHome();
   aggiornaRossCodaUI();
+  if(typeof renderEventiHome==='function')renderEventiHome();   // promemoria del calendario ("viene l'idraulico")
   aggiornaScadenze();
 }
 // la scheda "Scadenze" si vede solo se almeno una riga ha qualcosa da dire
 function aggiornaScadenze(){
   const card=$('#oggiScadenzeCard'); if(!card)return;
-  const righe=['#oggiRossCoda','#oggiGeis'].map(id=>$(id)).filter(el=>el&&el.style.display!=='none');
+  const righe=[...card.querySelectorAll('.scad-riga')].filter(el=>el.style.display!=='none');   // promemoria, Ross1000, GEIS
   card.style.display=righe.length?'':'none';
   renderSezioniHome();
 }
@@ -16228,7 +16259,7 @@ function riquadriSezioni(){
   const rec={id:'oggiRecensioniCard', ico:'⭐', c:'#ffc857', tit:'Recensioni', val:nRec||'✓', nota:nRec?'da scrivere':'tutte fatte',
     st:nRec?'att':vis('oggiRecensioniCard')?'ok':'vuoto'};
   // Scadenze: GEIS ed eventuali Ross1000 in coda (righe della scheda Scadenze)
-  const righe=['#oggiRossCoda','#oggiGeis'].map(i=>$(i)).filter(r=>r&&r.style.display!=='none');
+  const righe=[...document.querySelectorAll('#oggiScadenzeCard .scad-riga')].filter(r=>r.style.display!=='none');   // promemoria, Ross1000, GEIS
   const daFareSc=righe.filter(r=>!r.querySelector('.pill.ok'));
   const urgSc=righe.some(r=>r.querySelector('.pill.err'));
   const prima=daFareSc[0]||righe[0];
@@ -16327,6 +16358,11 @@ const maiuscola=t=>String(t||'').charAt(0).toUpperCase()+String(t||'').slice(1);
    prenotazioni (api/_calendari.js): qui arrivano con date, codice e ultime cifre del telefono,
    senza nome. Copia in questo telefono per vederle subito anche senza rete. */
 let prenotazioniEsterne=[], calendariConfig=null;
+// date bloccate su Airbnb (chiusure lette dal calendario .ics) e eventi scritti dall'host (promemoria,
+// chiusure a mano, motivo delle chiusure): vedi api/_eventi.js
+let blocchiAuto=[], eventiCal={lista:[], blocchi:{}};
+try{ const c=JSON.parse(localStorage.getItem('calendari_cache')||'null'); if(c&&Array.isArray(c.blocchi))blocchiAuto=c.blocchi; }catch(e){}
+try{ const c=JSON.parse(localStorage.getItem('eventi_cache')||'null'); if(c&&Array.isArray(c.lista))eventiCal={lista:c.lista, blocchi:c.blocchi||{}}; }catch(e){}
 // archivio dei link alle prenotazioni (anche dei soggiorni vecchi): [{s:casa, f:fonte, a:arrivo, p:partenza, u:link, n:nome}]
 let linkArchivio=[], linkArchivioDate=null;
 try{ const c=JSON.parse(localStorage.getItem('calendari_cache')||'null');
@@ -16344,8 +16380,9 @@ async function caricaCalendariEsterni(opz={}){
     if(d.configurato===false){ calendariConfig={link:{}}; return; }
     calendariConfig={link:d.link||{}, aggiornato:d.aggiornato||0, email:d.email||{}, prohost:d.prohost||{}};
     prenotazioniEsterne=Array.isArray(d.prenotazioni)?d.prenotazioni:[];
+    blocchiAuto=Array.isArray(d.blocchi)?d.blocchi:[];
     if(Array.isArray(d.linkPrenotazioni)){ linkArchivio=d.linkPrenotazioni; linkArchivioDate=null; }
-    try{ localStorage.setItem('calendari_cache',JSON.stringify({prenotazioni:prenotazioniEsterne, link:linkArchivio})); }catch(e){}
+    try{ localStorage.setItem('calendari_cache',JSON.stringify({prenotazioni:prenotazioniEsterne, link:linkArchivio, blocchi:blocchiAuto})); }catch(e){}
     aggiornaOggi();
     if(opz.campi)renderCalendariCampi(); else renderCalendariEsiti();
     renderCalendariEmail();
@@ -16361,6 +16398,228 @@ async function caricaCalendariEsterni(opz={}){
   }catch(e){
     if(opz.avvisa)toast('Calendari non letti: '+(e.message||'connessione assente'));
   }
+}
+/* ===== calendario → chiusure e promemoria (ottobre 2026, l'utente: "la settimana dal 30/11 al 6/1
+   Falegnami è bloccata su Airbnb perché facciamo lavori: riconoscilo da solo, poi posso mettere il
+   perché è chiuso; e posso aggiungere eventi anche in date occupate, cose da fare o scadenze: viene
+   l'idraulico, manutenzione estintore").
+   - chiusure: le date bloccate su Airbnb (blocchiAuto, dal server) + quelle scritte a mano; barre
+     grigie a righe "🔒 Lavori" nella corsia della casa. Un blocco che coincide con un soggiorno
+     (calendari sincronizzati) o la notte di preparazione accanto a un ospite non è una chiusura.
+   - promemoria: segno sul giorno, righe nel giorno scelto e nei prossimi giorni, Scadenze della Home,
+     notifica del mattino; ✓ = fatto. Dati in KV via azione "eventi" (api/_eventi.js). ===== */
+function escAttr(x){ return escText(x).replace(/"/g,'&quot;'); }
+const isoDaIt=a=>String(a||'').split('/').reverse().join('-');
+const itDaIso=i=>String(i||'').split('-').reverse().join('/');
+// l'emoji in testa al titolo ("🔧 Viene l'idraulico") fa da icona; senza, 📌
+function iconaEvento(t){ const m=/^\s*(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*️?)/u.exec(String(t||'')); return m?m[1]:'📌'; }
+function titoloSenzaIcona(t){ return String(t||'').replace(/^\s*\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*️?\s*/u,'')||String(t||''); }
+function chiusureCal(){
+  const sogg=soggiorniHome(), out=[], grigio='#8a8a96';
+  const fineDi=x=>x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1);
+  (blocchiAuto||[]).forEach(b=>{
+    const dal=parseIt(b.dal), fino=parseIt(b.fino); if(!dal||!fino||fino<=dal)return;
+    const nota=(eventiCal.blocchi||{})[b.k]||{};
+    if(nota.nascosto)return;
+    const casa=nomeCasaDaId(b.s), canon=nomeStrutturaCanonico(casa);
+    const notti=Math.round((fino-dal)/864e5);
+    const stessi=sogg.filter(x=>casaDelSoggiorno(x)===canon);
+    // è una prenotazione (calendari sincronizzati) o la notte di preparazione prima/dopo un ospite
+    if(stessi.some(x=>x.arrivo<fino&&fineDi(x)>dal&&notti<=Math.round((fineDi(x)-x.arrivo)/864e5)+2))return;
+    if(notti<=2&&stessi.some(x=>dataKey(fineDi(x))===dataKey(dal)||dataKey(x.arrivo)===dataKey(fino)))return;
+    out.push({chiusura:true, auto:true, k:b.k, arrivo:dal, partenza:fino, struttura:casa, strutturaId:b.s, colore:grigio, motivo:nota.motivo||'', fonte:b.f||'Airbnb', notti});
+  });
+  (eventiCal.lista||[]).filter(e=>e.tipo==='chiusura').forEach(e=>{
+    const dal=parseIt(e.dal), al=parseIt(e.al||e.dal); if(!dal||!al)return;
+    (e.s?[e.s]:struttureList.map(x=>x.id)).forEach(id=>out.push({chiusura:true, auto:false, k:'m:'+e.id, arrivo:dal, partenza:piuGiorni(al,1),
+      struttura:nomeCasaDaId(id), strutturaId:id, colore:grigio, motivo:e.titolo==='Chiusa'?'':e.titolo, nota:e.nota||'', notti:Math.round((piuGiorni(al,1)-dal)/864e5)}));
+  });
+  return out;
+}
+function promemoriaCal(){
+  return (eventiCal.lista||[]).filter(e=>e.tipo==='promemoria').map(e=>{
+    const dal=parseIt(e.dal), al=parseIt(e.al||e.dal)||dal; if(!dal)return null;
+    const casa=e.s?nomeCasaDaId(e.s):'';
+    return {id:e.id, s:e.s||'', casa, colore:e.s?strutturaInfo(casa).colore:'var(--amber)', dal, al, titolo:e.titolo, ora:e.ora||'',
+      nota:e.nota||'', fatto:e.fatto||null, ico:iconaEvento(e.titolo)};
+  }).filter(Boolean);
+}
+function promemoriaDelGiorno(k){
+  const g=new Date(k+'T00:00');
+  return promemoriaCal().filter(e=>e.dal<=g&&e.al>=g).sort((a,b)=>(a.fatto?1:0)-(b.fatto?1:0)||(a.ora||'99').localeCompare(b.ora||'99'));
+}
+const giornoCorto=d=>d.toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+function periodoChiusura(c){ const ult=piuGiorni(c.partenza,-1); return dataKey(ult)===dataKey(c.arrivo)?'il '+giornoCorto(c.arrivo):`dal ${giornoCorto(c.arrivo)} al ${giornoCorto(ult)}`; }
+function periodoEvento(e){ return dataKey(e.al)===dataKey(e.dal)?e.dal.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'}):`dal ${giornoCorto(e.dal)} al ${giornoCorto(e.al)}`; }
+// il segno sul giorno: l'icona (e il titolo se la casella è larga) + quanti sono
+function calSegnoEventi(pg,cella){
+  const e0=pg.find(e=>!e.fatto)||pg[0];
+  return `<span class="gcal-evm${pg.every(e=>e.fatto)?' fatto':''}">${e0.ico}${cella>=86?`<span class="t">${escText(titoloSenzaIcona(e0.titolo))}</span>`:''}${pg.length>1?`<b>${pg.length}</b>`:''}</span>`;
+}
+function calRigaPromemoria(e){
+  const dett=[e.ora&&('alle '+e.ora), e.casa?`<span style="color:${e.colore}">●</span> ${escText(casaBreve(e.casa))}`:'tutte le case',
+    dataKey(e.al)!==dataKey(e.dal)&&periodoEvento(e), e.nota&&escText(e.nota)].filter(Boolean).join(' · ');
+  return `<div class="gcal-riga${e.fatto?' fatto':''}" onclick="apriEvento('${e.id}')"><span class="ev-ic">${e.ico}</span>
+    <span style="flex:1;min-width:0"><b style="font-size:13px">${escText(titoloSenzaIcona(e.titolo))}</b>
+      <span class="muted" style="display:block;font-size:11.5px">${dett}</span></span>
+    <button class="ev-ok${e.fatto?' on':''}" onclick="event.stopPropagation();eventoFatto('${e.id}',${!e.fatto})" title="${e.fatto?'Rimetti da fare':'Fatto'}">✓</button></div>`;
+}
+function calRigaChiusura(c){
+  return `<div class="gcal-riga chiusa" onclick="apriChiusura('${encodeURIComponent(c.k)}')"><span class="barra"></span>
+    <span style="flex:1;min-width:0"><b style="font-size:13px">🔒 Chiusa${c.motivo?' · '+escText(titoloSenzaIcona(c.motivo)):''}</b>
+      <span class="muted" style="display:block;font-size:11.5px">${escText(periodoChiusura(c))}${c.auto?' · bloccata su '+escText(c.fonte):''}${c.nota?' · '+escText(c.nota):''}</span></span>
+    <span class="vai">›</span></div>`;
+}
+async function chiamaEventi(corpo){
+  const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify(Object.assign({azione:'eventi'},corpo))});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.ok)throw new Error(d.error||'Non riuscito, riprova');
+  return d;
+}
+function applicaEventi(d){
+  eventiCal={lista:d.lista||[], blocchi:d.blocchi||{}};
+  try{ localStorage.setItem('eventi_cache',JSON.stringify(eventiCal)); }catch(e){}
+  aggiornaOggi();
+}
+async function caricaEventi(){ try{ applicaEventi(await chiamaEventi({op:'lista'})); }catch(e){ /* resta la copia di prima */ } }
+// Home → Scadenze: i promemoria da fare nei prossimi 7 giorni (e quelli rimasti indietro)
+function renderEventiHome(){
+  const w=$('#oggiEventi'); if(!w)return;
+  const oggi0=new Date(); oggi0.setHours(0,0,0,0);
+  const lista=promemoriaCal().filter(e=>!e.fatto&&e.al>=piuGiorni(oggi0,-14)&&e.dal<=piuGiorni(oggi0,7))
+    .sort((a,b)=>a.dal-b.dal||(a.ora||'99').localeCompare(b.ora||'99')).slice(0,6);
+  w.innerHTML=lista.map(e=>{
+    const g=Math.round((e.dal-oggi0)/864e5), fine=Math.round((e.al-oggi0)/864e5);
+    const quando=g<=0&&fine>=0?(g===0?'oggi':'in corso'):g===1?'domani':g>1?'fra '+g+' g':(fine===-1?'ieri':(-fine)+' g fa');
+    const dett=[e.dal.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'})+(e.ora?' alle '+e.ora:''),
+      e.casa?`<span style="color:${e.colore}">●</span> ${escText(casaBreve(e.casa))}`:'tutte le case'].join(' · ');
+    return `<div class="scad-riga" onclick="apriEvento('${e.id}')"><span class="ico">${e.ico}</span>
+      <span class="txt"><b>${escText(titoloSenzaIcona(e.titolo))}</b><br><span class="muted">${dett}</span></span>
+      <span class="pill ${fine<0?'err':g<=1?'wait':''}" style="flex:0 0 auto">${quando}</span>
+      <button class="ev-ok" onclick="event.stopPropagation();eventoFatto('${e.id}',true)" title="Fatto">✓</button></div>`;
+  }).join('');
+}
+// il modulo (nel foglio del riepilogo): promemoria o chiusura, casa, cosa, date, ora, note
+const SUGG_EVENTI={promemoria:['🔧 Viene l\'idraulico','⚡ Viene l\'elettricista','🧯 Manutenzione estintore','🔥 Controllo caldaia','🛠️ Manutenzione','🧹 Pulizia a fondo','📦 Consegna'],
+  chiusura:['🛠️ Lavori','🏠 Uso personale','🎨 Ristrutturazione','🧹 Pulizia a fondo']};
+let evBozza=null;
+function apriFoglioEventi(){ const box=$('#sommarioPren'); if(!box)return; box.classList.add('open'); box.querySelector('.box').scrollTop=0; }
+function nuovoEvento(k){
+  if(teamRistretto())return;
+  const g=k||dataKey(new Date());
+  const casa=calCasa?struttureList.find(x=>nomeStrutturaCanonico(x.nome)===calCasa):null;
+  evBozza={id:'', tipo:'promemoria', s:casa?casa.id:'', titolo:'', dal:g, al:g, ora:'', nota:''};
+  renderEventoForm(); apriFoglioEventi();
+  setTimeout(()=>{ const t=$('#ev-titolo'); if(t&&window.matchMedia('(hover:hover)').matches)t.focus(); },80);
+}
+function apriEvento(id){
+  const e=(eventiCal.lista||[]).find(x=>x.id===id); if(!e){ toast('Questo evento non c\'è più'); return; }
+  if(teamRistretto()){ vistaEvento(e); return; }   // il collaboratore lo legge e basta
+  evBozza={id:e.id, tipo:e.tipo, s:e.s||'', titolo:e.tipo==='chiusura'&&e.titolo==='Chiusa'?'':e.titolo, dal:isoDaIt(e.dal), al:isoDaIt(e.al||e.dal),
+    ora:e.ora||'', nota:e.nota||'', fatto:e.fatto||null};
+  renderEventoForm(); apriFoglioEventi();
+}
+function vistaEvento(e){
+  const body=$('#sommarioBody'); if(!body)return;
+  const p=promemoriaCal().find(x=>x.id===e.id);
+  const casa=e.s?nomeCasaDaId(e.s):'';
+  const quando=e.tipo==='chiusura'?periodoChiusura({arrivo:parseIt(e.dal), partenza:piuGiorni(parseIt(e.al||e.dal),1)}):(p?periodoEvento(p):e.dal);
+  body.innerHTML=`<div class="som-avatar"><span class="av" style="background:#3a3a44;font-size:42px">${e.tipo==='chiusura'?'🔒':iconaEvento(e.titolo)}</span></div>
+    <h3 class="som-tit" id="sommarioTitolo">${escText(e.tipo==='chiusura'&&e.titolo==='Chiusa'?'Casa chiusa':titoloSenzaIcona(e.titolo))}</h3>
+    <div class="som-sotto">${escText(quando)}${e.ora?' · alle '+escText(e.ora):''}</div>
+    <div class="som-casa">${casa?`<span class="pallo" style="background:${strutturaInfo(casa).colore}"></span>${escText(casa)}`:'Tutte le case'}</div>
+    ${e.nota?`<div class="som-card"><div class="som-riga"><span class="ic">💬</span><span>${escText(e.nota)}</span></div></div>`:''}`;
+  apriFoglioEventi();
+}
+function evLeggi(){
+  if(!evBozza)return;
+  ['titolo','dal','al','ora','nota'].forEach(c=>{ const el=document.getElementById('ev-'+c); if(el)evBozza[c]=el.value; });
+}
+function evTipo(t){ evLeggi(); evBozza.tipo=t; renderEventoForm(); }
+function evCasa(id){ evLeggi(); evBozza.s=id; renderEventoForm(); }
+function renderEventoForm(){
+  const body=$('#sommarioBody'); if(!body||!evBozza)return;
+  const b=evBozza, chi=b.tipo==='chiusura';
+  const case_=[{id:'',nome:'Tutte'}].concat(struttureList.map(x=>({id:x.id,nome:x.nome})));
+  body.innerHTML=`<div class="ev-form">
+    <h3 class="som-tit" id="sommarioTitolo" style="text-align:left;font-size:21px;padding-right:44px">${b.id?'Modifica':'Nuovo'} ${chi?'chiusura':'promemoria'}</h3>
+    <div class="ev-tipi"><button class="${chi?'':'on'}" onclick="evTipo('promemoria')">📌 Promemoria</button><button class="${chi?'on':''}" onclick="evTipo('chiusura')">🔒 Chiusura</button></div>
+    <div class="muted ev-spiega">${chi?'La casa non è disponibile (lavori, uso personale): nel calendario diventa grigia. <b>Ricordati di bloccare le date anche su Airbnb</b> (le date già bloccate lì le riconosco da solo).'
+      :'Una cosa da fare o una scadenza, anche con ospiti in casa: la vedi nel calendario, nelle Scadenze della Home e nella notifica del mattino (il giorno prima e quel giorno).'}</div>
+    <label>Casa</label>
+    <div class="gcal-case">${case_.map(c=>`<button class="${b.s===c.id?'on':''}" onclick="evCasa('${c.id}')">${c.id?`<span class="pallo" style="background:${strutturaInfo(c.nome).colore}"></span>`:''}${escText(c.id?casaBreve(c.nome):c.nome)}</button>`).join('')}</div>
+    <label for="ev-titolo">${chi?'Perché è chiusa':'Cosa c\'è da fare'}</label>
+    <input type="text" id="ev-titolo" maxlength="80" value="${escAttr(b.titolo)}" placeholder="${chi?'Es. Lavori':'Es. Viene l\'idraulico'}">
+    <div class="ev-sugg">${SUGG_EVENTI[b.tipo].map(t=>`<button onclick="document.getElementById('ev-titolo').value=this.textContent">${escText(t)}</button>`).join('')}</div>
+    <div class="ev-date"><div><label for="ev-dal">${chi?'Chiusa dal':'Giorno'}</label><input type="date" id="ev-dal" value="${escAttr(b.dal)}"></div>
+      <div><label for="ev-al">${chi?'al (compreso)':'fino al (se più giorni)'}</label><input type="date" id="ev-al" value="${escAttr(b.al)}"></div></div>
+    ${chi?'':`<label for="ev-ora">Ora (se c'è)</label><input type="time" id="ev-ora" value="${escAttr(b.ora)}">`}
+    <label for="ev-nota">Note</label><input type="text" id="ev-nota" maxlength="300" value="${escAttr(b.nota)}" placeholder="${chi?'Es. ditta, cosa si fa…':'Es. numero dell\'idraulico, cosa preparare…'}">
+    <div class="som-az">
+      <button class="btn primary" data-resta="1" id="evSalva" onclick="salvaEvento()">💾 Salva</button>
+      ${b.id&&!chi?`<button class="btn ghost" data-resta="1" onclick="eventoFatto('${b.id}',${!b.fatto},true)">${b.fatto?'↺ Non ancora fatto':'✓ Fatto'}</button>`:''}
+      ${b.id?`<button class="btn ghost" data-resta="1" style="color:var(--err)" onclick="eliminaEvento('${b.id}')">🗑 Elimina</button>`:''}
+    </div></div>`;
+}
+async function salvaEvento(){
+  evLeggi(); const b=evBozza; if(!b)return;
+  if(b.tipo==='promemoria'&&!String(b.titolo||'').trim()){ toast('Scrivi cosa c\'è da fare'); const t=$('#ev-titolo'); if(t)t.focus(); return; }
+  if(!b.dal){ toast('Scegli il giorno'); return; }
+  let al=b.al||b.dal;
+  if(al<b.dal){ if(b.tipo==='chiusura'){ toast('La fine viene prima dell\'inizio'); return; } al=b.dal; }
+  const bt=$('#evSalva'); if(bt){ bt.disabled=true; bt.textContent='Salvo…'; }
+  try{
+    const d=await chiamaEventi({op:'salva', evento:{id:b.id||undefined, tipo:b.tipo, s:b.s, titolo:b.titolo, dal:itDaIso(b.dal), al:itDaIso(al), ora:b.tipo==='chiusura'?'':b.ora, nota:b.nota}});
+    applicaEventi(d); chiudiSommario();
+    toast(b.tipo==='chiusura'?(b.id?'🔒 Chiusura aggiornata':'🔒 Chiusura salvata · ricordati di bloccare le date anche su Airbnb'):'📌 Promemoria salvato');
+  }catch(e){ toast('⚠️ '+e.message); if(bt){ bt.disabled=false; bt.textContent='💾 Salva'; } }
+}
+async function eventoFatto(id,val,dalFoglio){
+  const e=(eventiCal.lista||[]).find(x=>x.id===id); if(e)e.fatto=val?Date.now():null;   // subito a video
+  if(dalFoglio)chiudiSommario();
+  aggiornaOggi();
+  try{ applicaEventi(await chiamaEventi({op:'fatto', id, fatto:!!val})); toast(val?'✓ Fatto':'↺ Rimesso da fare'); }
+  catch(err){ toast('⚠️ '+err.message); caricaEventi(); }
+}
+async function eliminaEvento(id){
+  if(!confirm('Eliminare questo evento dal calendario?'))return;
+  try{ applicaEventi(await chiamaEventi({op:'togli', id})); chiudiSommario(); toast('🗑 Eliminato'); }
+  catch(e){ toast('⚠️ '+e.message); }
+}
+// una chiusura letta da Airbnb: si scrive il perché, oppure "non è una chiusura" (la toglie dal calendario)
+function apriChiusura(kEnc){
+  const k=decodeURIComponent(kEnc||'');
+  if(k.startsWith('m:')){ apriEvento(k.slice(2)); return; }
+  const c=chiusureCal().find(x=>x.k===k); if(!c){ toast('Questa chiusura non c\'è più'); return; }
+  const body=$('#sommarioBody'); if(!body)return;
+  const team=teamRistretto();
+  body.innerHTML=`
+    <div class="som-avatar"><span class="av" style="background:#3a3a44;font-size:42px">🔒</span></div>
+    <h3 class="som-tit" id="sommarioTitolo">${escText(c.motivo?titoloSenzaIcona(c.motivo):'Casa chiusa')}</h3>
+    <div class="som-sotto">${escText(periodoChiusura(c))} · ${c.notti} nott${c.notti===1?'e':'i'}</div>
+    <div class="som-casa"><span class="pallo" style="background:${strutturaInfo(c.struttura).colore}"></span>${escText(c.struttura)}</div>
+    <div class="som-card">
+      <div class="som-riga"><span class="ic">📅</span><span style="flex:1"><b>Date bloccate su ${escText(c.fonte)}</b><br><span class="muted">L'ho letto dal calendario di ${escText(c.fonte)}: in quei giorni nessuno può prenotare.</span></span></div>
+      ${team?(c.motivo?`<div class="som-riga"><span class="ic">💬</span><span>${escText(c.motivo)}</span></div>`:'')
+      :`<div class="som-riga" style="display:block"><label for="ev-motivo" style="margin-top:0">Perché è chiusa?</label>
+        <input type="text" id="ev-motivo" maxlength="60" value="${escAttr(c.motivo)}" placeholder="Es. Lavori">
+        <div class="ev-sugg">${SUGG_EVENTI.chiusura.map(t=>`<button onclick="document.getElementById('ev-motivo').value=this.textContent">${escText(t)}</button>`).join('')}</div></div>`}
+    </div>
+    ${team?'':`<div class="som-az">
+      <button class="btn primary" data-resta="1" id="evSalva" onclick="salvaMotivoBlocco('${encodeURIComponent(k)}')">💾 Salva il motivo</button>
+      <button class="btn ghost" data-resta="1" onclick="nascondiBlocco('${encodeURIComponent(k)}')">🙈 Non è una chiusura</button></div>`}`;
+  apriFoglioEventi();
+}
+async function salvaMotivoBlocco(kEnc){
+  const k=decodeURIComponent(kEnc), motivo=(($('#ev-motivo')||{}).value||'').trim();
+  try{ applicaEventi(await chiamaEventi({op:'blocco', chiave:k, motivo})); chiudiSommario(); toast(motivo?'🔒 Motivo salvato':'Motivo tolto'); }
+  catch(e){ toast('⚠️ '+e.message); }
+}
+async function nascondiBlocco(kEnc){
+  if(!confirm('Non è una chiusura vera? La tolgo dal calendario di KeyFlow (su Airbnb le date restano bloccate).'))return;
+  const k=decodeURIComponent(kEnc), motivo=(($('#ev-motivo')||{}).value||'').trim();
+  try{ applicaEventi(await chiamaEventi({op:'blocco', chiave:k, motivo, nascosto:true})); chiudiSommario(); toast('🙈 Tolta dal calendario'); }
+  catch(e){ toast('⚠️ '+e.message); }
 }
 function apriCalendari(){
   apriPagina('calendariOverlay');
@@ -16888,7 +17147,9 @@ function calGiornoPerCasa(k){
   const case_=[...struttureList.map(x=>x.nome).filter(Boolean)];
   eventi.forEach(e=>{ const c=casaDi(e); if(!case_.includes(c))case_.push(c); });
   const ordine={p:0,a:1,c:2};
+  const chiuse=chiusureCal().filter(c=>c.arrivo<=giorno&&c.partenza>giorno);
   return case_.map(casa=>({casa, colore:strutturaInfo(casa).colore,
+    chiusure:chiuse.filter(c=>casaDi(c)===casa),
     eventi:eventi.filter(e=>casaDi(e)===casa).sort((a,b)=>ordine[a.tipo]-ordine[b.tipo])}));
 }
 // tocco sul nome di chi è GIÀ REGISTRATO: apre la sua voce nell'Archivio, con il dettaglio
@@ -16914,26 +17175,34 @@ function calDettaglio(ev,filtro){
     const d=new Date(calSelDay+'T12:00');
     const tit=maiuscola(d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}));
     const gruppi=calGiornoPerCasa(calSelDay).filter(g=>!filtro||g.casa===filtro);
+    const pg=promemoriaDelGiorno(calSelDay).filter(e=>!filtro||!e.s||nomeStrutturaCanonico(e.casa)===filtro);
     return `<div class="gcal-dett"><div class="testa"><span class="giorno">${escText(tit)}</span>
         <button class="chiudi" onclick="calSeleziona('${calSelDay}')" title="Torna ai prossimi giorni">✕</button></div>
+      ${pg.length?`<div class="gcal-casa">📌 Promemoria</div>${pg.map(calRigaPromemoria).join('')}`:''}
       ${gruppi.length?gruppi.map(g=>`<div class="gcal-casa"><span class="pallo" style="background:${g.colore}"></span>${escText(g.casa)}</div>
+        ${g.chiusure.map(calRigaChiusura).join('')}
         ${g.eventi.length?g.eventi.map(calRigaEvento).join('')
-          :'<div class="gcal-libera">Libera: nessun arrivo, partenza o ospite.</div>'}`).join('')
-        :'<div class="muted" style="font-size:12.5px;padding:4px 0 8px">Nessun arrivo o partenza in questo giorno.</div>'}</div>`;
+          :g.chiusure.length?'':'<div class="gcal-libera">Libera: nessun arrivo, partenza o ospite.</div>'}`).join('')
+        :'<div class="muted" style="font-size:12.5px;padding:4px 0 8px">Nessun arrivo o partenza in questo giorno.</div>'}
+      <button class="btn ghost sm gcal-agg" onclick="nuovoEvento('${calSelDay}')">➕ Promemoria o chiusura in questo giorno</button></div>`;
   }
   const oggi=new Date(); const oggi0=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate());
   const righe=[];
   for(let i=0;i<60&&righe.length<6;i++){
     const d=piuGiorni(oggi0,i); const lista=ev[dataKey(d)]||[];
-    if(!lista.length)continue;
+    const pg=promemoriaDelGiorno(dataKey(d)).filter(e=>!e.fatto&&(!filtro||!e.s||nomeStrutturaCanonico(e.casa)===filtro));
+    if(!lista.length&&!pg.length)continue;
     const quando=i===0?'Oggi':i===1?'Domani':d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
     righe.push(`<div class="agenda-g"><span class="quando${i===0?' oggi':''}">${escText(quando)}</span>
       <span class="cosa">${lista.map(e=>`<span class="agenda-ev" ${calApriAttr(e)}><span class="pallo" style="background:${e.colore}"></span>
         <span class="nome">${e.tipo==='a'?'➡️':'⬅️'} ${escText(e.nomeBello||e.nome)}${e.ospiti>1?' <span class="muted">👤'+e.ospiti+'</span>':''}</span>
-        ${e.esterna?'<span class="pill wait">check-in non fatto</span>':(e.registrato||e.team)?'<span class="vai muted">›</span>':'<span class="pill err">da registrare</span>'}</span>`).join('')}</span></div>`);
+        ${e.esterna?'<span class="pill wait">check-in non fatto</span>':(e.registrato||e.team)?'<span class="vai muted">›</span>':'<span class="pill err">da registrare</span>'}</span>`).join('')}
+        ${pg.map(e=>`<span class="agenda-ev" onclick="apriEvento('${e.id}')"><span class="pallo" style="background:${e.colore}"></span>
+          <span class="nome">${e.ico} ${escText(titoloSenzaIcona(e.titolo))}${e.ora?' <span class="muted">'+escText(e.ora)+'</span>':''}</span><span class="vai muted">›</span></span>`).join('')}</span></div>`);
   }
   return `<div class="stat-lab" style="margin-top:14px">PROSSIMI GIORNI</div>
-    ${righe.length?righe.join(''):'<div class="muted" style="font-size:12.5px">Nessun arrivo o partenza in programma.</div>'}`;
+    ${righe.length?righe.join(''):'<div class="muted" style="font-size:12.5px">Nessun arrivo o partenza in programma.</div>'}
+    <button class="btn ghost sm gcal-agg" onclick="nuovoEvento('')">➕ Aggiungi un promemoria o una chiusura</button>`;
 }
 // quale casa si guarda nel calendario: '' = tutte (la scelta resta sul telefono)
 let calCasa=(()=>{ try{ return localStorage.getItem('calCasa')||''; }catch(e){ return ''; } })();
@@ -16969,6 +17238,12 @@ function calSettimana(w0, sogg, case_, oggi0, alta, cella){
     const left=`calc(${(da/7*100).toFixed(4)}% + ${tsx?0:2}px)`;
     const width=`calc(${(giorniVisti/7*100).toFixed(4)}% - ${(tsx?0:2)+(tdx?0:2)}px)`;
     const top=CAL_NUM+x.corsia*(alta+CAL_SPAZIO), px=giorniVisti*cella;
+    if(e.chiusura){   // casa chiusa: barra grigia a righe "🔒 Lavori"
+      const tx=titoloSenzaIcona(e.motivo)||'Chiusa';
+      const cls=['gcal-b','chiuso', e.partenza<oggi0?'passato':'', tsx?'tsx':'', tdx?'tdx':'', px<30?'mini':px<54?'corto':''].filter(Boolean).join(' ');
+      return `<div class="${cls}" style="left:${left};width:${width};top:${top}px" title="${escText('Chiusa'+(e.motivo?' · '+e.motivo:'')+' · '+periodoChiusura(e)).replace(/"/g,'&quot;')}"
+        onclick="apriChiusura('${encodeURIComponent(e.k)}')"><span class="ini">🔒</span><span class="tx">${escText(tx)}</span></div>`;
+    }
     const fine=e.partenza&&e.partenza>e.arrivo?e.partenza:piuGiorni(e.arrivo,1);
     const nome=e.nomeBreve||(e.esterna?(e.fonte||'Airbnb'):calNomeCorto(e.nome));
     const testo=nome+(e.ospiti>1?' + '+(e.ospiti-1):'');
@@ -16996,6 +17271,9 @@ function renderCalendario(){
   const filtro=tutteCase.includes(calCasa)?calCasa:'';
   const sogg=tutti.filter(x=>(!filtro||casaDelSoggiorno(x)===filtro)
     &&x.arrivo<dopo&&(x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1))>inizio);
+  // case chiuse (🔒) nella corsia della casa, promemoria come segno sul giorno
+  const chiuse=chiusureCal().filter(x=>(!filtro||casaDelSoggiorno(x)===filtro)&&x.arrivo<dopo&&x.partenza>inizio);
+  const prom=promemoriaCal().filter(e=>!filtro||!e.s||nomeStrutturaCanonico(e.casa)===filtro);
   // nel mese si mostrano le case delle Impostazioni (anche vuote, così le corsie non saltano)
   // più quelle che hanno davvero un soggiorno qui
   const caseMese=filtro?[filtro]:tutteCase.filter(c=>struttureList.some(x=>x.nome===c)||sogg.some(x=>casaDelSoggiorno(x)===c));
@@ -17007,9 +17285,10 @@ function renderCalendario(){
     let celle='';
     for(let i=0;i<7;i++){
       const d=piuGiorni(w0,i), k=dataKey(d);
-      celle+=`<div class="gcal-g${d.getMonth()!==mese?' fuori':''}${d<oggi0?' passato':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')"><span class="num">${d.getDate()}</span></div>`;
+      const pg=prom.filter(e=>e.dal<=d&&e.al>=d);
+      celle+=`<div class="gcal-g${d.getMonth()!==mese?' fuori':''}${d<oggi0?' passato':''}${k===oggiK?' oggi':''}${k===calSelDay?' sel':''}" onclick="calSeleziona('${k}')"><span class="num">${d.getDate()}</span>${pg.length?calSegnoEventi(pg,cella):''}</div>`;
     }
-    const sett=calSettimana(w0,sogg,caseMese,oggi0,alta,cella);
+    const sett=calSettimana(w0,sogg.concat(chiuse),caseMese,oggi0,alta,cella);
     const alto=CAL_NUM+Math.max(1,sett.corsie)*(alta+CAL_SPAZIO)+3;
     righe+=`<div class="gcal-sett" style="height:${alto}px"><div class="gcal-giorni">${celle}</div><div class="gcal-barre">${sett.html}</div></div>`;
   }
@@ -17024,13 +17303,14 @@ function renderCalendario(){
     <div class="gcal-head">
       <span class="mese">${escText(titolo)}</span>
       <button class="gcal-oggi" onclick="calVaiOggi()">Oggi</button>
+      <button class="gcal-nav gcal-piu" onclick="nuovoEvento(calSelDay)" title="Aggiungi un promemoria o una chiusura" aria-label="Aggiungi un promemoria o una chiusura">+</button>
       <button class="gcal-nav" onclick="calSposta(-1)">‹</button>
       <button class="gcal-nav" onclick="calSposta(1)">›</button>
     </div>
     ${scelte}
     <div class="gcal-dow">${['lun','mar','mer','gio','ven','sab','dom'].map(g=>`<span>${g}</span>`).join('')}</div>
     <div class="gcal-mese${alta>22?' alta':''}">${righe}</div>
-    <div class="gcal-legenda">${prenotazioniEsterne.length?'A righe = check-in non ancora fatto · ':''}tocca una barra per il riepilogo, un giorno per vedere chi arriva e chi parte</div>
+    <div class="gcal-legenda">${prenotazioniEsterne.length?'A righe = check-in non ancora fatto · ':''}${chiuse.length?'🔒 grigio = casa chiusa · ':''}tocca una barra per il riepilogo, un giorno per vedere chi arriva e chi parte</div>
     ${calendariConfig&&!calendariCollegati()?'<button class="gcal-invito" onclick="apriCalendari()">📅 Vuoi vedere le prenotazioni <b>in anticipo</b>, prima del check-in? <b>Collega il calendario di Airbnb ›</b></button>':''}
     ${calDettaglio(ev,filtro)}`;
 }
@@ -17824,6 +18104,7 @@ function apriCard(id){
   caricaRecensioniStato();   // Home → Recensioni: cosa è già copiato/fatto (uguale su tutti i dispositivi)
   caricaOrariCase();         // orari di check-in/check-out delle case, per il riepilogo della prenotazione
   caricaPulizie();           // Home → 🧹 Pulizie di oggi e domani, col messaggio per il gruppo WhatsApp
+  caricaEventi();            // calendario → promemoria e chiusure scritti a mano, motivo delle date bloccate
   misuraIntestazione();      // per le scorciatoie fisse della Home e il menu a sinistra sul computer
   caricaIstatConfig();
   isRenderStorico();

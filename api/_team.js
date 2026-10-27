@@ -5,7 +5,8 @@
 // Ogni collaboratore ha un nome, un codice d'accesso SUO e i permessi a spunta. Entra dallo stesso
 // indirizzo del gestionale: il codice lo riconosce /api/admin-code e la pagina mostra solo quello che
 // è spuntato. I dati gli arrivano da UNA azione ("team" di /api/promemoria) che manda il minimo:
-// date, casa, numero di ospiti e, se permesso, il nome di battesimo. Mai cognomi, documenti, foto,
+// date, casa, numero di ospiti e, se permesso, il nome di battesimo (più chiusure e promemoria
+// del calendario, solo da leggere). Mai cognomi, documenti, foto,
 // date di nascita: quelli restano dietro il codice del titolare (o "Accesso completo").
 // In KV la chiave "collaboratori" = { lista: [{ id, nome, codice, permessi, creato, accesso }] }.
 // Il nome inizia con "_": è un aiuto, non conta nel limite di 12 funzioni del piano Vercel.
@@ -95,7 +96,11 @@ async function datiTeam(conn, membro, oggiIso) {
     const { soggiorniPerCasa, msDa } = require("./_pulizie");
     const { leggiCalendari, vistaCalendari } = require("./_calendari");
     const [storico, pending, cal] = await Promise.all([leggi("storico_schedine"), leggi("checkin_pending"), leggiCalendari(conn)]);
-    const perCasa = soggiorniPerCasa({ storico, pending, esterne: vistaCalendari(cal).prenotazioni || [], strutture });
+    const vista = vistaCalendari(cal);
+    const perCasa = soggiorniPerCasa({ storico, pending, esterne: vista.prenotazioni || [], strutture });
+    // le chiusure (date bloccate su Airbnb, col motivo) e i promemoria scritti dall'host: solo da leggere
+    out.blocchi = vista.blocchi || [];
+    out.eventi = await require("./_eventi").leggiEventi(conn);
     const oggi = msDa(oggiIso.split("-").reverse().join("/"));
     const da = oggi - 62 * 864e5, a = oggi + 400 * 864e5;   // ~2 mesi indietro, un anno avanti
     const soggiorni = [];

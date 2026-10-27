@@ -27,6 +27,7 @@
 const { upstash, redisCmd } = require("./_kv");
 const { checkAdmin, checkTitolare, getAdminCode } = require("./_admin");
 const { trovaCollaboratore, azioneCollaboratori, datiTeam } = require("./_team");
+const { leggiEventi, azioneEventi, promemoriaDelGiorno } = require("./_eventi");
 const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
@@ -470,6 +471,17 @@ module.exports = async (req, res) => {
       }
     }
 
+    // calendario → eventi scritti dall'host: promemoria ("viene l'idraulico"), chiusure, motivo
+    // delle date bloccate su Airbnb — vedi api/_eventi.js
+    if ((req.body || {}).azione === "eventi") {
+      try {
+        const esito = await azioneEventi(conn, req.body || {});
+        return res.status(esito.ok ? 200 : 400).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
     // prenotazioni in anticipo dai calendari di Airbnb/Booking (link "esporta calendario"):
     // { link?:{idStruttura:"link"}, aggiorna?:true } — vedi api/_calendari.js
     if ((req.body || {}).azione === "calendari") {
@@ -600,6 +612,21 @@ module.exports = async (req, res) => {
       }
     }
   } catch (e) { /* fascicolo non riuscito: resta disponibile a richiesta dal gestionale */ }
+
+  // promemoria scritti nel calendario (es. "viene l'idraulico"): quelli di oggi e di domani
+  try {
+    if (conn) {
+      const ev = await leggiEventi(conn);
+      const oggiIso = oggiIsoRoma();
+      const domani = new Date(Date.UTC(+oggiIso.slice(0, 4), +oggiIso.slice(5, 7) - 1, +oggiIso.slice(8, 10)) + 86400000).toISOString().slice(0, 10);
+      let strutture = [];
+      try { strutture = require("./_alloggiati").getStrutture() || []; } catch { strutture = []; }
+      const dove = (id) => { const c = strutture.find((x) => x.id === id); return c ? `${emojiStruttura(c.nome)} ${c.nome}` : "🏠 tutte le case"; };
+      for (const [quando, iso] of [["Oggi", oggiIso], ["Domani", domani]]) {
+        for (const e of promemoriaDelGiorno(ev, iso)) avvisi.push(`📌 ${quando}${e.ora ? " alle " + e.ora : ""} · ${dove(e.s)}: ${e.titolo}${e.nota ? " (" + e.nota + ")" : ""}`);
+      }
+    }
+  } catch (e) { /* si vedono comunque nel calendario e nelle Scadenze */ }
 
   for (const testo of avvisi) {
     try {
