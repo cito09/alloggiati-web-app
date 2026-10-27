@@ -727,7 +727,15 @@
   .storico-az{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
   .storico-az .btn{width:auto; padding:6px 12px; font-size:12px}
   .storico-az .storico-via{margin-left:auto; opacity:.7}
-  .storico-sub{font-size:11.5px; color:var(--muted); font-weight:600; margin-top:10px}
+  .id-box{margin-top:12px;padding:12px 14px;border-radius:16px;background:color-mix(in srgb,#ffb703 12%,transparent);border:1px solid color-mix(in srgb,#ffb703 45%,transparent);position:relative}
+.id-box.ok{background:color-mix(in srgb,var(--ok,#2dc653) 12%,transparent);border-color:color-mix(in srgb,var(--ok,#2dc653) 40%,transparent)}
+.id-box .id-tit{font-weight:800;font-size:14px}
+.id-box .id-sub{font-size:12.5px;margin-top:4px;line-height:1.4;color:var(--ink)}
+.id-box .id-az{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.id-box .id-az .btn{width:auto;padding:8px 14px;font-size:13px}
+.id-box .id-nota{font-size:11px;color:var(--muted);margin-top:8px}
+.id-box .id-annulla{position:absolute;top:10px;right:12px;background:none;border:0;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:0}
+.storico-sub{font-size:11.5px; color:var(--muted); font-weight:600; margin-top:10px}
   .dropzone{margin-top:10px; border:2px dashed var(--line); border-radius:18px; padding:28px 16px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; background:var(--surface2)}
   .dropzone.drag{border-color:var(--amber); background:rgba(132,227,211,.07)}
   .dropzone .dz-big{font-size:30px; line-height:1}
@@ -13321,13 +13329,22 @@ function salvaStorico(){
 }
 function snapshotOspiti(){
   const b=bookings[0];
-  if(!b) return {arrivo:'',ospiti:[],foto:[],contratti:[]};
+  if(!b) return {arrivo:'',ospiti:[],foto:[],contratti:[],identita:[]};
   const validi=b.guests.filter(g=>g.cognome||g.nome);
   const ospiti=validi.map(g=>`${g.cognome||''} ${g.nome||''}`.trim());
   // solo documenti già online: quelli caricati a mano vengono messi online da
   // archiviaDocumentiManuali() poco prima, così finiscono anche loro nello storico
   const foto=validi.flatMap(g=>(g.imgs||[]).filter(u=>/^https?:\/\//.test(u)));
-  return {arrivo:b.arrivo||'', ospiti, foto, contratti:(b._contratti||[])};
+  // controllo d'identità dei check-in online (selfie, esito, check dell'host): resta nella voce
+  // dell'Archivio come prova per la Questura; preso dalla coda (aggiornato) o, se non c'è più, da
+  // quello tenuto quando il check-in è entrato nella prenotazione
+  const identita=(b._pendingIds||[]).map(id=>{
+    const v=checkinPending.find(x=>x.id===id);
+    const dv=(v&&v.deVisu)||(b._identita||{})[id]; if(!dv)return null;
+    const t=((v&&v.ospiti)||[])[0]||{};
+    return {nome:[t.cognome,t.nome].filter(Boolean).join(' '), ...dv};
+  }).filter(Boolean);
+  return {arrivo:b.arrivo||'', ospiti, foto, contratti:(b._contratti||[]), identita};
 }
 
 /* I documenti caricati a mano (foto e PDF che gli ospiti mandano per chat) esistono solo
@@ -13458,7 +13475,8 @@ function renderStorico(){
     const giornoInvio=new Date(e.ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
     const pill=(e.tipo==='inviata'?`<span class="pill ok" title="${escText(quando)}">✓ inviata il ${giornoInvio}</span>`:`<span class="pill wait" title="${escText(quando)}">📄 .txt scaricato il ${giornoInvio}</span>`)
       +(e.tipo==='inviata'&&e.totali>e.valide?` <span class="pill err">⚠️ ${e.totali-e.valide} schedin${e.totali-e.valide===1?'a':'e'} non inviat${e.totali-e.valide===1?'a':'e'}</span>`:'')+(e.rossOk?' <span class="pill ok">Ross1000 ✓</span>'
-      :(rossInSospeso(e)?` <span class="pill wait" title="${escText(rossMotivoCoda(e)+' '+ROSS_CODA_SPIEGA)}">🔁 Ross1000 in coda</span>`:''))+pillRic;
+      :(rossInSospeso(e)?` <span class="pill wait" title="${escText(rossMotivoCoda(e)+' '+ROSS_CODA_SPIEGA)}">🔁 Ross1000 in coda</span>`:''))+pillRic
+      +(e.identita||[]).map(x=>' '+pillIdentita(x)).join('');
     const conteggio=e.tipo==='inviata'?`${e.valide}/${e.totali} valide`:`${e.valide} schedin${e.valide===1?'a':'e'}`;
     const sInfo=e.struttura?strutturaInfo(e.struttura):null;
     const pReg=partenzaRegistrata(e);
@@ -13493,6 +13511,8 @@ function renderStorico(){
       ${foto.length?`<div class="storico-sub">📎 Documenti inviati (${foto.length})</div>
         <div class="thumbs" style="margin-top:6px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}</div>`:''}
       ${contratti.length?`<div style="margin-top:8px">${contratti.map((u,i)=>`<a class="btn ghost sm btn-link" ${fotoHref(u)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato${contratti.length>1?' '+(i+1):''}</a>`).join(' ')}</div>`:''}
+      ${(e.identita||[]).map((x,i)=>`${x.selfieUrl?`<div class="storico-sub">🤳 Selfie di verifica${(e.identita.length>1&&x.nome)?' · '+escText(maiuscoleIniziali(x.nome)):''}</div>
+        <div class="thumbs" style="margin-top:6px"><div class="thumb"><img ${fotoSrc(x.selfieUrl)} class="zoomable" style="cursor:zoom-in" title="selfie di verifica"></div></div>`:''}${boxIdentita(x,'s',e.ts+'|'+i)}`).join('')}
     `;
     return `<div class="storico-item" id="storico-${e.ts}"${sInfo?` style="border-left:3px solid ${sInfo.colore};padding-left:9px;margin-left:-1px"`:''}>
       <div class="storico-tit"><b>${escText(nomi[0]||'ospite')}</b>${nOsp>1?` <span class="muted">👤 ${nOsp}</span>`:''}</div>
@@ -14153,6 +14173,89 @@ function checkinChiaveDoppione(v){ const o=(v.ospiti||[])[0]||{}; const nm=(Stri
 function checkinConteggiDoppioni(){ const c={}; checkinPending.forEach(v=>{const k=checkinChiaveDoppione(v); if(k)c[k]=(c[k]||0)+1;}); return c; }
 function checkinStrutturaInfo(v){ return (v.strutturaNome&&!v.recuperato) ? strutturaInfo(v.strutturaNome) : {emoji:'⚠️', colore:'var(--amber)'}; }
 
+/* ===== controllo d'identità (de visu) =====
+   27/10/2026, l'utente: "mettimi un check quando c'è da controllare il selfie, in modo che rimanga anche
+   storico per la legge: la Questura vuole il controllo de visu". Il confronto automatico selfie ↔
+   documento lo fa il telefono dell'ospite; quando non riesce (o non c'è il selfie) l'host guarda le
+   foto e segna "✓ è la stessa persona" (modo "foto") o "👋 l'ho visto di persona" (modo "persona").
+   Resta scritto quando e chi (deVisu.controllo = {ts, modo, da}) e, all'invio delle schedine, passa
+   nella voce dell'Archivio (campo identita), dove si può segnare anche dopo. */
+function rigaIdentita(dv){
+  const st=identitaStato(dv);
+  if(st==='controllata')return `Identità controllata: ${escText(testoControllo(dv.controllo))}`;
+  if(st==='verificata')return 'Identità verificata col selfie';
+  return `<span style="color:var(--err)">Identità da controllare</span> <span class="muted">(${dv.esito==='non_corrispondente'?'selfie da ricontrollare':'confronto non riuscito'})</span>`;
+}
+function identitaStato(dv){
+  if(!dv)return null;
+  if(dv.controllo)return 'controllata';
+  return dv.esito==='verificata'?'verificata':'da_controllare';
+}
+function motivoIdentita(esito){
+  return {non_corrispondente:'Il confronto automatico dice che il volto del selfie non corrisponde bene al documento.',
+    volto_non_rilevato:'Nel selfie il volto non si vede bene.',
+    documento_non_confrontabile:'Il volto sulla foto del documento non si riesce a leggere.',
+    non_disponibile:'Il telefono dell\'ospite non ha potuto fare il confronto automatico.',
+    assente:'In questo check-in non c\'è il selfie.'}[esito]||'Il confronto automatico non è riuscito.';
+}
+function testoControllo(c){
+  const d=new Date(c.ts);
+  return `${c.modo==='persona'?'👋 visto di persona':'✓ selfie confrontato col documento'} · ${c.da?'da '+c.da:'da te'} il ${d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'})} alle ${d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}`;
+}
+function pillIdentita(dv){
+  const st=identitaStato(dv);
+  if(st==='controllata')return `<span class="pill ok" title="${escText(testoControllo(dv.controllo))}">🪪 identità controllata</span>`;
+  if(st==='verificata')return '<span class="pill ok">🪪 identità verificata</span>';
+  if(st==='da_controllare')return dv.esito==='non_corrispondente'?'<span class="pill err">🪪 selfie da ricontrollare</span>':'<span class="pill wait">🪪 selfie da controllare</span>';
+  return '';
+}
+// riquadro col check: dove = 'p' (check-in in attesa, chiave = id) o 's' (voce dell'Archivio, chiave = ts|indice)
+function boxIdentita(dv,dove,chiave){
+  const st=identitaStato(dv)||'da_controllare';
+  const arg=`'${dove}','${chiave}'`;
+  if(st==='verificata')return '';
+  if(st==='controllata')return `<div class="id-box ok"><div class="id-tit">🪪 Identità controllata</div>
+      <div class="id-sub">${escText(testoControllo(dv.controllo))}</div>
+      <button class="id-annulla" onclick="segnaIdentita(${arg},null)">annulla</button></div>`;
+  const conSelfie=dv&&dv.selfieUrl;
+  return `<div class="id-box"><div class="id-tit">🪪 Controllo d'identità da fare</div>
+      <div class="id-sub">${motivoIdentita(dv?dv.esito:'assente')} ${conSelfie?'Guarda il documento e il selfie (tocca le foto per ingrandirle): è la stessa persona?':'Se l\'hai visto all\'arrivo, segnalo qui.'}</div>
+      <div class="id-az">${conSelfie?`<button class="btn primary sm" onclick="segnaIdentita(${arg},'foto')">✓ Sì, è la stessa persona</button>`:''}
+        <button class="btn ${conSelfie?'ghost':'primary'} sm" onclick="segnaIdentita(${arg},'persona')">👋 L'ho visto di persona</button></div>
+      <div class="id-nota">Resta scritto con data e ora, anche nell'Archivio.</div></div>`;
+}
+async function segnaIdentita(dove,chiave,modo){
+  const controllo=modo?{ts:Date.now(),modo,da:(window.TEAM&&TEAM.nome)||''}:null;
+  if(dove==='p'){
+    const v=checkinPending.find(x=>x.id===chiave); if(!v)return;
+    const prima=v.deVisu;
+    v.deVisu={...(v.deVisu||{esito:'assente'})};
+    if(controllo)v.deVisu.controllo=controllo; else delete v.deVisu.controllo;
+    const ridisegna=()=>{ renderCheckinPending(); const ov=$('#checkinDettaglioOverlay'); if(ov&&ov.classList.contains('open'))apriDettaglioCheckin(chiave); };
+    ridisegna();
+    try{
+      const r=await fetch('/api/checkin-pending',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'identita',id:chiave,modo:modo||null})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.error||('errore '+r.status));
+      const nuova=(d.coda||[]).find(x=>x.id===chiave); if(nuova){ const cur=checkinPending.find(x=>x.id===chiave); if(cur)cur.deVisu=nuova.deVisu; }
+      toast(modo?'✓ Controllo d\'identità salvato':'Controllo tolto');
+    }catch(e){ const cur=checkinPending.find(x=>x.id===chiave); if(cur)cur.deVisu=prima; ridisegna(); toast('⚠️ Non salvato: '+e.message); }
+    return;
+  }
+  // voce dell'Archivio: chiave = "ts|indice" nell'elenco identita
+  const [ts,i]=String(chiave).split('|').map(Number);
+  const e=storico.find(x=>x.ts===ts); if(!e||!Array.isArray(e.identita)||!e.identita[i])return;
+  const prima=JSON.parse(JSON.stringify(e.identita));
+  e.identita=e.identita.map((x,k)=>{ if(k!==i)return x; const y={...x}; if(controllo)y.controllo=controllo; else delete y.controllo; return y; });
+  salvaStorico(); renderStorico();
+  try{
+    const r=await fetch('/api/storico',{method:'PATCH',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({ts,campi:{identita:e.identita}})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error||('errore '+r.status));
+    if(d.configurato&&Array.isArray(d.storico)){ storico=d.storico; salvaStorico(); renderStorico(); }
+    toast(modo?'✓ Controllo d\'identità salvato nell\'Archivio':'Controllo tolto');
+  }catch(err){ e.identita=prima; salvaStorico(); renderStorico(); toast('⚠️ Non salvato: '+err.message); }
+}
 function renderCheckinPending(soloLista){
   const w=$('#checkinList'); const badge=$('#checkinBadge'); if(!w)return;
   if(badge){ if(checkinPending.length){badge.textContent=checkinPending.length;badge.style.display='';} else badge.style.display='none'; }
@@ -14198,7 +14301,7 @@ function renderCheckinPending(soloLista){
           v.aggiunta?'➕':'',      // ospiti aggiunti dopo un check-in già inviato
           v.presa?'🕓':'',
           v.contrattoRichiesto?(v.contrattoInviato?'📝':'📝⚠️'):'',
-          v.deVisu?(v.deVisu.esito==='verificata'?'🪪':v.deVisu.esito==='non_corrispondente'?'🪪⚠️':'🪪'):'',
+          v.deVisu?(identitaStato(v.deVisu)==='da_controllare'?'🪪⚠️':'🪪'):'',
           (v.uploadErrori&&v.uploadErrori.length)?'📷⚠️':'',
           doppio?'⚠️doppione':''
         ].filter(Boolean).join(' ');
@@ -14231,7 +14334,7 @@ function apriDettaglioCheckin(id){
         ${v.aggiunta?'<span class="pill wait">➕ ospiti aggiunti dopo il primo check-in</span>':''}
         ${v.presa?'<span class="pill wait">🕓 in prenotazione, da inviare</span>':''}
         ${v.contrattoRichiesto?(v.contrattoInviato?'<span class="pill ok">📝 contratto inviato</span>':'<span class="pill err">📝 contratto non inviato</span>'):''}
-        ${v.deVisu?(v.deVisu.esito==='verificata'?'<span class="pill ok">🪪 identità verificata</span>':v.deVisu.esito==='non_corrispondente'?'<span class="pill err">🪪 selfie da ricontrollare</span>':'<span class="pill wait">🪪 selfie allegato</span>'):''}
+        ${pillIdentita(v.deVisu)}
         ${doppio?'<span class="pill err">⚠️ possibile doppione</span>':''}
       </div>
       <div class="storico-meta" style="margin-top:8px">${v.arrivo?`<b style="color:var(--ink)">arrivo ${escText(v.arrivo)}</b> · `:''}${[v.partenza?('partenza '+v.partenza):null, v.notti?(v.notti+' nott'+(v.notti===1?'e':'i')):null, v.ospiti.length+' ospit'+(v.ospiti.length===1?'e':'i')].filter(Boolean).map(escText).join(' · ')}</div>
@@ -14244,6 +14347,7 @@ function apriDettaglioCheckin(id){
       ${nomi?`<div class="storico-ospiti" style="margin-top:8px;font-size:13.5px">${escText(nomi)}</div>`:''}
       ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:10px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img ${fotoSrc(v.deVisu.selfieUrl)} class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
       ${v.contrattoUrl?`<div style="margin-top:10px"><a class="btn ghost sm btn-link" ${fotoHref(v.contrattoUrl)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
+      ${(v.deVisu||(!v.aggiunta&&!v.recuperato))?boxIdentita(v.deVisu,'p',v.id):''}
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn ${v.presa?'ghost':'primary'}" style="flex:1" onclick="accettaCheckin('${v.id}',true)">${v.presa?'↺ Riaggiungi alla prenotazione':'✓ Aggiungi alla prenotazione'}</button>
         <button class="btn ghost" onclick="scartaCheckin('${v.id}',true)">Scarta</button>
@@ -14290,6 +14394,7 @@ function accettaCheckin(id,dalDettaglio){
     return g;
   });
   if(v.contrattoUrl){ b._contratti=(b._contratti||[]).concat(v.contrattoUrl); }
+  if(v.deVisu){ b._identita={...(b._identita||{}),[id]:v.deVisu}; }
   b.guests.push(...nuovi);
   b.soggiorno=inferSoggiorno(b.guests);
   // NON rimuoviamo la voce dalla coda: resta lì (segnata "già in prenotazione") finché le
@@ -14437,7 +14542,7 @@ async function downloadTxt(){
   toast(recs.length+' schedine esportate');
   await archiviaDocumentiManuali();
   const snap=snapshotOspiti();
-  aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recs});
+  aggiungiStorico({tipo:'txt', valide:recs.length, struttura:currentStrutturaNome(), arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, ...(snap.identita.length?{identita:snap.identita}:{}), records:recs});
   if(bookings[0]){
     bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
     (bookings[0]._pendingIds||[]).forEach(id=>rimuoviCheckinPendingLocal(id));
@@ -14655,7 +14760,7 @@ async function invia(){apriCard('invioCard');
     toast(ok?'Schedine inviate':'Inviate con avvisi');
     await archiviaDocumentiManuali();
     const snap=snapshotOspiti();
-    const voce=aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, records:recordsInviati});
+    const voce=aggiungiStorico({tipo:'inviata', valide:data.valide, totali:data.totali, struttura:data.struttura, arrivo:snap.arrivo, ospiti:snap.ospiti, foto:snap.foto, contratti:snap.contratti, ...(snap.identita.length?{identita:snap.identita}:{}), records:recordsInviati});
     if(esitoInvio)esitoInvio.rossTs=voce.ts;
     if(bookings[0]){
       bookings[0]._inviata=true; sincronizzaPrenotazioniPendenti();
@@ -17165,13 +17270,14 @@ function apriSommario(chiave){
     riga(e.tipo==='inviata'?'✅':'📄',e.tipo==='inviata'?`<b>Registrato in Questura</b> il ${gm(e.ts)}`:`<b>Schedine scaricate</b> (.txt) il ${gm(e.ts)}`);
     if(e.rossOk)riga('📊','Ross1000 inviato');
     else if(typeof rossInSospeso==='function'&&rossInSospeso(e))riga('🔁','Ross1000 in coda: si rimanda da solo');
+    (e.identita||[]).forEach(x=>riga('🤳',rigaIdentita(x)));
     const mod=e.modificato||e.partenzaCorretta; if(mod)riga('✏️',`Modificato il ${gm(mod.ts)}`);
   }else if(v){
     const urg=urgenzaArrivo(giorniAllArrivo(v.arrivo));
     riga('🪪',`<b>Check-in online fatto</b> il ${gm(v.ts)} · ${v.presa?'in registrazione, da inviare':'da registrare in Questura'}`
       +(urg?`<br><span style="color:var(--err);font-weight:800">${escText(urg.testo)}</span>`:''));
     if(v.contrattoRichiesto)riga('📝',v.contrattoInviato?'Contratto firmato':'<span style="color:var(--err)">Contratto non inviato</span>');
-    if(v.deVisu)riga('🤳',v.deVisu.esito==='verificata'?'Identità verificata col selfie':v.deVisu.esito==='non_corrispondente'?'<span style="color:var(--err)">Selfie da ricontrollare</span>':'Selfie allegato');
+    if(v.deVisu)riga('🤳',rigaIdentita(v.deVisu));
     if(v.modificato)riga('✏️',`Modificato da te il ${gm(v.modificato.ts)}`);
   }else{
     riga('⏳',`<b>Check-in online non ancora fatto</b><br><span class="muted">Prenotazione letta dal calendario di ${escText(s.fonte||'Airbnb')}</span>`);

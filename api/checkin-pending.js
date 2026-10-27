@@ -207,6 +207,30 @@ module.exports = async (req, res) => {
         return res.status(200).json({ configurato: true, coda });
       }
 
+      // CONTROLLO D'IDENTITÀ fatto dall'host (27/10/2026, l'utente: "mettimi un check quando c'è da
+      // controllare il selfie, in modo che rimanga anche storico per la legge, la Questura vuole il
+      // controllo de visu"). modo: "foto" = ha confrontato selfie e documento, "persona" = l'ha visto
+      // di persona; null = annulla. Resta scritto quando e chi (il nome del collaboratore, se non è
+      // il titolare); quando le schedine si inviano passa nella voce dell'Archivio (campo identita).
+      if (azione === "identita") {
+        const modo = (req.body || {}).modo;
+        if (modo !== null && modo !== "foto" && modo !== "persona") return res.status(400).json({ error: "Controllo non riconosciuto" });
+        let da = "";
+        const codiceTeam = req.headers["x-team-code"];
+        if (codiceTeam && !req.headers["x-admin-code"]) {
+          try { const m = await require("./_team").trovaCollaboratore(conn, codiceTeam); da = (m && m.nome) || ""; } catch (e) { da = ""; }
+        }
+        if (!coda.some((v) => v.id === id)) return res.status(404).json({ error: "Check-in non trovato" });
+        coda = coda.map((v) => {
+          if (v.id !== id) return v;
+          const dv = { ...(v.deVisu || { esito: "assente" }) };
+          if (modo) dv.controllo = { ts: Date.now(), modo, da }; else delete dv.controllo;
+          return { ...v, deVisu: dv };
+        });
+        await redisCmd(conn, ["SET", KEY, JSON.stringify(coda)]);
+        return res.status(200).json({ configurato: true, coda });
+      }
+
       if (azione === "diagnosi") {
         // controllo rapido dell'archivio foto: dice se lo store privato è configurato e
         // dove finiscono DAVVERO i nuovi file (fa un mini-upload di prova e lo cancella).
