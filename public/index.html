@@ -265,9 +265,46 @@
   .tile.urg .t-val,.tile.urg .t-nota{color:var(--err)}
   .tile.urg .t-dot{display:block; box-shadow:0 0 0 4px rgba(239,71,111,.2)}
   .sez-barra{display:none; margin:0 0 10px}
+  /* ===== collaboratori (api/_team.js): chi entra col SUO codice (es. Sofia) vede solo quello che l'host
+     ha spuntato in Impostazioni → Collaboratori; niente menu, niente impostazioni ===== */
+  .team-testa{display:none; align-items:center; gap:8px}
+  .team-chi{font-size:12.5px; font-weight:700; color:var(--muted); background:var(--surface); border-radius:999px; padding:7px 12px; white-space:nowrap;
+    max-width:150px; overflow:hidden; text-overflow:ellipsis}
+  .team-chi b{color:var(--ink)}
+  body.modo-team .team-testa, body.team-completo .team-testa{display:flex}
+  body.modo-team #settingsBtn, body.modo-team .tabbar, body.modo-team #homeSezioni, body.modo-team .sez-barra,
+  body.modo-team #oggiTodoCard, body.modo-team #oggiRecensioniCard, body.modo-team #oggiScadenzeCard,
+  body.modo-team:not(.team-cal) #dashSintesi, body.modo-team:not(.team-cal) #oggiCalendarioCard,
+  body.modo-team:not(.team-pul) #oggiPulizieCard, body.modo-team .pul-prova, body.modo-team .pul-nota-notifica{display:none!important}
+  body.team-completo .solo-titolare{display:none!important}
+  /* Impostazioni → Collaboratori */
+  .collab-card{background:var(--surface2); border-radius:20px; padding:14px; margin-top:12px}
+  .collab-top{display:flex; align-items:center; gap:10px}
+  .collab-av{width:40px; height:40px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px;
+    background:linear-gradient(135deg,#a7efe4,var(--amber)); color:var(--accent-ink)}
+  .collab-card input[type=text]{width:100%; background:var(--surface); border:1px solid var(--line); color:var(--ink); border-radius:12px; padding:10px 12px;
+    font-size:15px; font-family:inherit}
+  .collab-cod{display:flex; gap:8px; align-items:center; margin-top:6px}
+  .collab-cod input{font-family:var(--mono)!important; letter-spacing:.04em}
+  .perm{display:flex; align-items:flex-start; gap:11px; padding:11px 2px; border-bottom:1px solid var(--line); cursor:pointer}
+  .perm:last-child{border-bottom:none}
+  .perm .pi{width:32px; height:32px; border-radius:10px; background:rgba(132,227,211,.1); display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-size:15px}
+  .perm .pt{flex:1; min-width:0; font-size:13.5px; font-weight:700; line-height:1.3}
+  .perm .pt span{display:block; font-size:11.5px; font-weight:500; color:var(--muted); margin-top:2px}
+  .perm.spento{opacity:.45}
+  .perm.rischio .pi{background:rgba(239,71,111,.14)}
+  .perm input{position:absolute; opacity:0; pointer-events:none}
+  .perm .sw{flex:0 0 auto; width:44px; height:26px; border-radius:999px; background:rgba(255,255,255,.12); position:relative; margin-top:3px; transition:background .15s}
+  .perm .sw::after{content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .15s}
+  .perm input:checked+.sw{background:var(--amber)}
+  .perm.rischio input:checked+.sw{background:var(--err)}
+  .perm input:checked+.sw::after{transform:translateX(18px)}
+  .collab-az{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+  .collab-az .btn{flex:1 1 140px; width:auto}
+  .collab-az .btn.ghost,.collab-cod .btn.ghost{background:var(--surface)}
   @media (max-width:899px){
-    #page-oggi:not(.in-sez)>#oggiTodoCard,#page-oggi:not(.in-sez)>#oggiPulizieCard,
-    #page-oggi:not(.in-sez)>#oggiRecensioniCard,#page-oggi:not(.in-sez)>#oggiScadenzeCard{display:none!important}
+    body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiTodoCard,body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiPulizieCard,
+    body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiRecensioniCard,body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiScadenzeCard{display:none!important}
     #page-oggi.in-sez>:not(.sez-on):not(.sez-barra){display:none!important}
     #page-oggi.in-sez>.sez-barra{display:block}
     #page-oggi.in-sez>.sez-on>.card-body{display:block}
@@ -286,6 +323,11 @@
     #page-oggi>#oggiCalendarioCard{grid-column:1; grid-row:2/-1}
     #page-oggi>#oggiTodoCard,#page-oggi>#oggiPulizieCard,#page-oggi>#oggiRecensioniCard,#page-oggi>#oggiScadenzeCard{grid-column:2}
     #page-ospiti.active{display:grid; grid-template-columns:minmax(0,1fr) 360px; column-gap:18px; align-items:start}
+    #page-oggi>#teamExtraCard{grid-column:2}
+    /* collaboratore: "Oggi" largo in cima, Pulizie e link a destra del calendario; con una cosa sola, pagina unica */
+    body.modo-team #page-oggi>#dashSintesi{grid-column:1/-1}
+    body.modo-team:not(.team-pul):not(.team-link) #page-oggi.active{display:block}
+    body.modo-team:not(.team-cal) #page-oggi.active{display:block; max-width:760px; margin-left:auto; margin-right:auto}
     #page-ospiti>#checkinPendingCard{grid-column:1; grid-row:1/span 2}
     #page-ospiti>#checkinLinkCard{grid-column:2; grid-row:1}
   }
@@ -307,6 +349,7 @@
     .toast{left:calc(50% + 106px); bottom:40px}
     #storicoList{display:grid; grid-template-columns:repeat(auto-fill,minmax(440px,1fr)); column-gap:28px}
     #storicoList>:not(.storico-item){grid-column:1/-1}
+    body.modo-team .wrap{margin:0 auto; max-width:1240px}
   }
   .oggi-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line); font-size:14px; cursor:pointer}
   .oggi-row:last-child{border-bottom:none}
@@ -671,8 +714,8 @@
       </span>
       <span class="brand-name">Key<span class="flow">Flow</span></span>
     </div>
-    <h2 style="margin:0 0 6px">Accesso gestionale</h2>
-    <div class="muted" style="font-size:13px;margin-bottom:14px">Area riservata all'host. Inserisci il codice d'accesso.</div>
+    <h2 style="margin:0 0 6px">Accesso a KeyFlow</h2>
+    <div class="muted" style="font-size:13px;margin-bottom:14px">Area riservata. Inserisci il tuo codice d'accesso.</div>
     <form id="loginForm">
       <input type="password" id="loginCode" autocomplete="off" placeholder="Codice d'accesso" required>
       <button type="submit" class="btn primary" style="margin-top:12px">Entra</button>
@@ -689,6 +732,8 @@
       <span class="brand-name">Key<span class="flow">Flow</span></span>
     </div>
     <div style="display:flex; align-items:center; gap:8px">
+      <div class="team-testa" id="teamTesta"><span class="team-chi">👤 <b id="teamChi"></b></span>
+        <button class="btn ghost sm" style="width:auto;padding:7px 12px" onclick="uscitaGestionale()">Esci</button></div>
       <button class="settings-btn" id="settingsBtn" onclick="toggleSettings()" aria-label="Impostazioni">⚙️</button>
     </div>
   </div>
@@ -711,7 +756,8 @@
     <button class="link-row menu-riga" onclick="apriIstat()"><span class="mi">📮</span><span style="flex:1;text-align:left">Modulo ISTAT via email</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriGeis()"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · imposta di soggiorno</span><span id="geisBadgeMenu" class="pill err" style="display:none;margin-right:6px">da mandare</span><span class="freccia">›</span></button>
     <div class="menu-gruppo">Sicurezza e sistema</div>
-    <button class="link-row menu-riga" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga solo-titolare" onclick="apriCollaboratori()"><span class="mi">👥</span><span style="flex:1;text-align:left">Collaboratori · accessi per chi ti aiuta</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga solo-titolare" id="settingsSecuritySection" style="display:none" onclick="apriPagina('codiceOverlay')"><span class="mi">🔒</span><span style="flex:1;text-align:left">Codice d'accesso</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriPagina('statoOverlay')"><span class="mi">ℹ️</span><span style="flex:1;text-align:left">Stato configurazione e privacy</span><span class="freccia">›</span></button>
 
     <div class="settings-section">
@@ -736,6 +782,19 @@
           <select id="settingsStrutturaSel"></select>
         </div>
         </div>
+</div>
+
+<div class="pagina-piena" id="collabOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('collabOverlay')" style="width:auto">← Indietro</button>
+    <h2>👥 Collaboratori</h2>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Dai a chi ti aiuta (es. Sofia per le pulizie) un <b>codice d'accesso suo</b>: entra dallo stesso indirizzo di KeyFlow e vede <b>solo quello che spunti qui</b>, come i co-host di Airbnb. Cognomi, documenti e foto degli ospiti restano solo tuoi. Le spunte si cambiano quando vuoi (valgono entro pochi minuti); "Togli l'accesso" blocca subito il suo codice.</div>
+    <div id="collabAvviso"></div>
+    <div id="collabLista" style="margin-top:12px"></div>
+    <button class="btn primary" id="collabAggiungi" style="margin-top:12px" onclick="collabNuovo()">➕ Aggiungi un collaboratore</button>
+  </div>
 </div>
 
 <div class="pagina-piena" id="codiceOverlay">
@@ -1031,6 +1090,10 @@ function doGet() {
       <h2><span class="n">⭐</span> Recensioni <span id="oggiRecBadge" class="pill wait" style="display:none"></span></h2>
       <div id="oggiRecensioni"></div>
     </div>
+    <div class="card" id="teamExtraCard" style="display:none">
+      <h2><span class="n">🔗</span> Link del check-in</h2>
+      <div id="teamExtra"></div>
+    </div>
     <div class="card" id="oggiCalendarioCard">
       <h2><span class="n">📆</span> Calendario</h2>
       <div id="oggiCalendario"></div>
@@ -1189,12 +1252,12 @@ function doGet() {
 <script>
 /* ===== accesso gestionale (codice ADMIN_CODE) ===== */
 window.ADMIN_CODE='';
-function adminHeaders(extra){return Object.assign({}, extra||{}, window.ADMIN_CODE?{'x-admin-code':window.ADMIN_CODE}:{});}
+function adminHeaders(extra){return Object.assign({}, extra||{}, window.ADMIN_CODE?{'x-admin-code':window.ADMIN_CODE}:{}, window.TEAM_CODE?{'x-team-code':window.TEAM_CODE}:{});}
 async function verificaAdminCode(codice){
   try{
     const r=await fetch('/api/admin-code?c='+encodeURIComponent(codice));
     return await r.json();
-  }catch(e){ return {ok:false, configurato:true}; } // offline: per prudenza resta bloccato
+  }catch(e){ return {ok:false, configurato:true, offline:true}; } // offline: per prudenza resta bloccato
 }
 window.ADMIN_CONFIGURATO=false;
 async function adminGate(){
@@ -1202,6 +1265,14 @@ async function adminGate(){
   // "Esci dal gestionale" dalle Impostazioni; sessionStorage viene letto solo per
   // compatibilità con chi era già dentro prima di questo cambiamento
   const salvato=localStorage.getItem('adminCode')||sessionStorage.getItem('adminCode')||'';
+  // un collaboratore (es. Sofia) entra col SUO codice e vede solo quello che l'host gli ha permesso
+  const team=localStorage.getItem('teamCode')||'';
+  if(team&&!salvato){
+    const d=await verificaAdminCode(team);
+    window.ADMIN_CONFIGURATO=!!d.configurato;
+    if(d.team){ entraTeam(team,d.team); return; }
+    if(!d.offline)localStorage.removeItem('teamCode');
+  }
   if(salvato){
     const d=await verificaAdminCode(salvato);
     window.ADMIN_CONFIGURATO=!!d.configurato;
@@ -1228,6 +1299,11 @@ async function adminGate(){
         window.ADMIN_CODE=codice;
         gate.style.display='none';
         resolve();
+      }else if(d.team){   // codice di un collaboratore
+        localStorage.setItem('teamCode',codice);
+        entraTeam(codice,d.team);
+        gate.style.display='none';
+        resolve();
       }else{
         err.textContent='Codice errato, riprova.';
         inp.value=''; inp.focus();
@@ -1235,6 +1311,200 @@ async function adminGate(){
     };
     setTimeout(()=>inp.focus(),50);
   });
+}
+/* ===== collaboratori (ottobre 2026, l'utente: "una pagina per Sofia, le serve solo vedere calendario
+   e pulizie; un'impostazione per abilitare altre funzioni con le spunte, come i co-host di Airbnb; con
+   un suo codice d'accesso"). Entra dallo stesso indirizzo col SUO codice (/api/admin-code risponde
+   team:{nome,permessi}) e vede solo quello che l'host ha spuntato in Impostazioni → Collaboratori.
+   I dati arrivano già ridotti dal server (azione "team", api/_team.js): date, casa, quante persone e,
+   se permesso, il nome di battesimo. Con "Accesso completo" invece entra come l'host (il server
+   accetta il suo codice ovunque, tranne codice d'accesso e collaboratori). ===== */
+function entraTeam(codice,info){
+  window.TEAM_CODE=codice;
+  window.TEAM={nome:info.nome||'', permessi:info.permessi||{}, soggiorni:[]};
+  document.body.classList.add(window.TEAM.permessi.completo?'team-completo':'modo-team');
+  const t=document.getElementById('teamChi'); if(t)t.textContent=window.TEAM.nome;
+}
+// collaboratore con accesso limitato (senza "Accesso completo")
+function teamRistretto(){ return !!(window.TEAM&&!window.TEAM.permessi.completo); }
+async function avviaTeam(){
+  initCardToggles();
+  document.body.classList.add('ready');
+  mostraTab('oggi');
+  misuraIntestazione();
+  try{ await loadStrutture(); }catch(e){}
+  await caricaTeam();
+  setInterval(()=>{ if(!document.hidden)caricaTeam(); },10*60*1000);   // le spunte cambiate dall'host arrivano da sole
+}
+async function caricaTeam(){
+  let d=null;
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'team'})});
+    if(r.status===401){   // l'host ha tolto l'accesso o cambiato il codice
+      localStorage.removeItem('teamCode');
+      toast('Il tuo codice non vale più: chiedi quello nuovo all\'host');
+      setTimeout(()=>location.reload(),2500); return;
+    }
+    d=await r.json();
+  }catch(e){ toast('Senza connessione: riprovo tra poco'); return; }
+  if(!d||!d.ok)return;
+  if(d.permessi&&d.permessi.completo){ location.reload(); return; }   // ora ha l'accesso completo
+  TEAM.nome=d.nome||TEAM.nome; TEAM.permessi=d.permessi||{}; TEAM.soggiorni=d.soggiorni||[];
+  if(Array.isArray(d.strutture)&&d.strutture.length&&!struttureList.length)struttureList=d.strutture;
+  if(d.orari)orariCase=d.orari;
+  pulizie=d.pulizie?{giorno:d.pulizie.giorno, oggi:d.pulizie.oggi||[], settimane:d.pulizie.settimane||[]}:null;
+  window.linkCheckinPerStruttura={};
+  if(d.codiceCheckin)(struttureList||[]).forEach(c=>{ window.linkCheckinPerStruttura[c.id]=linkCheckinDa(d.codiceCheckin,c.id); });
+  const b=document.body;
+  b.classList.toggle('team-cal',!!TEAM.permessi.calendario);
+  b.classList.toggle('team-pul',!!TEAM.permessi.pulizie);
+  b.classList.toggle('team-link',!!d.codiceCheckin);
+  const t=$('#teamChi'); if(t)t.textContent=TEAM.nome;
+  renderSintesi(); renderCalendario(); renderPulizie(); renderTeamExtra();
+}
+// lo stesso link "a prova di chat" del gestionale: /c/CODICE/casa
+function linkCheckinDa(codice,id){
+  return /^[A-Za-z0-9_-]+$/.test(codice)?`${location.origin}/c/${codice}/${encodeURIComponent(id)}`
+    :`${location.origin}/checkin.html?c=${encodeURIComponent(codice)}&s=${encodeURIComponent(id)}`;
+}
+// i soggiorni del collaboratore nella stessa forma di soggiorniHome(), così calendario e riepiloghi
+// funzionano uguali. team = "registrato" | "checkin" | "airbnb" (check-in online non ancora fatto)
+function soggiorniTeam(){
+  return (TEAM.soggiorni||[]).map(t=>{
+    const arr=parseIt(t.a), par=parseIt(t.p); if(!arr)return null;
+    const casa=nomeCasaDaId(t.s), nb=nomeProprio(t.n||''), est=t.st==='airbnb';
+    const senza=est?'Ospite '+(t.f||'Airbnb'):'Ospite';
+    return {arrivo:arr, partenza:par, nome:nb||senza, nomeBello:nb||senza, nomeBreve:nb, ospiti:t.o||null,
+      struttura:casa, strutturaId:t.s, colore:strutturaInfo(casa).colore, registrato:false, esterna:est,
+      fonte:t.f||'Airbnb', uid:'t'+t.k, team:t.st||'airbnb'};
+  }).filter(Boolean);
+}
+// la scheda in più del collaboratore: i link del check-in (se permesso), o l'avviso se non ha niente
+function renderTeamExtra(){
+  const card=$('#teamExtraCard'), w=$('#teamExtra'); if(!card||!w)return;
+  const p=TEAM.permessi||{}, link=window.linkCheckinPerStruttura||{}, ids=Object.keys(link);
+  if(ids.length){
+    card.style.display='';
+    w.innerHTML=`<div class="muted" style="font-size:12.5px">Da mandare agli ospiti per il check-in online, uno per casa.</div>`
+      +ids.map((id,i)=>`<div class="link-row"><div style="flex:1;min-width:0"><div class="link-name"><span style="color:${strutturaInfo(nomeCasaDaId(id)).colore}">●</span> ${escText(nomeCasaDaId(id))}</div>
+        <div class="link-url">${escText(link[id].replace(/^https?:\/\//,''))}</div></div>
+        <button class="btn ghost sm" style="width:auto" id="teamLink-${i}" onclick="copiaLinkCheckin('${link[id]}','teamLink-${i}')">📋 Copia</button></div>`).join('');
+  }else if(!p.calendario&&!p.pulizie){
+    card.style.display='';
+    card.querySelector('h2').innerHTML='<span class="n">👋</span> Ciao '+escText(TEAM.nome||'');
+    w.innerHTML='<div class="muted" style="font-size:13px">Il tuo accesso non ha ancora nessuna funzione attiva: chiedi all\'host di attivarle.</div>';
+  }else card.style.display='none';
+}
+
+/* Impostazioni → 👥 Collaboratori (solo il titolare): nome, codice e permessi a spunta di ognuno */
+const PERMESSI_TEAM=[
+  ['calendario','📆','Calendario','Vede le prenotazioni: date, casa, quante persone e gli orari di check-in e check-out.'],
+  ['nomi','👤','Nomi degli ospiti','Nel calendario vede il nome di battesimo («Mario + 1»), senza vede «Ospite». Mai cognomi né documenti.'],
+  ['pulizie','🧹','Pulizie','Le pulizie di oggi e delle prossime 2 settimane, coi messaggi pronti per WhatsApp.'],
+  ['link','🔗','Link del check-in','Può copiare il link del check-in online da mandare agli ospiti.'],
+  ['completo','🔓','Accesso completo','Tutto KeyFlow come te: documenti, registrazioni, Questura, Ross1000 e Archivio. Il tuo codice e i collaboratori restano solo tuoi.'],
+];
+const PERMESSI_TEAM_BASE={calendario:true, nomi:true, pulizie:true, link:false, completo:false};
+let collab={lista:[], bozza:null};
+async function apriCollaboratori(){ apriPagina('collabOverlay'); await caricaCollaboratori(); }
+async function chiamaCollab(corpo){
+  const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify(Object.assign({azione:'collaboratori'},corpo))});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.ok)throw new Error(d.error||'Non riuscito, riprova');
+  return d;
+}
+async function caricaCollaboratori(){
+  const w=$('#collabLista'); if(!w)return;
+  const av=$('#collabAvviso');
+  if(av)av.innerHTML=window.ADMIN_CONFIGURATO?'':'<div class="hint" style="border-left-color:var(--err)">⚠️ Prima metti un <b>codice d\'accesso tuo</b> (Impostazioni → Codice d\'accesso): senza, KeyFlow è aperto a tutti e i permessi non servono.</div>';
+  if(!collab.lista.length)w.innerHTML='<div class="muted" style="font-size:13px">Carico…</div>';
+  try{ const d=await chiamaCollab({op:'lista'}); collab.lista=d.lista||[]; }
+  catch(e){ w.innerHTML=`<div class="hint" style="border-left-color:var(--err)">⚠️ ${escText(e.message)}</div>`; return; }
+  renderCollab();
+}
+// codice nuovo da proporre: "SOFIA-7K2M" (niente lettere che si confondono: 0/O, 1/I/L)
+function generaCodiceTeam(nome){
+  const alf='ABCDEFGHJKMNPQRSTUVWXYZ23456789', n=new Uint32Array(5);
+  try{ crypto.getRandomValues(n); }catch(e){ for(let i=0;i<5;i++)n[i]=Math.floor(Math.random()*1e9); }
+  const coda=[...n].map(x=>alf[x%alf.length]).join('');
+  const base=String(nome||'').normalize('NFD').replace(/[^A-Za-z]/g,'').toUpperCase().slice(0,8);
+  return (base||'KEYFLOW')+'-'+coda;
+}
+function collabNuovo(){
+  collab.bozza={id:'', nome:'', codice:generaCodiceTeam(''), permessi:Object.assign({},PERMESSI_TEAM_BASE)};
+  renderCollab();
+  setTimeout(()=>{ const i=$('#cb-nuovo-nome'); if(i){ i.focus(); i.scrollIntoView({block:'center',behavior:'smooth'}); } },60);
+}
+function collabCard(m){
+  const k=m.id||'nuovo', p=m.permessi||{};
+  const quando=m.accesso?'ultimo accesso il '+new Date(m.accesso).toLocaleString('it-IT',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})
+    :m.id?'nessun accesso finora':'nuovo collaboratore';
+  return `<div class="collab-card" id="cb-${k}">
+    <div class="collab-top"><span class="collab-av">${escText((m.nome||'?').charAt(0).toUpperCase())}</span>
+      <div style="flex:1;min-width:0"><input type="text" id="cb-${k}-nome" value="${escText(m.nome||'').replace(/"/g,'&quot;')}" placeholder="Nome (es. Sofia)" maxlength="30"
+        oninput="if(!'${m.id}'){const c=$('#cb-nuovo-codice');if(c&&c.dataset.auto!=='0')c.value=generaCodiceTeam(this.value);}">
+        <div class="muted" style="font-size:11.5px;margin-top:4px">${quando}</div></div></div>
+    <div style="font-size:12px;font-weight:700;margin-top:12px">🔑 Codice d'accesso</div>
+    <div class="collab-cod"><input type="text" id="cb-${k}-codice" value="${escText(m.codice||'').replace(/"/g,'&quot;')}" autocomplete="off" spellcheck="false" maxlength="40"
+        oninput="this.dataset.auto='0'"${m.id?'':' data-auto="1"'}>
+      <button class="btn ghost sm" style="width:auto;flex:0 0 auto" title="Codice nuovo" onclick="const c=$('#cb-${k}-codice');c.value=generaCodiceTeam($('#cb-${k}-nome').value);c.dataset.auto='0'">🎲</button></div>
+    <div style="font-size:12px;font-weight:700;margin-top:14px">Cosa può vedere e fare</div>
+    <div>${PERMESSI_TEAM.map(([id,ic,tit,desc])=>`<label class="perm${id==='completo'?' rischio':''}${id==='nomi'&&!p.calendario?' spento':''}" id="cb-${k}-r-${id}">
+        <span class="pi">${ic}</span><span class="pt">${tit}<span>${desc}</span></span>
+        <input type="checkbox" id="cb-${k}-p-${id}"${p[id]?' checked':''} onchange="collabSpunta('${k}')"><span class="sw"></span></label>`).join('')}</div>
+    <div class="collab-az">
+      <button class="btn primary sm" id="cb-${k}-salva" onclick="collabSalva('${k}')">💾 Salva</button>
+      ${m.id?`<button class="btn ghost sm" onclick="collabInvito('${k}',true)">📲 Invito su WhatsApp</button>
+        <button class="btn ghost sm" onclick="collabInvito('${k}',false)">📋 Copia l'invito</button>
+        <button class="btn ghost sm" style="color:var(--err)" onclick="collabTogli('${k}')">🗑 Togli l'accesso</button>`
+      :`<button class="btn ghost sm" onclick="collab.bozza=null;renderCollab()">Annulla</button>`}
+    </div></div>`;
+}
+function renderCollab(){
+  const w=$('#collabLista'); if(!w)return;
+  const tutte=collab.lista.concat(collab.bozza?[collab.bozza]:[]);
+  w.innerHTML=tutte.length?tutte.map(collabCard).join('')
+    :'<div class="muted" style="font-size:13px">Nessun collaboratore. Tocca «Aggiungi» per dare un accesso a chi ti aiuta.</div>';
+  const ag=$('#collabAggiungi'); if(ag)ag.style.display=collab.bozza?'none':'';
+}
+// i "Nomi degli ospiti" hanno senso solo col calendario
+function collabSpunta(k){
+  const cal=$(`#cb-${k}-p-calendario`), r=$(`#cb-${k}-r-nomi`);
+  if(cal&&r)r.classList.toggle('spento',!cal.checked);
+}
+function collabLeggi(k){
+  const permessi={}; PERMESSI_TEAM.forEach(([id])=>{ const c=$(`#cb-${k}-p-${id}`); permessi[id]=!!(c&&c.checked); });
+  return {id:k==='nuovo'?'':k, nome:($(`#cb-${k}-nome`)||{}).value||'', codice:(($(`#cb-${k}-codice`)||{}).value||'').trim(), permessi};
+}
+async function collabSalva(k){
+  const m=collabLeggi(k), b=$(`#cb-${k}-salva`);
+  if(m.permessi.completo&&!confirm(`Dare a ${m.nome||'questo collaboratore'} l'ACCESSO COMPLETO? Vedrà documenti e dati degli ospiti e potrà registrarli e inviarli come te.`))return;
+  if(b){ b.disabled=true; b.textContent='Salvo…'; }
+  try{
+    const d=await chiamaCollab({op:'salva', membro:m});
+    collab.lista=d.lista||[]; if(k==='nuovo')collab.bozza=null;
+    renderCollab();
+    toast(k==='nuovo'?`✓ Accesso creato: ora manda l'invito a ${m.nome}`:`✓ Salvato: vale per ${m.nome} entro pochi minuti`);
+  }catch(e){ toast('⚠️ '+e.message); if(b){ b.disabled=false; b.textContent='💾 Salva'; } }
+}
+function collabInvito(k,whatsapp){
+  const m=collab.lista.find(x=>x.id===k); if(!m)return;
+  const p=m.permessi||{};
+  const cosa=p.completo?'tutto KeyFlow':[p.calendario&&'il calendario delle case',p.pulizie&&'le pulizie',p.link&&'i link del check-in'].filter(Boolean).join(', ').replace(/, ([^,]*)$/,' e $1')||'KeyFlow';
+  const testo=`Ciao ${m.nome}! 👋 Ecco KeyFlow, per vedere ${cosa}:\n${location.origin}\n\nIl tuo codice d'accesso è: ${m.codice}\nLo metti solo la prima volta, poi resta ricordato. Dal telefono puoi aggiungerla alla schermata Home (menu del browser → «Aggiungi a schermata Home»).`;
+  if(whatsapp){ window.open('https://wa.me/?text='+encodeURIComponent(testo),'_blank','noopener'); return; }
+  const fatto=()=>toast('📋 Invito copiato: incollalo nella chat con '+m.nome);
+  const riserva=()=>{ const ta=document.createElement('textarea'); ta.value=testo; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} document.body.removeChild(ta);
+    ok?fatto():toast('Copia non riuscita'); };
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(testo).then(fatto).catch(riserva); else riserva();
+}
+async function collabTogli(k){
+  const m=collab.lista.find(x=>x.id===k); if(!m)return;
+  if(!confirm(`Togliere l'accesso a ${m.nome}? Il suo codice smette subito di funzionare.`))return;
+  try{ const d=await chiamaCollab({op:'togli', id:k}); collab.lista=d.lista||[]; renderCollab(); toast(`Accesso di ${m.nome} tolto`); }
+  catch(e){ toast('⚠️ '+e.message); }
 }
 /* ===== TABELLE UFFICIALI (incorporate) ===== */
 const ITALIA_CODE = "100000100";
@@ -15147,7 +15417,7 @@ function riprovaRossAutomatica(){
   rossUltimaRiprova=Date.now();
   riprovaRossInSospeso({manuale:false});
 }
-setInterval(()=>{ if(!document.hidden)riprovaRossAutomatica(); },2*60*1000);
+setInterval(()=>{ if(!document.hidden&&!teamRistretto())riprovaRossAutomatica(); },2*60*1000);
 // spiegazione nel pannello dell'invio
 function dettaglioRossKo(esito){
   if(esito.offline)return 'Manca la connessione a internet. '+ROSS_CODA_SPIEGA;
@@ -15222,6 +15492,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ appNascostaDa=Date.now(); return; }
   const via=appNascostaDa?Date.now()-appNascostaDa:0;
   appNascostaDa=0;
+  if(teamRistretto()){ if(via>60*1000)caricaTeam(); return; }   // collaboratore: si riprende solo i suoi dati
   riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
   allarmeGiaVisto=false;                    // check-in in scadenza: l'avviso si rivede al rientro
@@ -15905,7 +16176,7 @@ function renderPulizie(){
       :'<div class="muted" style="font-size:12.5px">Oggi nessuna pulizia.</div>')
     +(sett.length?`<details class="pul-sett"${oggi.length?'':' open'}><summary>📅 Prossime 2 settimane · ${n} pulizi${n===1?'a':'e'}</summary>
         ${sett.map((m,i)=>pulBlocco(m,'s'+i)).join('')}
-        <div class="muted" style="font-size:11.5px;margin-top:8px">Ogni lunedì mattina arriva anche con la notifica.</div></details>`:'')
+        <div class="muted pul-nota-notifica" style="font-size:11.5px;margin-top:8px">Ogni lunedì mattina arriva anche con la notifica.</div></details>`:'')
     +`<button class="btn ghost sm pul-prova" id="pulProvaBtn" onclick="provaNotificaPulizie()">🔔 Mandami le notifiche adesso</button>`;
   renderSezioniHome();
 }
@@ -16324,6 +16595,7 @@ async function salvaCalendari(){
 // tutti i soggiorni da mostrare in Home. Se lo stesso soggiorno è sia registrato sia
 // ancora in coda (stesso arrivo e stesso titolare) vince quello registrato.
 function soggiorniHome(){
+  if(teamRistretto())return soggiorniTeam();
   const out=[]; const visti=new Set();
   const aggiungi=o=>{ if(!o.arrivo)return; const k=dataKey(o.arrivo)+'|'+String(o.nome||'').toUpperCase();
     if(visti.has(k))return; visti.add(k); out.push(o); };
@@ -16461,7 +16733,7 @@ function nomeProprio(n){
 // ancora in attesa -> la scheda del check-in, da cui si registra
 // (ottobre 2026) il tocco apre il sommario della prenotazione sopra il calendario, stile Airbnb;
 // da lì si va alla scheda completa, ad Airbnb, alla registrazione
-const calChiave=e=>e.esterna?'e:'+encodeURIComponent(e.uid||'').replace(/'/g,'%27'):e.registrato?'r:'+(e.ts||0):'p:'+(e.id||'');
+const calChiave=e=>e.team?'t:'+encodeURIComponent(e.uid):e.esterna?'e:'+encodeURIComponent(e.uid||'').replace(/'/g,'%27'):e.registrato?'r:'+(e.ts||0):'p:'+(e.id||'');
 const calApriAttr=e=>`onclick="apriSommario('${calChiave(e)}')"`;
 /* ===== Sommario della prenotazione (ottobre 2026, l'utente: "vorrei che mi si aprisse un sommario
    della prenotazione come stile Airbnb, in sovrimpressione sul calendario, per vedere subito").
@@ -16487,7 +16759,7 @@ function somPeriodo(a,p){
 function apriSommario(chiave){
   chiave=decodeURIComponent(chiave||'');
   const tipo=chiave.slice(0,1), val=chiave.slice(2);
-  const s=soggiorniHome().find(x=>tipo==='e'?x.esterna&&x.uid===val:tipo==='r'?x.registrato&&String(x.ts)===val:!x.registrato&&!x.esterna&&x.id===val);
+  const s=soggiorniHome().find(x=>tipo==='t'?x.team&&x.uid===val:tipo==='e'?x.esterna&&x.uid===val:tipo==='r'?x.registrato&&String(x.ts)===val:!x.registrato&&!x.esterna&&x.id===val);
   if(!s){ toast('Questa prenotazione non c\'è più'); return; }
   const e=tipo==='r'?storico.find(x=>String(x.ts)===val):null;
   const v=tipo==='p'?checkinPending.find(x=>x.id===val):null;
@@ -16495,16 +16767,21 @@ function apriSommario(chiave){
   let nomi=[];
   if(e)nomi=(e.records||[]).filter(r=>r&&r.length===168).map(r=>maiuscoleIniziali(r.slice(64,94)+' '+r.slice(14,64)));
   else if(v)nomi=(v.ospiti||[]).map(o=>maiuscoleIniziali([o.nome,o.cognome].filter(Boolean).join(' '))).filter(Boolean);
-  else if(s.nome&&!/^Prenotazione /.test(s.nome))nomi=[maiuscoleIniziali(s.nome)];
+  else if(s.nome&&!s.team&&!/^Prenotazione /.test(s.nome))nomi=[maiuscoleIniziali(s.nome)];   // (al collaboratore: quanti sono)
   const n=s.ospiti||nomi.length||0;
   const breve=s.nomeBreve||(nomi[0]||'').split(' ')[0]||'';
-  const titolo=!breve?`Prenotazione ${escText(s.fonte||'Airbnb')}`
+  const titolo=s.team&&!breve?(n?`${n} ospit${n===1?'e':'i'}`:'Prenotazione')
+    :!breve?`Prenotazione ${escText(s.fonte||'Airbnb')}`
     :n>1?`Gruppo di ${escText(breve)} composto da ${n} persone`:escText(nomi[0]||breve);
   const url=s.esterna?s.url:s.urlEst, fonte=s.esterna?s.fonte:s.fonteEst;
   const righe=[];
   const riga=(ic,html)=>righe.push(`<div class="som-riga"><span class="ic">${ic}</span><span style="flex:1;min-width:0">${html}</span></div>`);
   const gm=ts=>new Date(ts).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'});
-  if(e){
+  if(s.team){   // collaboratore: solo a che punto è, senza i dettagli dell'host
+    if(s.team==='registrato')riga('✅','<b>Check-in fatto</b> · ospiti registrati');
+    else if(s.team==='checkin')riga('🪪','<b>Check-in online fatto</b>');
+    else riga('⏳',`<b>Check-in online non ancora fatto</b><br><span class="muted">Prenotazione di ${escText(s.fonte||'Airbnb')}</span>`);
+  }else if(e){
     riga(e.tipo==='inviata'?'✅':'📄',e.tipo==='inviata'?`<b>Registrato in Questura</b> il ${gm(e.ts)}`:`<b>Schedine scaricate</b> (.txt) il ${gm(e.ts)}`);
     if(e.rossOk)riga('📊','Ross1000 inviato');
     else if(typeof rossInSospeso==='function'&&rossInSospeso(e))riga('🔁','Ross1000 in coda: si rimanda da solo');
@@ -16653,7 +16930,7 @@ function calDettaglio(ev,filtro){
     righe.push(`<div class="agenda-g"><span class="quando${i===0?' oggi':''}">${escText(quando)}</span>
       <span class="cosa">${lista.map(e=>`<span class="agenda-ev" ${calApriAttr(e)}><span class="pallo" style="background:${e.colore}"></span>
         <span class="nome">${e.tipo==='a'?'➡️':'⬅️'} ${escText(e.nomeBello||e.nome)}${e.ospiti>1?' <span class="muted">👤'+e.ospiti+'</span>':''}</span>
-        ${e.esterna?'<span class="pill wait">check-in non fatto</span>':e.registrato?'<span class="vai muted">›</span>':'<span class="pill err">da registrare</span>'}</span>`).join('')}</span></div>`);
+        ${e.esterna?'<span class="pill wait">check-in non fatto</span>':(e.registrato||e.team)?'<span class="vai muted">›</span>':'<span class="pill err">da registrare</span>'}</span>`).join('')}</span></div>`);
   }
   return `<div class="stat-lab" style="margin-top:14px">PROSSIMI GIORNI</div>
     ${righe.length?righe.join(''):'<div class="muted" style="font-size:12.5px">Nessun arrivo o partenza in programma.</div>'}`;
@@ -17360,8 +17637,8 @@ function closeSettings(e){
   $('#settingsOverlay').classList.remove('open');
 }
 function uscitaGestionale(){
-  if(!confirm('Uscire dal gestionale? Dovrai reinserire il codice d\'accesso.'))return;
-  localStorage.removeItem('adminCode');
+  if(!confirm(window.TEAM?'Uscire da KeyFlow? Dovrai reinserire il tuo codice d\'accesso.':'Uscire dal gestionale? Dovrai reinserire il codice d\'accesso.'))return;
+  localStorage.removeItem('adminCode'); localStorage.removeItem('teamCode');
   sessionStorage.removeItem('adminCode');
   location.reload();
 }
@@ -17531,6 +17808,7 @@ function apriCard(id){
 /* init */
 (async()=>{
   await adminGate();
+  if(teamRistretto()){ avviaTeam(); return; }   // collaboratore: solo quello che gli è permesso
   initCardToggles();
   document.body.classList.add('ready');
   mostraTab('oggi');   // si riparte sempre dalla Home, non dall'ultima scheda usata

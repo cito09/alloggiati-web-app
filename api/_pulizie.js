@@ -31,6 +31,9 @@ function msDa(it) {
 const msDaIso = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : null; };
 const isoDa = (ms) => new Date(ms).toISOString().slice(0, 10);
 
+// solo il nome di battesimo ("SIMONE ANN" → "SIMONE", "Marie-Inez Dupont" → "Marie-Inez"): mai il cognome
+const primoNome = (n) => String(n || "").trim().split(/\s+/)[0].slice(0, 30);
+
 // a quale casa appartiene un nome o un id ("Falegnami House", "bologna", nomi vecchi che
 // contengono l'id): come nomeStrutturaCanonico() del gestionale
 function idCasa(nomeOId, strutture) {
@@ -51,18 +54,22 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
     const arr = msDa(e.arrivo || (recs[0] || "").slice(2, 12));
     const notti = parseInt((recs[0] || "").slice(12, 14), 10) || 0;
     if (!arr || !notti) continue;
-    tutti.push({ casa: idCasa(e.struttura, strutture), arrivo: arr, partenza: arr + notti * GIORNO, ospiti: recs.length || e.valide || null, peso: 3 });
+    // nome = solo il nome di battesimo (schedina, caratteri 64-94): serve al calendario dei collaboratori
+    tutti.push({ casa: idCasa(e.struttura, strutture), arrivo: arr, partenza: arr + notti * GIORNO, ospiti: recs.length || e.valide || null, peso: 3,
+      nome: primoNome((recs[0] || "").slice(64, 94)), stato: "registrato" });
   }
   for (const v of pending || []) {
     const arr = msDa(v.arrivo); if (!arr) continue;
     const par = msDa(v.partenza) || (v.notti ? arr + Number(v.notti) * GIORNO : null);
     if (!par || par <= arr) continue;
-    tutti.push({ casa: idCasa(v.strutturaId || v.strutturaNome, strutture), arrivo: arr, partenza: par, ospiti: (v.ospiti || []).length || null, peso: 2 });
+    tutti.push({ casa: idCasa(v.strutturaId || v.strutturaNome, strutture), arrivo: arr, partenza: par, ospiti: (v.ospiti || []).length || null, peso: 2,
+      nome: primoNome(((v.ospiti || [])[0] || {}).nome), stato: "checkin" });
   }
   for (const p of esterne || []) {
     const arr = msDa(p.arrivo), par = msDa(p.partenza);
     if (!arr || !par || par <= arr) continue;
-    tutti.push({ casa: idCasa(p.strutturaId, strutture), arrivo: arr, partenza: par, ospiti: p.ospiti || null, peso: 1 });
+    tutti.push({ casa: idCasa(p.strutturaId, strutture), arrivo: arr, partenza: par, ospiti: p.ospiti || null, peso: 1,
+      nome: primoNome(p.nome), stato: "airbnb", fonte: p.fonte || "Airbnb" });
   }
   const perCasa = {};
   for (const s of tutti.sort((a, b) => b.peso - a.peso)) {
@@ -72,6 +79,7 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
     if (!uguale) { lista.push(s); continue; }
     // lo stesso soggiorno, ma col check-in fatto si sa quanti sono anche se l'altro non lo sa
     if (!uguale.ospiti && s.ospiti) uguale.ospiti = s.ospiti;
+    if (!uguale.nome && s.nome) uguale.nome = s.nome;
   }
   return perCasa;
 }
@@ -132,4 +140,4 @@ async function pulizieProssime(conn, oggiIso) {
   return { giorno: oggiIso, lunedi: new Date(oggiMs).getUTCDay() === 1, oggi, settimane };
 }
 
-module.exports = { pulizieProssime, soggiorniPerCasa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };
+module.exports = { pulizieProssime, soggiorniPerCasa, msDa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };

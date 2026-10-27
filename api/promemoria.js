@@ -25,7 +25,8 @@
 //        attuale completo: quello che non è più nella lista sparisce anche da qui, es.
 //        perché è stata inviata ufficialmente o svuotata).
 const { upstash, redisCmd } = require("./_kv");
-const { checkAdmin } = require("./_admin");
+const { checkAdmin, checkTitolare, getAdminCode } = require("./_admin");
+const { trovaCollaboratore, azioneCollaboratori, datiTeam } = require("./_team");
 const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
@@ -312,8 +313,30 @@ module.exports = async (req, res) => {
   const conn = upstash();
 
   if (req.method === "POST") {
+    // pagina di un collaboratore (es. Sofia): entra col SUO codice e riceve solo quello che le è
+    // permesso (calendario, pulizie, link del check-in) — vedi api/_team.js
+    if ((req.body || {}).azione === "team") {
+      if (!conn) return res.status(200).json({ configurato: false });
+      try {
+        const m = await trovaCollaboratore(conn, req.headers["x-team-code"]);
+        if (!m) return res.status(401).json({ error: "Codice non più valido" });
+        return res.status(200).json(await datiTeam(conn, m, oggiIsoRoma()));
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
     if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
     if (!conn) return res.status(200).json({ configurato: false });
+    // Impostazioni → Collaboratori: solo il titolare (un collaboratore, anche con accesso completo, no)
+    if ((req.body || {}).azione === "collaboratori") {
+      if (!(await checkTitolare(req))) return res.status(403).json({ error: "Solo il titolare può gestire i collaboratori" });
+      try {
+        const esito = await azioneCollaboratori(conn, req.body || {}, await getAdminCode());
+        return res.status(esito.ok ? 200 : 400).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
     // --- comunicazione ISTAT via email (Canazei: l'APT Val di Fassa la vuole così) ---
     if ((req.body || {}).azione === "istatGet") {
       const cfg = (await leggiConfigIstat(conn)) || {};

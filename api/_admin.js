@@ -22,7 +22,21 @@ async function getAdminCode() {
 async function checkAdmin(req) {
   const atteso = await getAdminCode();
   if (!atteso) return true;
+  if (req.headers["x-admin-code"] === atteso) return true;
+  // un collaboratore con "Accesso completo" (Impostazioni → Collaboratori) entra come il titolare
+  const team = req.headers["x-team-code"];
+  if (team) {
+    const m = await require("./_team").trovaCollaboratore(null, team);
+    return !!(m && m.permessi.completo);
+  }
+  return false;
+}
+
+// solo il titolare, mai un collaboratore (nemmeno con accesso completo): gestire i collaboratori
+async function checkTitolare(req) {
+  const atteso = await getAdminCode();
+  if (!atteso) return true;
   return req.headers["x-admin-code"] === atteso;
 }
 
-module.exports = { checkAdmin, getAdminCode };
+module.exports = { checkAdmin, checkTitolare, getAdminCode };
