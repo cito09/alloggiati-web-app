@@ -123,7 +123,9 @@ module.exports = async (req, res) => {
       const r = await leggiBlob(url);
       if (!r) return res.status(404).json({ error: "file non trovato" });
       res.setHeader("Content-Type", r.contentType || (/\.pdf(\?|$)/i.test(url) ? "application/pdf" : "image/jpeg"));
-      res.setHeader("Cache-Control", "private, max-age=300");
+      // il telefono lo tiene 30 giorni: ogni file ha un indirizzo unico (suffisso casuale) e non
+      // cambia mai, e ogni riscaricamento consuma il traffico del piano gratuito di Vercel
+      res.setHeader("Cache-Control", "private, max-age=2592000, immutable");
       return res.status(200).send(r.buffer);
     } catch (e) {
       return res.status(502).json({ error: "errore lettura file" });

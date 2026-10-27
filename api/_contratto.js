@@ -500,6 +500,100 @@ function testoSL(cfg, d) {
   ];
 }
 
+function testoBS(cfg, d) {
+  return [
+    { t: "titolo", v: "UGOVOR O TURISTIČKOM NAJMU" },
+    { t: "p", v: `G./gđa ${cfg.locatoreNome}, u daljem tekstu najmodavac` },
+    { t: "p", v: `Porezni broj ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-mail ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Daje u najam" },
+    { t: "sep" },
+    { t: "p", v: `G./gđi ${d.conduttoreNome}, u daljem tekstu najmoprimac` },
+    { t: "p", v: `Broj ličnog dokumenta ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "KOJI/A PRIHVATA" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `Nekretninu na adresi ${cfg.indirizzoVia}: ${cfg.vani ? `broj prostorija ${cfg.vani}, ` : ""}broj ležaja ${cfg.postiLetto}, broj kupatila ${cfg.wc}. ${cfg.accessori ? `Namještena jedinica pored kuhinje obuhvata sljedeće pomoćne prostorije (${cfg.accessori})` : "Namještena jedinica s kuhinjom"}. Upisana u katastar zgrada općine ${cfg.comune}, list ${cfg.foglio}, parcela ${cfg.particella}, podjedinica ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "Najam se uređuje sljedećim odredbama:" },
+    { t: "sep" },
+    { t: "p", v: `1. Ugovor se zaključuje od ${d.arrivo} do ${d.partenza} i prestaje bez ikakvog otkaza.` },
+    {
+      t: "p",
+      v: `2. Nekretnina se smije koristiti isključivo u turističke svrhe; ukupan broj smještenih osoba, uključujući najmoprimca: ${d.numOspiti}.`,
+    },
+    {
+      t: "p",
+      v: "3. Najmoprimac NE smije nekretninu u cijelosti ili djelimično dati u podnajam ili na besplatno korištenje, pod prijetnjom raskida ugovora po samom zakonu.",
+    },
+    {
+      t: "p",
+      v: `4. Najamnina je iznos već plaćen prilikom rezervacije i vidi se u detaljima transakcije na korištenoj platformi ${cfg.piattaforma}. Smatra se da su ovaj iznos prihvatile obje strane bez potrebe za dodatnom potvrdom.`,
+    },
+    {
+      t: "p",
+      v: "5. Najmoprimac je dužan obavijestiti vlasnika ili njegovog zastupnika o eventualnim nedostacima nekretnine i namještaja u roku od četrdeset osam sati od predaje ključeva.",
+    },
+    {
+      t: "p",
+      v: "6. Troškove usluga, kao što su struja, voda, plin i troškovi zajedničkih dijelova zgrade, snosi najmodavac (vlasnik).",
+    },
+    { t: "sep" },
+    { t: "p", v: `Pročitano, odobreno i potpisano u mjestu ${cfg.comune}, dana ${d.dataFirma}` },
+  ];
+}
+
+function testoHU(cfg, d) {
+  return [
+    { t: "titolo", v: "TURISZTIKAI BÉRLETI SZERZŐDÉS" },
+    { t: "p", v: `${cfg.locatoreNome} úr/hölgy, a továbbiakban: bérbeadó` },
+    { t: "p", v: `Adóazonosító ${cfg.codiceFiscale}` },
+    { t: "p", v: `E-mail ${cfg.email}` },
+    { t: "sep" },
+    { t: "b", v: "Bérbe adja" },
+    { t: "sep" },
+    { t: "p", v: `${d.conduttoreNome} úr/hölgy részére, a továbbiakban: bérlő` },
+    { t: "p", v: `Személyazonosító okmány száma: ${d.conduttoreDoc || "—"}` },
+    { t: "sep" },
+    { t: "b", v: "AKI ELFOGADJA" },
+    { t: "sep" },
+    {
+      t: "p",
+      v: `A következő címen található ingatlant: ${cfg.indirizzoVia}; ${cfg.vani ? `helyiségek száma: ${cfg.vani}, ` : ""}fekhelyek száma: ${cfg.postiLetto}, fürdőszobák száma: ${cfg.wc}. ${cfg.accessori ? `A bútorozott egység a konyhán kívül a következő kiegészítő helyiségeket foglalja magában (${cfg.accessori})` : "Bútorozott egység konyhával"}. Nyilvántartva ${cfg.comune} település épület-nyilvántartásában, térképlap: ${cfg.foglio}, helyrajzi szám: ${cfg.particella}, albetét: ${cfg.subalterno}.`,
+    },
+    { t: "sep" },
+    { t: "p", v: "A bérletre a következő feltételek vonatkoznak:" },
+    { t: "sep" },
+    { t: "p", v: `1. A szerződés a(z) ${d.arrivo} és ${d.partenza} közötti időszakra jön létre, és felmondás nélkül megszűnik.` },
+    {
+      t: "p",
+      v: `2. Az ingatlan kizárólag turisztikai célra használható; az elszállásolt személyek száma a bérlővel együtt összesen: ${d.numOspiti}.`,
+    },
+    {
+      t: "p",
+      v: "3. A bérlő az ingatlant sem egészben, sem részben NEM adhatja albérletbe vagy ingyenes használatba; ellenkező esetben a szerződés a törvény erejénél fogva megszűnik.",
+    },
+    {
+      t: "p",
+      v: `4. A bérleti díj a foglaláskor már megfizetett összeg, amely a használt platform (${cfg.piattaforma}) tranzakciós adatai között szerepel. Ezt az összeget mindkét fél további megerősítés nélkül elfogadottnak tekinti.`,
+    },
+    {
+      t: "p",
+      v: "5. A bérlő köteles az ingatlan és a bútorzat esetleges hibáit a kulcsok átvételétől számított negyvennyolc órán belül jelezni a tulajdonosnak vagy képviselőjének.",
+    },
+    {
+      t: "p",
+      v: "6. A közüzemi szolgáltatások (például áram, víz, gáz) és a közös költség díjait a bérbeadó (tulajdonos) viseli.",
+    },
+    { t: "sep" },
+    { t: "p", v: `Elolvasva, jóváhagyva és aláírva: ${cfg.comune}, ${d.dataFirma}` },
+  ];
+}
+
 // etichetta della riga firma nel PDF, per lingua
 const FIRMA_LABEL = {
   it: "Firma del conduttore:",
@@ -512,11 +606,13 @@ const FIRMA_LABEL = {
   pl: "Podpis najemcy:",
   cs: "Podpis nájemce:",
   sl: "Podpis najemnika:",
+  bs: "Potpis najmoprimca:",
+  hu: "A bérlő aláírása:",
 };
 
 // restituisce i blocchi del contratto nella lingua chiesta (default italiano)
 function testoContratto(cfg, d, lang) {
-  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES, de: testoDE, ro: testoRO, pt: testoPT, pl: testoPL, cs: testoCS, sl: testoSL }[lang] || testoIT;
+  const fn = { it: testoIT, en: testoEN, fr: testoFR, es: testoES, de: testoDE, ro: testoRO, pt: testoPT, pl: testoPL, cs: testoCS, sl: testoSL, bs: testoBS, hu: testoHU }[lang] || testoIT;
   return fn(cfg, d);
 }
 function firmaLabel(lang) {

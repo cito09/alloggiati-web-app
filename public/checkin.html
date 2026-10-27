@@ -223,6 +223,8 @@
   <button class="lang-btn" onclick="sceglilingua('pl')"><span class="flag" data-flag="pl"></span> Polski</button>
   <button class="lang-btn" onclick="sceglilingua('cs')"><span class="flag" data-flag="cs"></span> Čeština</button>
   <button class="lang-btn" onclick="sceglilingua('sl')"><span class="flag" data-flag="sl"></span> Slovenščina</button>
+  <button class="lang-btn" onclick="sceglilingua('bs')"><span class="flag" data-flag="bs"></span> Bosanski</button>
+  <button class="lang-btn" onclick="sceglilingua('hu')"><span class="flag" data-flag="hu"></span> Magyar</button>
 </div>
 
 <div class="wrap ok-screen" id="welcomeWrap" style="display:none">
@@ -978,6 +980,130 @@ const T={
     email_copia_label:'Želite kopijo pogodbe po e-pošti? (neobvezno)', email_copia_ph:'Vaš e-poštni naslov',
     btn_download_contract:'Prenesite pogodbo (PDF)', ok_contract_hint:'Spodaj lahko prenesete svojo kopijo pogodbe.',
   },
+  bs:{
+    default_title:'Check-in',
+    sub_header:"Dobro došli! Završite check-in za svoj boravak.",
+    label_arrivo:'Datum dolaska (check-in)', label_partenza:'Datum odlaska (check-out)',
+    notte_s:'noć', notte_p:'noći', notti_error:'Datum odlaska mora biti nakon datuma dolaska', arrivo_min_error:'Check-in možete obaviti samo na dan dolaska ili najkasnije sutradan: datum dolaska ne može biti prije jučerašnjeg', devisu_title:'Provjera identiteta (selfie)', devisu_hint:'Selfie osobe koja potpisuje (vođe grupe): potreban je za provjeru identiteta koju propisuje italijanski zakon (čl. 109 TULPS). Poređenje s dokumentom vrši se na Vašem telefonu i nikakvi biometrijski podaci se ne čuvaju.', devisu_btn:'Napravite selfie', devisu_retry:'Ponovite selfie', devisu_checking:'Poredim s dokumentom…', devisu_ok:'Identitet potvrđen', devisu_ko:'Lice se ne podudara dobro s dokumentom: pokušajte ponovo uz više svjetla, bez naočala i kape', devisu_noface:'Na selfiju se lice ne vidi dobro: pokušajte ponovo', devisu_flagged:'Podudarnost nije bilo moguće potvrditi: check-in ipak možete završiti', devisu_nd:'Automatsko poređenje nije dostupno na ovom uređaju: selfie će ipak biti priložen', devisu_required:'Nedostaje selfie vođe grupe za provjeru', devisu_manual:'U redu je: identitet će ručno potvrditi domaćin. Check-in možete završiti.', contratto_fs:'Čitajte preko cijelog ekrana', contratto_fs_ok:'U redu, pročitano', contratto_apri:'Otvorite i pročitajte ugovor', contratto_letto_btn:'Ugovor pročitan — dodirnite da ga ponovo pročitate', contratto_scorri:'Za potvrdu se pomjerite do kraja', contratto_leggi_required:'Prije nego nastavite, otvorite ugovor i pročitajte ga do kraja',
+    btn_add_guest:'+ Dodajte još jednog gosta',
+    welcome_title:'Završite check-in',
+    welcome_text:"Treba samo 2 minute: učitajte dokument svakog gosta i potvrdite podatke.",
+    welcome_btn:'Nastavite',
+    trust_secure:'Zaštićeni podaci', trust_fast:'Samo 2 minute', trust_reviewed:'Provjerava domaćin, nikad automatski',
+    prog_date:'Datumi', prog_doc:'Dokument', prog_check:'Provjera', prog_selfie:'Identitet', prog_send:'Slanje',
+    btn_next:'Dalje', btn_back:'‹ Nazad',
+    manual_link:'ili unesite podatke ručno',
+    btn_confirm_data:'Potvrdite podatke ✓',
+    guest_added:'Gost sačuvan!',
+    add_more_q:'Ima li još gostiju za prijavu?',
+    btn_no_continue:'Ne, nastavite',
+    warn_alert:'Neka polja možda nisu dobro pročitana: provjerite ona označena žutom bojom.',
+    toast_fill_name:'Unesite barem prezime i ime',
+    recap_title:'Pregled gostiju', btn_edit:'Uredi',
+    privacy_title:'Obavještenje o privatnosti (GDPR)',
+    privacy_html:"<b>Rukovalac podacima:</b> upravitelj smještajnog objekta.<br><b>Obrađivači:</b> eventualni upravitelji, ovlaštena lica i savjetnici koji objektu pomažu u ispunjavanju zakonskih obaveza (uključujući tehničku uslugu KeyFlow) i podatke obrađuju isključivo u ime i po uputama rukovaoca.<br><b>Svrha:</b> lični podaci i kopija ličnog dokumenta prikupljaju se isključivo radi ispunjavanja zakonske obaveze prijave gostiju policiji (Questura) putem portala Alloggiati Web (čl. 109 TULPS) — ne u komercijalne ili marketinške svrhe.<br><b>Čuvanje:</b> onoliko dugo koliko propisuju važeći propisi, zatim se brišu.<br><b>Primaoci:</b> italijanska Državna policija (Alloggiati Web); podaci se ne dostavljaju trećim licima u druge svrhe.<br><b>Vaša prava:</b> u svakom trenutku možete od smještajnog objekta zatražiti pristup svojim podacima, njihovu ispravku ili informacije o njima.",
+    consent_label:'Pročitao/la sam obavještenje i pristajem na obradu svojih ličnih podataka i učitanog dokumenta u gore navedene svrhe.',
+    btn_submit:'Pošaljite check-in',
+    ok_title:'Check-in završen', ok_text:'Hvala! Vaši podaci su poslani smještajnom objektu na provjeru.',
+    block_title:'Neispravan link', block_text:'Ovaj link za check-in nije ispravan ili je istekao. Obratite se smještajnom objektu da Vam pošalje ispravan link.',
+    step1_label:'1 · Fotografija dokumenta (obavezno)', step2_label:'2 · Provjerite svoje podatke',
+    step2_hint:'Provjerite jesu li podaci s dokumenta ispravno pročitani i ispravite pogrešne ili one koji nedostaju.',
+    no_photo_msg:'📷 Za nastavak najprije učitajte fotografiju dokumenta.',
+    cam_title:'Fotografišite dokument', cam_sub:'kamerom', up_title:'Učitajte datoteku', up_sub:'fotografija ili PDF', or_divider:'ili', dz_hint:'…ili je prevucite ili zalijepite ovdje · može i više datoteka odjednom · podaci jasno čitljivi',
+    cam_shot:'Snimite', cam_cancel:'Otkaži', cam_error:'Kamera nije dostupna: koristite „Učitajte datoteku”', cam_guide_hint:'Postavite dokument u okvir, ravno i čitljivo',
+    step1_label_first:'1 · Dokumenti gostiju (obavezno)',
+    first_multi_hint:'Učitajte dokumente svih gostiju odjednom (mi ćemo ih razdvojiti) ili samo svoj. Fotografije visokog kvaliteta ili PDF.',
+    inapp_hint:'📱 Ako „Fotografišite dokument” ne otvori odmah kameru, vratite se na početni ekran i dodirnite „Otvori u pregledniku”, ili koristite „Učitajte datoteku” da izaberete fotografiju iz galerije.',
+    inapp_banner_text:'Da bi kamera radila bez problema, otvorite ovu stranicu u svom pregledniku (Chrome).',
+    inapp_banner_btn:'🌐 Otvori u pregledniku',
+    btn_camera:'Fotografišite sada',
+    toast_pdf_big:"PDF je prevelik (najviše 25 MB): fotografišite dokument", toast_pdf_convert:"Pripremam PDF…", toast_file_non_valido:"Nepodržana vrsta datoteke: učitajte fotografiju (JPG/PNG) ili PDF dokumenta",
+    btn_extract_all:'✨ Prepoznaj dokumente',
+    toast_multi_read:'prepoznata gosta: provjerite podatke svakog od njih',
+    toast_no_doc:'Na fotografijama nije prepoznat nijedan dokument',
+    btn_extract:'✨ Očitaj podatke s dokumenta', btn_extract_loading:'Čitam…',
+    label_cognome:'Prezime', label_nome:'Ime', label_sesso:'Spol', label_data_nascita:'Datum rođenja',
+    label_comune_nascita:'Mjesto rođenja', comune_nascita_hint:'(samo ako ste rođeni u Italiji)', comune_locked_hint:'🔒 Otključava se ako je država rođenja ITALIA',
+    label_stato_nascita:'Država rođenja', placeholder_es:'npr. ITALIA',
+    label_cittadinanza:'Državljanstvo', label_tipo_doc:'Vrsta dokumenta',
+    doc_ci:'Lična karta', doc_cie:'Elektronska lična karta (CIE)', doc_pass:'Pasoš', doc_patente:'Vozačka dozvola',
+    label_numero_doc:'Broj dokumenta', label_luogo_rilascio:'Mjesto izdavanja', luogo_rilascio_hint:'(mjesto ili država)',
+    guest_default_name:'Gost', warn_badge:'⚠ provjerite', warn_ok_badge:'✓ provjereno',
+    toast_add_photo_first:'Najprije dodajte fotografiju dokumenta',
+    toast_data_read:'Podaci su očitani s dokumenta — provjerite ih ispod',
+    progress_title:'Prepoznavanje dokumenata', progress_reading_doc:'Čitam dokument', progress_of:'od', progress_done:'Gotovo!',
+    toast_extract_failed:'Očitavanje nije uspjelo: ',
+    toast_indica_arrivo:'Unesite datum dolaska', toast_indica_partenza:'Unesite datum odlaska',
+    toast_add_guest:'Dodajte barem jednog gosta', toast_accept_privacy:'Za nastavak morate prihvatiti obavještenje o privatnosti',
+    toast_send_failed:'Slanje nije uspjelo: ', errore_foto_grandi:"Fotografije su prevelike za slanje. Pokušajte ponovo; ako ne ide, učitajte manje fotografije ili manje njih odjednom.", submit_status_invio:'Šaljem…',
+    contratto_title:'Ugovor o turističkom najmu', contratto_hint:'Pročitajte ugovor i potpišite ga ispod da biste ga prihvatili.',
+    sig_label:'Potpišite ugovor', sig_hint:'Potpišite se ovdje prstom ili mišem', sig_clear:'Obriši potpis',
+    toast_sig_required:'Za nastavak potpišite ugovor',
+    email_copia_label:'Želite li kopiju ugovora e-mailom? (neobavezno)', email_copia_ph:'Vaša e-mail adresa',
+    btn_download_contract:'Preuzmite ugovor (PDF)', ok_contract_hint:'Ispod možete preuzeti svoju kopiju ugovora.',
+  },
+  hu:{
+    default_title:'Check-in',
+    sub_header:"Üdvözöljük! Végezze el az online bejelentkezést a szálláshoz.",
+    label_arrivo:'Érkezés dátuma (check-in)', label_partenza:'Távozás dátuma (check-out)',
+    notte_s:'éjszaka', notte_p:'éjszaka', notti_error:'A távozás dátumának az érkezés utánra kell esnie', arrivo_min_error:'A bejelentkezést csak az érkezés napján vagy legkésőbb az azt követő napon végezheti el: az érkezés dátuma nem lehet tegnapnál korábbi', devisu_title:'Személyazonosság ellenőrzése (szelfi)', devisu_hint:'Az aláíró (a csoportvezető) szelfije: az olasz törvény által előírt személyazonosság-ellenőrzéshez szükséges (TULPS 109. cikk). Az okmánnyal való összevetés az Ön telefonján történik, biometrikus adatot nem tárolunk.', devisu_btn:'Szelfi készítése', devisu_retry:'Szelfi újra', devisu_checking:'Összevetés az okmánnyal…', devisu_ok:'Személyazonosság ellenőrizve', devisu_ko:'Az arc nem egyezik jól az okmánnyal: próbálja újra jobb fényben, szemüveg és sapka nélkül', devisu_noface:'A szelfin nem látszik jól az arc: próbálja újra', devisu_flagged:'Az egyezést nem sikerült megerősíteni: a bejelentkezést ettől még befejezheti', devisu_nd:'Az automatikus összevetés ezen az eszközön nem érhető el: a szelfit ettől még csatoljuk', devisu_required:'Hiányzik a csoportvezető ellenőrző szelfije', devisu_manual:'Semmi gond: a személyazonosságot a szállásadó kézzel erősíti meg. A bejelentkezést befejezheti.', contratto_fs:'Olvasás teljes képernyőn', contratto_fs_ok:'Rendben, elolvastam', contratto_apri:'A szerződés megnyitása és elolvasása', contratto_letto_btn:'Szerződés elolvasva — koppintson az újraolvasáshoz', contratto_scorri:'A megerősítéshez görgessen a végére', contratto_leggi_required:'Mielőtt továbblép, nyissa meg és olvassa végig a szerződést',
+    btn_add_guest:'+ Újabb vendég hozzáadása',
+    welcome_title:'Végezze el a bejelentkezést',
+    welcome_text:"Csak 2 perc: töltse fel minden vendég okmányát, és erősítse meg az adatokat.",
+    welcome_btn:'Tovább',
+    trust_secure:'Védett adatok', trust_fast:'Csak 2 perc', trust_reviewed:'A szállásadó ellenőrzi, sosem automatikus',
+    prog_date:'Dátumok', prog_doc:'Okmány', prog_check:'Ellenőrzés', prog_selfie:'Azonosítás', prog_send:'Küldés',
+    btn_next:'Tovább', btn_back:'‹ Vissza',
+    manual_link:'vagy adja meg az adatokat kézzel',
+    btn_confirm_data:'Adatok megerősítése ✓',
+    guest_added:'Vendég mentve!',
+    add_more_q:'Van még regisztrálandó vendég?',
+    btn_no_continue:'Nincs, tovább',
+    warn_alert:'Előfordulhat, hogy néhány mezőt nem sikerült pontosan beolvasni: ellenőrizze a sárgával kiemelteket.',
+    toast_fill_name:'Adja meg legalább a vezetéknevet és az utónevet',
+    recap_title:'Vendégek összesítése', btn_edit:'Szerkesztés',
+    privacy_title:'Adatvédelmi tájékoztató (GDPR)',
+    privacy_html:"<b>Adatkezelő:</b> a szálláshely üzemeltetője.<br><b>Adatfeldolgozók:</b> azok az esetleges kezelők, megbízottak és tanácsadók, akik a szálláshelyet a jogszabályi kötelezettségek teljesítésében segítik (beleértve a KeyFlow műszaki szolgáltatást), és az adatokat kizárólag az adatkezelő nevében és utasításai szerint kezelik.<br><b>Cél:</b> a személyes adatokat és a személyazonosító okmány másolatát kizárólag a vendégek rendőrségi (Questura) bejelentésére vonatkozó törvényi kötelezettség teljesítése érdekében gyűjtjük, az Alloggiati Web portálon keresztül (TULPS 109. cikk) — nem kereskedelmi vagy marketingcélból.<br><b>Megőrzés:</b> a hatályos jogszabályokban előírt ideig, utána töröljük.<br><b>Címzettek:</b> az olasz Állami Rendőrség (Alloggiati Web); más célból harmadik félnek nem adjuk át.<br><b>Az Ön jogai:</b> a szálláshelynél bármikor kérhet hozzáférést az adataihoz, azok helyesbítését vagy tájékoztatást róluk.",
+    consent_label:'Elolvastam a tájékoztatót, és hozzájárulok személyes adataim és a feltöltött okmány fenti célokra történő kezeléséhez.',
+    btn_submit:'Bejelentkezés elküldése',
+    ok_title:'Bejelentkezés kész', ok_text:'Köszönjük! Adatait ellenőrzésre elküldtük a szálláshelynek.',
+    block_title:'Érvénytelen link', block_text:'Ez a bejelentkezési link hibás vagy lejárt. Kérje el a helyes linket a szálláshelytől.',
+    step1_label:'1 · Az okmány fényképe (kötelező)', step2_label:'2 · Ellenőrizze az adatait',
+    step2_hint:'Ellenőrizze, hogy az okmány adatait helyesen olvastuk-e be, és javítsa a hibás vagy hiányzó adatokat.',
+    no_photo_msg:'📷 A folytatáshoz először töltse fel az okmány fényképét.',
+    cam_title:'Fotó az okmányról', cam_sub:'a kamerával', up_title:'Fájl feltöltése', up_sub:'fotó vagy PDF', or_divider:'vagy', dz_hint:'…vagy húzza ide, illetve illessze be · egyszerre több fájl is lehet · jól olvasható adatok',
+    cam_shot:'Fotó', cam_cancel:'Mégse', cam_error:'A kamera nem érhető el: használja a „Fájl feltöltése” gombot', cam_guide_hint:'Helyezze az okmányt a keretbe, egyenesen és olvashatóan',
+    step1_label_first:'1 · A vendégek okmányai (kötelező)',
+    first_multi_hint:'Töltse fel egyszerre az összes vendég okmányát (mi szétválogatjuk), vagy csak a sajátját. Jó minőségű fotó vagy PDF.',
+    inapp_hint:'📱 Ha a „Fotó az okmányról” nem nyitja meg rögtön a kamerát, menjen vissza a kezdőképernyőre, és koppintson a „Megnyitás böngészőben” gombra, vagy a „Fájl feltöltése” gombbal válassza ki a fotót a galériából.',
+    inapp_banner_text:'Hogy a kamera gond nélkül működjön, nyissa meg ezt az oldalt a böngészőjében (Chrome).',
+    inapp_banner_btn:'🌐 Megnyitás böngészőben',
+    btn_camera:'Fotó készítése most',
+    toast_pdf_big:"A PDF túl nagy (max. 25 MB): készítsen fotót az okmányról", toast_pdf_convert:"A PDF előkészítése…", toast_file_non_valido:"Nem támogatott fájltípus: töltsön fel fotót (JPG/PNG) vagy PDF-et az okmányról",
+    btn_extract_all:'✨ Okmányok felismerése',
+    toast_multi_read:'felismert vendég: ellenőrizze mindegyikük adatait',
+    toast_no_doc:'A fotókon nem sikerült okmányt felismerni',
+    btn_extract:'✨ Adatok kiolvasása az okmányból', btn_extract_loading:'Olvasás…',
+    label_cognome:'Vezetéknév', label_nome:'Utónév', label_sesso:'Nem', label_data_nascita:'Születési dátum',
+    label_comune_nascita:'Születési település', comune_nascita_hint:'(csak ha Olaszországban született)', comune_locked_hint:'🔒 Akkor oldódik fel, ha a születési ország ITALIA',
+    label_stato_nascita:'Születési ország', placeholder_es:'pl. ITALIA',
+    label_cittadinanza:'Állampolgárság', label_tipo_doc:'Okmány típusa',
+    doc_ci:'Személyi igazolvány', doc_cie:'Elektronikus személyi igazolvány (CIE)', doc_pass:'Útlevél', doc_patente:'Jogosítvány',
+    label_numero_doc:'Okmányszám', label_luogo_rilascio:'Kiállítás helye', luogo_rilascio_hint:'(település vagy ország)',
+    guest_default_name:'Vendég', warn_badge:'⚠ ellenőrizze', warn_ok_badge:'✓ ellenőrizve',
+    toast_add_photo_first:'Először adjon hozzá egy fotót az okmányról',
+    toast_data_read:'Az adatokat kiolvastuk az okmányból — ellenőrizze őket alább',
+    progress_title:'Okmányok felismerése', progress_reading_doc:'Okmány olvasása', progress_of:'/', progress_done:'Kész!',
+    toast_extract_failed:'A kiolvasás nem sikerült: ',
+    toast_indica_arrivo:'Adja meg az érkezés dátumát', toast_indica_partenza:'Adja meg a távozás dátumát',
+    toast_add_guest:'Adjon hozzá legalább egy vendéget', toast_accept_privacy:'A folytatáshoz el kell fogadnia az adatvédelmi tájékoztatót',
+    toast_send_failed:'A küldés nem sikerült: ', errore_foto_grandi:"A fotók túl nagyok a küldéshez. Próbálja újra; ha nem megy, töltsön fel kisebb fotókat, vagy egyszerre kevesebbet.", submit_status_invio:'Küldés…',
+    contratto_title:'Turisztikai bérleti szerződés', contratto_hint:'Olvassa el a szerződést, és alul az aláírásával fogadja el.',
+    sig_label:'A szerződés aláírása', sig_hint:'Írja alá itt az ujjával vagy az egérrel', sig_clear:'Aláírás törlése',
+    toast_sig_required:'A folytatáshoz írja alá a szerződést',
+    email_copia_label:'Kéri e-mailben a szerződés másolatát? (nem kötelező)', email_copia_ph:'Az Ön e-mail-címe',
+    btn_download_contract:'A szerződés letöltése (PDF)', ok_contract_hint:'Alább letöltheti a szerződés másolatát.',
+  },
 };
 let lang=localStorage.getItem('keyflow_lang')||null;
 function t(key){ return (T[lang]||T.it)[key]; }
@@ -1032,6 +1158,14 @@ const T2={
     verif_title:'Preverjanje identitete', verif_prep:'Pripravljam preverjanje…', verif_selfie:'Analiziram selfie…', verif_doc:'Berem obraz z dokumenta…', verif_compare:'Primerjam obraza…', verif_done_bar:'Končano', verif_done_title:'Preverjanje končano', verif_done_sub:'Hvala, lahko nadaljujete.', cam_selfie_hint:'Obraz postavite v oval, pri dobri svetlobi', verif_skip:'Nadaljujte brez preverjanja', verif_failed:'Preverjanje v tem telefonu ni delovalo: vseeno lahko nadaljujete.',
     lettura_ko:'Na teh fotografijah nismo mogli prebrati nobenega dokumenta.', lettura_ko_hint:'Poskusite znova z ostrimi, dobro osvetljenimi fotografijami (ena za vsak dokument) ali podatke vnesite ročno: vzame le minuto.', btn_manuale:'✍️ Vnesite podatke ročno', ok_add_more:'➕ Dodajte še goste', ok_add_more_hint:'Kdo manjka? Dodajte ga zdaj: pogodbe in selfija ni treba ponoviti.', aggiunta_banner:'Dodajate goste k že poslanemu check-inu: naložite njihove dokumente, lahko tudi vse hkrati.', foto_non_leggibile:'Te fotografije v tem telefonu ni mogoče odpreti (nepodprt format): pošljite jo kot JPG ali naredite posnetek zaslona.', date_passate:'Preverite datume bivanja: zdi se, da so v preteklosti.',
     link_monco_tit:'Povezava je prispela nepopolna', link_monco_txt:'Del povezave manjka: to se zgodi, ko jo klepet prevede ali skrajša. Odprite povezavo iz izvirnega sporočila (brez samodejnega prevoda) ali jo v celoti kopirajte v brskalnik. Če še vedno ne deluje, prosite nastanitveni obrat, naj vam jo pošlje znova.' },
+  bs:{ titolare_title:'Ko je nosilac rezervacije?', titolare_spoiler:'Izabrani nosilac obavit će provjeru identiteta selfijem i bit će naveden u ugovoru o najmu. Pazite da izaberete pravu osobu.', titolare_hint:'Dodirnite ime osobe koja je napravila rezervaciju.', titolare_for:'Provjera identiteta za',
+    verif_title:'Provjera identiteta', verif_prep:'Pripremam provjeru…', verif_selfie:'Analiziram selfie…', verif_doc:'Čitam lice s dokumenta…', verif_compare:'Poredim lica…', verif_done_bar:'Gotovo', verif_done_title:'Provjera završena', verif_done_sub:'Hvala, možete nastaviti.', cam_selfie_hint:'Postavite lice u oval, uz dobro svjetlo', verif_skip:'Nastavite bez provjere', verif_failed:'Provjera na ovom telefonu nije uspjela: ipak možete nastaviti.',
+    lettura_ko:'Na ovim fotografijama nismo uspjeli pročitati nijedan dokument.', lettura_ko_hint:'Pokušajte ponovo s oštrim, dobro osvijetljenim fotografijama (jedna po dokumentu) ili unesite podatke ručno: treba samo minuta.', btn_manuale:'✍️ Unesite podatke ručno', ok_add_more:'➕ Dodajte još gostiju', ok_add_more_hint:'Neko nedostaje? Dodajte ga sada: ugovor i selfie ne trebate ponavljati.', aggiunta_banner:'Dodajete goste već poslanom check-inu: učitajte njihove dokumente, mogu i svi odjednom.', foto_non_leggibile:'Ova fotografija se ne može otvoriti na ovom telefonu (nepodržan format): pošaljite je kao JPG ili napravite snimak ekrana.', date_passate:'Provjerite datume boravka: izgleda da su u prošlosti.',
+    link_monco_tit:'Link je stigao nepotpun', link_monco_txt:'Dio linka nedostaje: to se dešava kada ga chat prevede ili skrati. Otvorite link iz originalne poruke (bez automatskog prijevoda) ili ga cijelog kopirajte u preglednik. Ako i dalje ne radi, zamolite smještajni objekat da Vam ga ponovo pošalje.' },
+  hu:{ titolare_title:'Ki a foglalás tulajdonosa?', titolare_spoiler:'A kiválasztott foglaló végzi el a szelfis személyazonosság-ellenőrzést, és ő szerepel a bérleti szerződésben. Ügyeljen rá, hogy a megfelelő személyt válassza.', titolare_hint:'Koppintson annak a nevére, aki a foglalást végezte.', titolare_for:'Személyazonosság-ellenőrzés',
+    verif_title:'Személyazonosság ellenőrzése', verif_prep:'Az ellenőrzés előkészítése…', verif_selfie:'A szelfi elemzése…', verif_doc:'Az arc beolvasása az okmányról…', verif_compare:'Az arcok összevetése…', verif_done_bar:'Kész', verif_done_title:'Ellenőrzés kész', verif_done_sub:'Köszönjük, folytathatja.', cam_selfie_hint:'Helyezze az arcát az oválisba, jó fényben', verif_skip:'Folytatás ellenőrzés nélkül', verif_failed:'Az ellenőrzés ezen a telefonon nem működött: ettől még folytathatja.',
+    lettura_ko:'Ezeken a fotókon egyetlen okmányt sem sikerült beolvasni.', lettura_ko_hint:'Próbálja újra éles, jól megvilágított fotókkal (okmányonként egy), vagy írja be az adatokat kézzel: csak egy perc.', btn_manuale:'✍️ Adatok beírása kézzel', ok_add_more:'➕ További vendégek hozzáadása', ok_add_more_hint:'Valaki kimaradt? Adja hozzá most: a szerződést és a szelfit nem kell megismételni.', aggiunta_banner:'További vendégeket ad hozzá a már elküldött bejelentkezéshez: töltse fel az okmányaikat, akár mindet egyszerre.', foto_non_leggibile:'Ez a fotó ezen a telefonon nem nyitható meg (nem támogatott formátum): küldje el JPG-ként, vagy készítsen képernyőképet.', date_passate:'Kérjük, ellenőrizze a tartózkodás dátumait: úgy tűnik, a múltban vannak.',
+    link_monco_tit:'A link hiányosan érkezett meg', link_monco_txt:'A link egy része hiányzik: ez akkor fordul elő, ha a csevegőalkalmazás lefordítja vagy levágja. Nyissa meg a linket az eredeti üzenetből (automatikus fordítás nélkül), vagy másolja be teljes egészében a böngészőbe. Ha így sem működik, kérje meg a szálláshelyet, hogy küldje el újra.' },
 };
 function t2(key){ return (T2[lang]||T2.it)[key]; }
 // bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
@@ -1047,6 +1181,8 @@ const FLAGS={
   pl:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#fff"/><rect y="1" width="3" height="1" fill="#DC143C"/></svg>`,
   cs:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#fff"/><rect y="1" width="3" height="1" fill="#D7141A"/><path d="M0,0 L1.5,1 L0,2 Z" fill="#11457E"/></svg>`,
   sl:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#fff"/><rect y="0.667" width="3" height="0.667" fill="#0057B8"/><rect y="1.333" width="3" height="0.667" fill="#ED1C24"/><path d="M0.55,0.38 H1.05 V0.85 Q1.05,1.1 0.8,1.18 Q0.55,1.1 0.55,0.85 Z" fill="#0057B8" stroke="#ED1C24" stroke-width="0.05"/><path d="M0.6,0.95 L0.72,0.78 L0.8,0.88 L0.88,0.78 L1,0.95 Z" fill="#fff"/></svg>`,
+  bs:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#002395"/><path d="M0.9,0 H2.3 V2 Z" fill="#FECB00"/><circle cx="0.62" cy="0.10" r="0.07" fill="#fff"/><circle cx="0.82" cy="0.39" r="0.07" fill="#fff"/><circle cx="1.02" cy="0.68" r="0.07" fill="#fff"/><circle cx="1.22" cy="0.97" r="0.07" fill="#fff"/><circle cx="1.42" cy="1.26" r="0.07" fill="#fff"/><circle cx="1.62" cy="1.55" r="0.07" fill="#fff"/><circle cx="1.82" cy="1.84" r="0.07" fill="#fff"/></svg>`,
+  hu:`<svg class="flagsvg" viewBox="0 0 3 2" preserveAspectRatio="none"><rect width="3" height="2" fill="#CD2A3E"/><rect y="0.667" width="3" height="0.667" fill="#fff"/><rect y="1.333" width="3" height="0.667" fill="#436F4D"/></svg>`,
 };
 
 /* ===== schermate: solo una visibile alla volta (lang / form / ok / block) ===== */
@@ -1980,6 +2116,12 @@ function paragrafoContratto(cfg,d,lingua){
   if(lingua==='sl'){
     return `<b>POGODBA O TURISTIČNEM NAJEMU</b>\n\nG./ga ${cfg.locatoreNome}, v nadaljevanju najemodajalec\nDavčna številka ${cfg.codiceFiscale}\nE-pošta ${cfg.email}\n\nDaje v najem\n\nG./ga ${d.conduttoreNome}, v nadaljevanju najemnik\nŠtevilka osebnega dokumenta ${d.conduttoreDoc||'—'}\n\nKI SPREJME\n\nNepremičnino na naslovu ${ind}: ${cfg.vani?`število prostorov ${cfg.vani}, `:''}število ležišč ${cfg.postiLetto}, število kopalnic ${cfg.wc}. ${cfg.accessori?`Opremljena enota poleg kuhinje vključuje naslednje pomožne prostore (${cfg.accessori})`:'Opremljena enota s kuhinjo'}. Vpisana v kataster stavb občine ${cfg.comune}, list ${cfg.foglio}, parcela ${cfg.particella}, podenota ${cfg.subalterno}.\n\nZa najem veljajo naslednja določila:\n\n1. Pogodba je sklenjena od ${d.arrivo} do ${d.partenza} in preneha brez kakršne koli odpovedi.\n2. Nepremičnina se sme uporabljati izključno v turistične namene; skupno število nastanjenih oseb, vključno z najemnikom: ${d.numOspiti}.\n3. Najemnik nepremičnine NE sme v celoti ali delno oddati v podnajem ali v brezplačno uporabo, sicer pogodba preneha po samem zakonu.\n4. Najemnina je znesek, ki je bil plačan že ob rezervaciji in je razviden iz podrobnosti transakcije na uporabljeni platformi ${cfg.piattaforma}. Šteje se, da sta ta znesek sprejeli obe stranki brez potrebe po dodatni potrditvi.\n5. Najemnik mora lastnika ali njegovega zastopnika obvestiti o morebitnih napakah nepremičnine in pohištva v oseminštiridesetih urah od predaje ključev.\n6. Stroške storitev, kot so elektrika, voda, plin in stroški skupnih prostorov, krije najemodajalec (lastnik).\n\nPrebrano, odobreno in podpisano v kraju ${cfg.comune}, dne ${d.dataFirma}`;
   }
+  if(lingua==='bs'){
+    return `<b>UGOVOR O TURISTIČKOM NAJMU</b>\n\nG./gđa ${cfg.locatoreNome}, u daljem tekstu najmodavac\nPorezni broj ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nDaje u najam\n\nG./gđi ${d.conduttoreNome}, u daljem tekstu najmoprimac\nBroj ličnog dokumenta ${d.conduttoreDoc||'—'}\n\nKOJI/A PRIHVATA\n\nNekretninu na adresi ${ind}: ${cfg.vani?`broj prostorija ${cfg.vani}, `:''}broj ležaja ${cfg.postiLetto}, broj kupatila ${cfg.wc}. ${cfg.accessori?`Namještena jedinica pored kuhinje obuhvata sljedeće pomoćne prostorije (${cfg.accessori})`:'Namještena jedinica s kuhinjom'}. Upisana u katastar zgrada općine ${cfg.comune}, list ${cfg.foglio}, parcela ${cfg.particella}, podjedinica ${cfg.subalterno}.\n\nNajam se uređuje sljedećim odredbama:\n\n1. Ugovor se zaključuje od ${d.arrivo} do ${d.partenza} i prestaje bez ikakvog otkaza.\n2. Nekretnina se smije koristiti isključivo u turističke svrhe; ukupan broj smještenih osoba, uključujući najmoprimca: ${d.numOspiti}.\n3. Najmoprimac NE smije nekretninu u cijelosti ili djelimično dati u podnajam ili na besplatno korištenje, pod prijetnjom raskida ugovora po samom zakonu.\n4. Najamnina je iznos već plaćen prilikom rezervacije i vidi se u detaljima transakcije na korištenoj platformi ${cfg.piattaforma}. Smatra se da su ovaj iznos prihvatile obje strane bez potrebe za dodatnom potvrdom.\n5. Najmoprimac je dužan obavijestiti vlasnika ili njegovog zastupnika o eventualnim nedostacima nekretnine i namještaja u roku od četrdeset osam sati od predaje ključeva.\n6. Troškove usluga, kao što su struja, voda, plin i troškovi zajedničkih dijelova zgrade, snosi najmodavac (vlasnik).\n\nPročitano, odobreno i potpisano u mjestu ${cfg.comune}, dana ${d.dataFirma}`;
+  }
+  if(lingua==='hu'){
+    return `<b>TURISZTIKAI BÉRLETI SZERZŐDÉS</b>\n\n${cfg.locatoreNome} úr/hölgy, a továbbiakban: bérbeadó\nAdóazonosító ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nBérbe adja\n\n${d.conduttoreNome} úr/hölgy részére, a továbbiakban: bérlő\nSzemélyazonosító okmány száma: ${d.conduttoreDoc||'—'}\n\nAKI ELFOGADJA\n\nA következő címen található ingatlant: ${ind}; ${cfg.vani?`helyiségek száma: ${cfg.vani}, `:''}fekhelyek száma: ${cfg.postiLetto}, fürdőszobák száma: ${cfg.wc}. ${cfg.accessori?`A bútorozott egység a konyhán kívül a következő kiegészítő helyiségeket foglalja magában (${cfg.accessori})`:'Bútorozott egység konyhával'}. Nyilvántartva ${cfg.comune} település épület-nyilvántartásában, térképlap: ${cfg.foglio}, helyrajzi szám: ${cfg.particella}, albetét: ${cfg.subalterno}.\n\nA bérletre a következő feltételek vonatkoznak:\n\n1. A szerződés a(z) ${d.arrivo} és ${d.partenza} közötti időszakra jön létre, és felmondás nélkül megszűnik.\n2. Az ingatlan kizárólag turisztikai célra használható; az elszállásolt személyek száma a bérlővel együtt összesen: ${d.numOspiti}.\n3. A bérlő az ingatlant sem egészben, sem részben NEM adhatja albérletbe vagy ingyenes használatba; ellenkező esetben a szerződés a törvény erejénél fogva megszűnik.\n4. A bérleti díj a foglaláskor már megfizetett összeg, amely a használt platform (${cfg.piattaforma}) tranzakciós adatai között szerepel. Ezt az összeget mindkét fél további megerősítés nélkül elfogadottnak tekinti.\n5. A bérlő köteles az ingatlan és a bútorzat esetleges hibáit a kulcsok átvételétől számított negyvennyolc órán belül jelezni a tulajdonosnak vagy képviselőjének.\n6. A közüzemi szolgáltatások (például áram, víz, gáz) és a közös költség díjait a bérbeadó (tulajdonos) viseli.\n\nElolvasva, jóváhagyva és aláírva: ${cfg.comune}, ${d.dataFirma}`;
+  }
   return `<b>CONTRATTO DI LOCAZIONE TURISTICA</b>\n\nIl/la Sig. ${cfg.locatoreNome} denominato Locatore\nCodice Fiscale ${cfg.codiceFiscale}\nE-mail ${cfg.email}\n\nConcede in Locazione\n\nAlla/al Sig. ${d.conduttoreNome} denominato conduttore\nNumero Doc. Identità ${d.conduttoreDoc||'—'}\n\nCHE ACCETTA\n\n${descIT}\n\nLa locazione sarà regolata dalle seguenti pattuizioni:\n\n1. Il contratto è stipulato dal ${d.arrivo} al ${d.partenza} e cesserà senza disdetta alcuna.\n2. L'immobile dovrà essere destinato esclusivamente per finalità turistiche, e incluso il conduttore ${d.numOspiti===1?'sarà ospitato un numero di 1 persona':`saranno ospitate un numero di ${d.numOspiti} persone`}.\n3. Il conduttore NON potrà sublocare o dare in comodato, in tutto o in parte, l'unità immobiliare, pena la risoluzione di diritto del contratto.\n4. Il canone di locazione è quello già corrisposto al momento della prenotazione e risulta dal dettaglio della transazione sulla piattaforma utilizzata ${cfg.piattaforma}. Tale importo è considerato accettato da entrambe le parti senza necessità di ulteriore conferma.\n5. Il conduttore dovrà avvisare il proprietario o chi ne fa le veci degli eventuali difetti dell'immobile e dei mobili entro quarantotto ore dalla consegna delle chiavi.\n6. Le spese inerenti all'erogazione di servizi, quali: luce; acqua; gas; spese condominiali; sono a carico del locatore (proprietario).\n\nLetto, approvato e sottoscritto ${cfg.comune}, li ${d.dataFirma}`;
 }
 function wireFirmaCanvas(){
@@ -2209,7 +2351,7 @@ async function verificaAccesso(){
   }
 }
 
-// lingua automatica: se il telefono dell'ospite è in una delle 10 lingue supportate,
+// lingua automatica: se il telefono dell'ospite è in una delle 12 lingue supportate,
 // la usiamo subito senza fargli scegliere (può sempre cambiarla dal pulsante in alto)
 if(!lang){
   const nav=((navigator.language||navigator.userLanguage||'')+'').slice(0,2).toLowerCase();

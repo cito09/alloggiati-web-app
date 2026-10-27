@@ -77,6 +77,14 @@ function emailOspiteTesti(lang, { nomeStruttura, arrivo, partenza }) {
       subject: `Vaša kopija pogodbe · ${nomeStruttura}`,
       testo: `V prilogi je vaša kopija podpisane pogodbe o turističnem najemu za bivanje od ${arrivo} do ${partenza}.`,
     },
+    bs: {
+      subject: `Vaša kopija ugovora · ${nomeStruttura}`,
+      testo: `U prilogu je Vaša kopija potpisanog ugovora o turističkom najmu za boravak od ${arrivo} do ${partenza}.`,
+    },
+    hu: {
+      subject: `A szerződés másolata · ${nomeStruttura}`,
+      testo: `Mellékelten küldjük az aláírt turisztikai bérleti szerződés másolatát a(z) ${arrivo} és ${partenza} közötti tartózkodásához.`,
+    },
   };
   return M[lang] || M.it;
 }

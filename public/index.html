@@ -12993,17 +12993,37 @@ const isBlobPrivato=u=>/blob\.vercel-storage\.com\//i.test(String(u||''))&&!/\.p
 // attributo per un <img>: 'data-blob' se privato (verrà risolto via proxy), altrimenti 'src' diretto
 function fotoSrc(u){ return isBlobPrivato(u) ? `data-blob="${u}"` : `src="${u}"`; }
 function fotoHref(u){ return isBlobPrivato(u) ? `data-blob="${u}"` : `href="${u}"`; }
+// Ogni foto e ogni PDF privato passa dal server di Vercel, e quel traffico ha un limite nel piano
+// gratuito (10 GB al mese di "trasferimento all'origine": il 27/10/2026 è arrivato l'avviso del 75%).
+// Prima l'app riscaricava TUTTE le foto e i contratti dell'Archivio a ogni apertura, anche quelli
+// non visibili, e il telefono li teneva solo 5 minuti. Ora: si scarica solo quello che compare sullo
+// schermo (IntersectionObserver, le schede nascoste non scaricano niente), una volta sola mentre
+// l'app è aperta (BLOB_LOCALI) e il telefono lo tiene 30 giorni (Cache-Control del proxy: gli
+// indirizzi dei file sono unici, il contenuto non cambia mai).
+const BLOB_LOCALI=new Map();   // indirizzo privato → promessa dell'indirizzo locale (blob:)
+function scaricaBlob(url){
+  if(!BLOB_LOCALI.has(url)){
+    const p=fetch('/api/checkin-pending?img='+encodeURIComponent(url),{headers:adminHeaders()})
+      .then(r=>{ if(!r.ok)throw new Error('http '+r.status); return r.blob(); })
+      .then(b=>URL.createObjectURL(b));
+    p.catch(()=>BLOB_LOCALI.delete(url));
+    BLOB_LOCALI.set(url,p);
+  }
+  return BLOB_LOCALI.get(url);
+}
+function mostraBlob(el){
+  el.setAttribute('data-blobload','1');
+  scaricaBlob(el.getAttribute('data-blob'))
+    .then(obj=>{ if(el.tagName==='IMG') el.src=obj; else el.href=obj; })
+    .catch(()=>{ el.removeAttribute('data-blobload'); el.removeAttribute('data-blobvisto'); /* riproverà al prossimo giro */ });
+}
+let _blobVista=null;
+try{ _blobVista=new IntersectionObserver(voci=>voci.forEach(v=>{ if(v.isIntersecting){ _blobVista.unobserve(v.target); mostraBlob(v.target); } }),{rootMargin:'400px'}); }catch(e){}
 async function caricaBlobProtetti(scope){
-  const nodi=(scope||document).querySelectorAll('[data-blob]:not([data-blobload])');
+  const nodi=(scope||document).querySelectorAll('[data-blob]:not([data-blobload]):not([data-blobvisto])');
   for(const el of nodi){
-    el.setAttribute('data-blobload','1');
-    const url=el.getAttribute('data-blob');
-    try{
-      const r=await fetch('/api/checkin-pending?img='+encodeURIComponent(url),{headers:adminHeaders()});
-      if(!r.ok)throw new Error('http '+r.status);
-      const obj=URL.createObjectURL(await r.blob());
-      if(el.tagName==='IMG') el.src=obj; else el.href=obj;
-    }catch(e){ el.removeAttribute('data-blobload'); /* riproverà al prossimo giro */ }
+    if(_blobVista){ el.setAttribute('data-blobvisto','1'); _blobVista.observe(el); }
+    else mostraBlob(el);
   }
 }
 let _blobT;
@@ -13147,11 +13167,8 @@ async function raddrizzaInRegistrazione(chiave,src,gradi){
 // apre un PDF: se è un file privato lo chiede al proxy autenticato, poi lo apre in una scheda
 async function apriPdf(u){
   try{
-    if(isBlobPrivato(u)){
-      const r=await fetch('/api/checkin-pending?img='+encodeURIComponent(u),{headers:adminHeaders()});
-      if(!r.ok)throw new Error('http '+r.status);
-      window.open(URL.createObjectURL(await r.blob()),'_blank');
-    } else window.open(u,'_blank');
+    if(isBlobPrivato(u)) window.open(await scaricaBlob(u),'_blank');
+    else window.open(u,'_blank');
   }catch(e){ toast('Non riesco ad aprire il PDF: '+e.message); }
 }
 function apriContrattoBlob(el){ const u=el.href; if(u&&u.startsWith('blob:'))window.open(u,'_blank'); return false; }
