@@ -16458,7 +16458,8 @@ function riquadriSezioni(){
     const g=voci[0].giorno, prime=voci.filter(v=>v.giorno===g);
     const [aa,mm,dd]=g.split('-').map(Number), d=new Date(aa,mm-1,dd);
     const diff=Math.round((d-new Date(new Date().setHours(0,0,0,0)))/864e5);
-    const quando=diff===0?'Oggi':diff===1?'Domani':`${['dom','lun','mar','mer','gio','ven','sab'][d.getDay()]} ${dd}/${mm}`;
+    // corto, sennò nel riquadro stretto del telefono si legge "ven 3…" (28/10/2026)
+    const quando=diff===0?'Oggi':diff===1?'Domani':`${['Dom','Lun','Mar','Mer','Gio','Ven','Sab'][d.getDay()]} ${dd}`;
     const oggiMandati=diff===0&&(p.oggi||[]).length&&(p.oggi||[]).every(m=>{ const st=(p.mandate||{})[`o|${p.giorno}|${m.casa}`]; return st&&st.h===impronta(m.testo); });
     pul={...pul, val:quando, st:diff===0&&!oggiMandati?'att':oggiMandati?'ok':'', html:true,
       nota:prime.length===1   // una casa: "● Alba Loft" e sotto "👤 2 ospiti"; più case: una riga ciascuna
@@ -16490,10 +16491,22 @@ function renderSezioniHome(){
     <div class="home-tiles">${tiles.map(t=>`<button class="tile ${t.st}" style="--c:${t.c}" onclick="vaiSezione('${t.id}')">
       <span class="t-ico">${t.ico}</span><span class="t-dot"></span><span class="t-val">${escText(String(t.val))}</span>
       <span class="t-tit">${t.tit}</span><span class="t-nota">${t.html?t.nota:escText(t.nota)}</span></button>`).join('')}</div>`;
+  adattaValoriTile();
   // la scheda aperta da sola è sparita (es. ultima recensione fatta): si torna ai riquadri
   const pg=$('#page-oggi'), on=pg&&pg.querySelector(':scope>.sez-on');
   if(pg&&pg.classList.contains('in-sez')&&(!on||on.style.display==='none'))chiudiSezione();
 }
+// il valore grande del riquadro (numero, "Domani", "Ven 30") si rimpicciolisce finché ci sta intero:
+// sui telefoni stretti veniva tagliato coi puntini
+function adattaValoriTile(){
+  document.querySelectorAll('#homeSezioni .t-val').forEach(el=>{
+    el.style.fontSize='';
+    if(!el.clientWidth)return;   // non visibile (es. modo collaboratore): niente da misurare
+    let px=parseFloat(getComputedStyle(el).fontSize)||20;
+    while(el.scrollWidth>el.clientWidth+1&&px>12){ px-=1; el.style.fontSize=px+'px'; }
+  });
+}
+window.addEventListener('resize',()=>{ clearTimeout(window._tileT); window._tileT=setTimeout(adattaValoriTile,120); });
 function sezioniATessere(){ return window.matchMedia('(max-width:899px)').matches; }
 var sezScroll=0;
 function vaiSezione(id){
