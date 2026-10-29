@@ -889,6 +889,9 @@
         • <b>Diciture IVA</b>: soggiorno «fuori campo IVA, art. 4 D.P.R. 633/1972»; imposta di soggiorno «esclusa da IVA, art. 15».<br>
         • <b>Firma</b>: il proprietario apre il link e firma col dito; il PDF non va stampato per l'ospite.
       </div></details>
+    <details class="cal-sez"><summary>♻️ Ricominciare da zero</summary>
+      <div class="muted" style="font-size:12px;line-height:1.5;margin-top:8px">Dopo le prove: cancella <b>tutte</b> le ricevute e la numerazione riparte da 1. Le marche usate tornano libere nella scorta (solo se non le hai attaccate davvero). Per una ricevuta sola: «Annulla» e poi «Togli dall'elenco».</div>
+      <button class="btn ghost sm" style="width:100%;margin-top:10px;color:var(--err)" onclick="rpAzzera()">♻️ Cancella tutte le ricevute</button></details>
   </div>
 </div>
 
@@ -1948,7 +1951,16 @@ async function rpAnnulla(id){
   try{ rpPrendi(await chiamaRp({op:'annulla', id})); rpRender(); toast('Ricevuta annullata'); }catch(e){ toast('⚠️ '+e.message); }
 }
 async function rpTogli(id){
+  const r=rp.lista.find(x=>x.id===id);
+  if(r&&r.marca&&!confirm(`Cancellarla del tutto?\n\nLa marca n. …${r.marca.codice.slice(-6)} torna nella scorta: fallo solo se NON l'hai attaccata su un foglio.`))return;
   try{ rpPrendi(await chiamaRp({op:'togli', id})); rpRender(); }catch(e){ toast('⚠️ '+e.message); }
+}
+async function rpAzzera(){
+  const n=rp.lista.length;
+  if(!n){ toast('Non ci sono ricevute da cancellare'); return; }
+  if(!confirm(`Cancellare TUTTE le ricevute (${n}) e ripartire dal numero 1?\n\nServe dopo le prove. Le marche usate tornano libere nella scorta; la scorta e «Chi firma» restano.`))return;
+  if(prompt('Per sicurezza scrivi AZZERA')!=='AZZERA'){ toast('Niente cancellato'); return; }
+  try{ rpPrendi(await chiamaRp({op:'azzera', conferma:'AZZERA'})); rp.bozza=null; rpRender(); toast('♻️ Fatto: si riparte da zero'); }catch(e){ toast('⚠️ '+e.message); }
 }
 async function rpSegnaMandata(id,si){
   try{ rpPrendi(await chiamaRp({op:'mandata', id, si})); rpRender(); }catch(e){ toast('⚠️ '+e.message); }

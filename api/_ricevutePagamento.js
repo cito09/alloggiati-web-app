@@ -333,12 +333,28 @@ async function azioneRicevute(conn, body, { strutture = [] } = {}) {
     return vista();
   }
 
+  // togliere una ricevuta annullata = cancellarla del tutto (di solito una prova): la marca torna
+  // nella scorta e il numero si libera
   if (op === "togli") {
     const r = trova(body.id);
     if (!r) return { ok: false, error: "Ricevuta non trovata" };
     if (r.stato !== "annullata") return { ok: false, error: "Prima annulla la ricevuta" };
+    const m = r.marca && s.marche.find((x) => x.codice === r.marca.codice);
+    if (m && (m.usata === r.id || !m.usata)) m.usata = null;
     if (r.firma && r.firma.url) { try { await require("./_blob").eliminaBlob(r.firma.url); } catch { /* resta il file, pazienza */ } }
     s.lista = s.lista.filter((x) => x !== r);
+    await scrivi(conn, s);
+    return vista();
+  }
+
+  // "♻️ Azzera tutto" (29/10/2026, l'utente dopo le prove: "devo cancellare, dammi possibilità di
+  // reset"): via tutte le ricevute e le loro firme, le marche tornano libere nella scorta, la
+  // numerazione riparte da 1. Restano la scorta delle marche e "Chi firma le ricevute".
+  if (op === "azzera") {
+    if (body.conferma !== "AZZERA") return { ok: false, error: "Conferma mancante" };
+    for (const r of s.lista) if (r.firma && r.firma.url) { try { await require("./_blob").eliminaBlob(r.firma.url); } catch { /* pazienza */ } }
+    s.lista = [];
+    for (const m of s.marche) m.usata = null;
     await scrivi(conn, s);
     return vista();
   }
