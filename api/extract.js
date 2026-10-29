@@ -37,6 +37,13 @@ ${haTesto ? `- Il messaggio di testo spesso contiene una lista di dati per ospit
 - Per ogni ospite (data di nascita: leggi l'anno con attenzione, può essere molto nel passato, va bene così): ${REGOLE_OSPITE}`;
 }
 
+// Marche da bollo (contrassegni telematici) per la scorta delle Ricevute di pagamento: si fotografano
+// e si legge da solo il numero (29/10/2026, l'utente: "metti che si può fare foto e riconosce in
+// automatico il n° delle marche, così togliamo il manuale"). Anche più marche nella stessa foto.
+const PROMPT_MARCA = `Nelle immagini ci sono una o più marche da bollo italiane (contrassegni telematici adesivi dell'Agenzia delle Entrate). Per OGNI marca leggi: il numero "IDENTIFICATIVO" (esattamente 14 cifre), la data di emissione stampata (gg/mm/aaaa, è vicino all'ora, es. "06/02/2025 11:27:48") e l'importo in euro (es. 2,00 o 16,00). Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
+{"marche":[{"codice":"14 cifre","data":"gg/mm/aaaa"|null,"importo":number|null,"sicuro":true|false}]}
+DOPPIA VERIFICA del codice: sotto il codice a barre le stesse 14 cifre sono stampate di nuovo, raggruppate con spazi (es. "0 1 24 056408 459 2" = 01240564084592). Leggi entrambe e confrontale cifra per cifra: se coincidono "sicuro":true, se differiscono o una cifra è illeggibile scrivi la lettura più probabile con "sicuro":false. Non confondere l'identificativo con gli altri numeri stampati sulla marca (codici a 8 cifre, codice esadecimale, ecc.). Se non ci sono marche: {"marche":[]}.`;
+
 // accetta sia data-URL (foto caricate dal browser) sia URL http(s) (foto gia' su Vercel Blob,
 // es. quelle arrivate dal self check-in): in quel caso le scarica e le converte lato server.
 const { leggiBlob } = require("./_blob");
@@ -83,7 +90,7 @@ module.exports = async (req, res) => {
       });
     }
     const oggi = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi, !!testo) : PROMPT_DOC;
+    const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi, !!testo) : kind === "marca" ? PROMPT_MARCA : PROMPT_DOC;
     content.push({ type: "text", text: prompt });
 
     const chiedi = async (model) => {
