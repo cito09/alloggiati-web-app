@@ -307,6 +307,35 @@
   .collab-az{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
   .collab-az .btn{flex:1 1 140px; width:auto}
   .collab-az .btn.ghost,.collab-cod .btn.ghost{background:var(--surface)}
+  /* Impostazioni → 💶 Ricevute di pagamento agli ospiti */
+  .rp-card{background:var(--surface2); border-radius:20px; padding:14px; margin-top:10px}
+  .rp-card.spenta{opacity:.55}
+  .rp-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .rp-top .pallo{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
+  .rp-top b{font-size:14.5px}
+  .rp-chi{flex:1 1 140px; min-width:0; font-weight:700; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .rp-pill{font-size:11.5px; font-weight:800; padding:4px 9px; border-radius:999px; background:rgba(255,255,255,.08); color:var(--ink); white-space:nowrap}
+  .rp-pill.dati{background:rgba(111,176,255,.16); color:var(--blue)}
+  .rp-pill.firmare{background:rgba(255,183,3,.16); color:#ffcf5a}
+  .rp-pill.firmata{background:rgba(45,198,83,.15); color:var(--ok)}
+  .rp-info{font-size:12.5px; color:var(--muted); margin-top:5px; line-height:1.45}
+  .rp-nota{font-size:12.5px; margin-top:8px; padding:9px 11px; border-radius:12px; background:var(--surface); line-height:1.45}
+  .rp-az{display:flex; flex-wrap:wrap; gap:8px; margin-top:11px}
+  .rp-az .btn{flex:1 1 150px; width:auto; background:var(--surface)}
+  .rp-az .btn.primary{background:var(--amber)}
+  .rp-form{background:var(--surface2); border-radius:20px; padding:14px 14px 16px; margin-top:12px}
+  .rp-form input,.rp-form select,.rp-form textarea{background:var(--surface)!important}
+  .rp-form .due{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .rp-form .due>div{min-width:0}
+  .rp-scelta{display:flex; gap:6px; margin-top:6px}
+  .rp-scelta button{flex:1; border:none; border-radius:13px; padding:10px 8px; font-family:inherit; font-size:13px; font-weight:700; background:var(--surface); color:var(--muted); cursor:pointer}
+  .rp-scelta button.on{background:rgba(132,227,211,.16); color:var(--amber); box-shadow:inset 0 0 0 1.5px rgba(132,227,211,.5)}
+  .rp-tot{display:flex; justify-content:space-between; align-items:baseline; margin-top:12px; padding:10px 12px; border-radius:13px; background:var(--surface); font-size:13.5px}
+  .rp-tot b{font-size:17px}
+  .rp-marca{margin-top:10px; padding:11px 12px; border-radius:13px; background:rgba(255,183,3,.08); border-left:3px solid #ffb703; font-size:12.5px}
+  .rp-mriga{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); font-size:13px}
+  .rp-mriga:last-child{border-bottom:none}
+  .rp-mriga code{font-family:var(--mono); font-size:12.5px; letter-spacing:.02em}
   @media (max-width:899px){
     body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiTodoCard,body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiPulizieCard,
     body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiRecensioniCard,body:not(.modo-team) #page-oggi:not(.in-sez)>#oggiScadenzeCard{display:none!important}
@@ -789,6 +818,7 @@
 
     <div class="menu-gruppo">Prenotazioni e ospiti</div>
     <button class="link-row menu-riga" onclick="apriCalendari()"><span class="mi">📅</span><span style="flex:1;text-align:left">Calendari Airbnb · prenotazioni in anticipo</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga" onclick="apriRicPag()"><span class="mi">💶</span><span style="flex:1;text-align:left">Ricevute di pagamento agli ospiti</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriRecupero()"><span class="mi">🛟</span><span style="flex:1;text-align:left">Recupero e pulizia</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowStruttura" onclick="apriCase()"><span class="mi">🏠</span><span style="flex:1;text-align:left">Le case · orari e pulizie</span><span class="freccia">›</span></button>
     <div class="menu-gruppo">Comunicazioni obbligatorie</div>
@@ -835,6 +865,30 @@
     <div id="collabAvviso"></div>
     <div id="collabLista" style="margin-top:12px"></div>
     <button class="btn primary" id="collabAggiungi" style="margin-top:12px" onclick="collabNuovo()">➕ Aggiungi un collaboratore</button>
+  </div>
+</div>
+
+<div class="pagina-piena" id="ricpagOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('ricpagOverlay')" style="width:auto">← Indietro</button>
+    <h2>💶 Ricevute di pagamento</h2>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Per chi chiede «la fattura»: da privati la fattura non si fa, si fa una <b>ricevuta</b> firmata da chi incassa (il proprietario). La prepari tu, il proprietario la firma col dito da un link, tu mandi il PDF all'ospite. Numero, marca da bollo e diciture li mette KeyFlow.</div>
+    <div id="rpAvviso"></div>
+    <div id="rpForm"></div>
+    <button class="btn primary" id="rpNuovaBtn" style="margin-top:12px" onclick="rpNuova()">➕ Nuova ricevuta</button>
+    <div id="rpLista" style="margin-top:6px"></div>
+    <details class="cal-sez" id="rpMarcheSez"><summary>🏷️ Scorta marche da bollo <span class="muted" id="rpMarcheRias"></span></summary><div id="rpMarche"></div></details>
+    <details class="cal-sez" id="rpEmittSez"><summary>✍️ Chi firma le ricevute <span class="muted" id="rpEmittRias"></span></summary><div id="rpEmittenti"></div></details>
+    <details class="cal-sez"><summary>ℹ️ Come funziona</summary>
+      <div class="muted" style="font-size:12px;line-height:1.55;margin-top:8px">
+        • <b>Niente fattura</b>: senza partita IVA si rilascia una ricevuta. Va intestata a chi la chiede e firmata da chi incassa, cioè il proprietario.<br>
+        • <b>Importo</b>: quello pattuito con l'ospite (soggiorno e pulizie, prima della commissione di Airbnb all'host), senza i costi del servizio che l'ospite paga ad Airbnb. L'imposta di soggiorno solo se l'hai incassata tu (a Bologna con Airbnb la versa Airbnb).<br>
+        • <b>Marca da bollo da € 2</b> se il totale supera € 77,47 (anche con la cedolare secca: quella toglie il bollo solo sul contratto). Col PDF la marca va sull'<b>originale che tieni tu</b>: stampa «Originale con la marca», attaccala nel riquadro, annullala scrivendo la data a cavallo tra marca e foglio e conservala <b>3 anni</b>. Sul PDF per l'ospite c'è il numero della marca. Ogni marca vale una volta sola e la sua data non può essere dopo quella della ricevuta. Il costo, per legge, sarebbe a carico di chi chiede la ricevuta.<br>
+        • <b>Diciture IVA</b>: soggiorno «fuori campo IVA, art. 4 D.P.R. 633/1972»; imposta di soggiorno «esclusa da IVA, art. 15».<br>
+        • <b>Firma</b>: il proprietario apre il link e firma col dito; il PDF non va stampato per l'ospite.
+      </div></details>
   </div>
 </div>
 
@@ -1564,6 +1618,341 @@ async function collabTogli(k){
   if(!confirm(`Togliere l'accesso a ${m.nome}? Il suo codice smette subito di funzionare.`))return;
   try{ const d=await chiamaCollab({op:'togli', id:k}); collab.lista=d.lista||[]; renderCollab(); toast(`Accesso di ${m.nome} tolto`); }
   catch(e){ toast('⚠️ '+e.message); }
+}
+/* ===== 💶 RICEVUTE DI PAGAMENTO agli ospiti (≠ "Ricevute Questura") — server: api/_ricevutePagamento.js
+   29/10/2026, un'ospite chiede "la fattura intestata al Maestro Abbado". Da privati si fa una RICEVUTA
+   firmata da chi incassa (il proprietario), con marca da € 2 sopra € 77,47. L'utente: "faccio tutto io
+   su KeyFlow: compro le marche, quando c'è da firmare glielo giro, lei me lo firma e io mando".
+   Stati: dati (aspetta i dati dell'ospite dal link /r/…) → firmare (link /r/… al proprietario, firma
+   col dito) → firmata (PDF per l'ospite + "Originale con la marca" da stampare) · annullata. ===== */
+const rp={lista:[], marche:[], emittenti:{}, pagamenti:['Airbnb','Booking.com','Bonifico bancario','Contanti','Carta di pagamento','Altro'], bozza:null, pdf:{}, evidenzia:''};
+const RP_SOGLIA=7747;   // centesimi: oltre € 77,47 serve la marca da bollo
+async function chiamaRp(corpo){
+  const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+    body:JSON.stringify(Object.assign({azione:'ricevute'},corpo))});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.ok)throw new Error(d.error||'Non riuscito, riprova');
+  return d;
+}
+function rpPrendi(d){ rp.lista=d.lista||[]; rp.marche=d.marche||[]; rp.emittenti=d.emittenti||{}; if(Array.isArray(d.pagamenti)&&d.pagamenti.length)rp.pagamenti=d.pagamenti; }
+async function apriRicPag(bozza){
+  apriPagina('ricpagOverlay');
+  if(bozza)rp.bozza=bozza;
+  rpRender();
+  try{ rpPrendi(await chiamaRp({op:'lista'})); $('#rpAvviso').innerHTML=''; }
+  catch(e){ $('#rpAvviso').innerHTML=`<div class="hint" style="border-left-color:var(--err)">⚠️ ${escText(e.message)}</div>`; }
+  rpRender();
+  if(rp.bozza)setTimeout(()=>{ const f=$('#rpForm'); if(f)f.scrollIntoView({block:'start',behavior:'smooth'}); },80);
+}
+const rpEuro=c=>(Number(c||0)/100).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+const rpIt=iso=>{ const [a,m,g]=String(iso||'').split('-'); return a?`${g}/${m}/${a}`:''; };
+function rpCent(v){   // come il server: "1.250,50" / "340" / "340.5" → centesimi (NaN se non è un importo)
+  let s=String(v==null?'':v).replace(/[€\s]/g,''); if(!s)return 0;
+  if(/,\d{1,2}$/.test(s))s=s.replace(/\./g,'').replace(',','.'); else if(/^\d{1,3}(\.\d{3})+$/.test(s))s=s.replace(/\./g,'');
+  return /^\d+(\.\d{1,2})?$/.test(s)?Math.round(parseFloat(s)*100):NaN;
+}
+const rpCentInput=c=>c?(Number(c)/100).toFixed(2).replace('.',','):'';
+function rpNomeCasa(id){ const x=struttureList.find(v=>v.id===id); return x?x.nome:(id||''); }
+const rpLink=tok=>location.origin+'/r/'+tok;
+const rpPrimoNome=t=>maiuscoleIniziali(String(t||'').trim().split(/[\s,]+/)[0]||'');
+const rpNum=r=>r.numero?`${r.numero}/${r.anno}`:'';
+const rpTot=r=>(r.soggiorno||0)+(r.tassa||0);
+function rpPeriodo(dal,al){ try{ return somPeriodo(new Date(dal+'T00:00'),new Date(al+'T00:00')); }catch(e){ return rpIt(dal)+' – '+rpIt(al); } }
+function rpBozzaVuota(extra){
+  return Object.assign({id:'', casa:(struttureList[0]||{}).id||'', chiediDati:false, intestatario:{nome:'',indirizzo:'',cf:''}, ospiti:'', dal:'', al:'',
+    soggiorno:'', tassa:'', pagamento:'Airbnb', data:'', numero:'', marca:null, nota:''}, extra||{});
+}
+function rpNuova(){ rp.bozza=rpBozzaVuota(); rpRender(); setTimeout(()=>{ const f=$('#rpForm'); if(f)f.scrollIntoView({block:'start',behavior:'smooth'}); },60); }
+// dal riepilogo della prenotazione (calendario): casa, date e ospiti già scritti
+function rpDaSommario(){
+  const c=window._somCorrente; if(!c||!c.s)return;
+  const s=c.s;
+  rp.bozza=rpBozzaVuota({casa:s.strutturaId||idCasaDaNome(s.struttura)||(struttureList[0]||{}).id||'',
+    ospiti:(c.nomi||[]).join(', '), dal:s.arrivo?dataKey(s.arrivo):'', al:s.partenza?dataKey(s.partenza):'',
+    pagamento:/booking/i.test((s.esterna?s.fonte:s.fonteEst)||'')?'Booking.com':'Airbnb'});
+  chiudiSommario();
+  apriRicPag(rp.bozza);
+}
+function rpModifica(id,scrivoIo){
+  const r=rp.lista.find(x=>x.id===id); if(!r)return;
+  rp.bozza=rpBozzaVuota({id:r.id, casa:r.casa, chiediDati:!scrivoIo&&r.stato==='dati'&&!r.datiOspite, intestatario:Object.assign({nome:'',indirizzo:'',cf:''},r.intestatario||{}),
+    ospiti:r.ospiti||'', dal:r.dal, al:r.al, soggiorno:rpCentInput(r.soggiorno), tassa:rpCentInput(r.tassa), pagamento:r.pagamento||'Airbnb',
+    data:r.data||'', numero:r.numero||'', marca:r.marca||null, nota:r.nota||''});
+  rpRender();
+  setTimeout(()=>{ const f=$('#rpForm'); if(f)f.scrollIntoView({block:'start',behavior:'smooth'}); },60);
+}
+function rpNumeroProposto(b){
+  const anno=Number(String(b.data||dataKey(new Date())).slice(0,4));
+  const prima=b.id&&rp.lista.find(x=>x.id===b.id);
+  if(prima&&prima.numero&&prima.anno===anno&&prima.casa===b.casa)return `${prima.numero}/${anno}`;
+  const em=rp.emittenti[b.casa]||{}, chiave=String(em.cf||'').toUpperCase()||'casa:'+b.casa;
+  let max=0;
+  rp.lista.forEach(x=>{ if(x.id===b.id||!x.numero||x.anno!==anno)return;
+    const k=String((x.emittente&&x.emittente.cf)||'').toUpperCase()||'casa:'+x.casa; if(k===chiave)max=Math.max(max,x.numero); });
+  return `${max+1}/${anno}`;
+}
+function rpLeggiForm(){
+  const b=rp.bozza; if(!b||!$('#rp-f-casa'))return;
+  const val=id=>{ const el=$('#'+id); return el?el.value:undefined; };
+  [['casa','rp-f-casa'],['ospiti','rp-f-ospiti'],['dal','rp-f-dal'],['al','rp-f-al'],['soggiorno','rp-f-sogg'],['tassa','rp-f-tassa'],
+   ['pagamento','rp-f-pag'],['data','rp-f-data'],['numero','rp-f-num'],['nota','rp-f-nota']].forEach(([k,id])=>{ const x=val(id); if(x!==undefined)b[k]=x; });
+  if($('#rp-f-nome'))b.intestatario={nome:val('rp-f-nome'),indirizzo:val('rp-f-ind'),cf:val('rp-f-cf')};
+  const sel=val('rp-f-msel'), cod=val('rp-f-mcod'), dt=val('rp-f-mdata');
+  b._msel=sel;
+  if(sel&&sel!=='altra'){ const m=rp.marche.find(x=>x.codice===sel); b.marca=m?{codice:m.codice,data:m.data}:null; }
+  else if(cod!==undefined)b.marca={codice:cod.replace(/\D/g,''),data:dt||''};
+}
+function rpRenderForm(){
+  const w=$('#rpForm'), nb=$('#rpNuovaBtn'); if(!w)return;
+  const b=rp.bozza;
+  if(nb)nb.style.display=b?'none':'';
+  if(!b){ w.innerHTML=''; return; }
+  const v=x=>escText(x==null?'':x).replace(/"/g,'&quot;');
+  const it=b.intestatario||{};
+  const opzCase=struttureList.map(x=>`<option value="${v(x.id)}"${x.id===b.casa?' selected':''}>${escText(x.nome)}</option>`).join('')
+    ||`<option value="${v(b.casa)}">${escText(b.casa||'—')}</option>`;
+  const prop=rpNumeroProposto(b);
+  w.innerHTML=`<div class="rp-form" id="rp-form-box">
+    <div style="font-weight:800;font-size:15px">${b.id?'✏️ Modifica la ricevuta':'➕ Nuova ricevuta'}</div>
+    <label for="rp-f-casa">Casa</label><select id="rp-f-casa" onchange="rpLeggiForm();rpRenderForm()">${opzCase}</select>
+    <label>A chi va intestata</label>
+    <div class="rp-scelta"><button type="button" class="${b.chiediDati?'':'on'}" onclick="rpLeggiForm();rp.bozza.chiediDati=false;rpRenderForm()">✍️ Scrivo io i dati</button>
+      <button type="button" class="${b.chiediDati?'on':''}" onclick="rpLeggiForm();rp.bozza.chiediDati=true;rpRenderForm()">📨 Li scrive l'ospite</button></div>
+    ${b.chiediDati?`<div class="muted" style="font-size:12px;margin-top:8px;line-height:1.45">Salvando ti preparo un messaggio con un link da incollare nella chat con l'ospite: scrive lui nome, indirizzo e codice fiscale o partita IVA, e la ricevuta passa da sola «da firmare» (ti arriva la notifica).</div>`
+    :`<input type="text" id="rp-f-nome" placeholder="Nome e cognome o ragione sociale" value="${v(it.nome)}" maxlength="120" style="margin-top:8px">
+      <input type="text" id="rp-f-ind" placeholder="Indirizzo (via, CAP, città)" value="${v(it.indirizzo)}" maxlength="180" style="margin-top:8px">
+      <input type="text" id="rp-f-cf" placeholder="Codice fiscale o partita IVA" value="${v(it.cf)}" maxlength="30" style="margin-top:8px;text-transform:uppercase" autocapitalize="characters" spellcheck="false">`}
+    <label for="rp-f-ospiti">Ospiti <span class="muted">(facoltativo, vanno nella descrizione)</span></label>
+    <input type="text" id="rp-f-ospiti" value="${v(b.ospiti)}" placeholder="es. Giulia Rossi" maxlength="200">
+    <div class="due"><div><label for="rp-f-dal">Arrivo</label><input type="date" id="rp-f-dal" value="${v(b.dal)}"></div>
+      <div><label for="rp-f-al">Partenza</label><input type="date" id="rp-f-al" value="${v(b.al)}"></div></div>
+    <div class="due"><div><label for="rp-f-sogg">Soggiorno €</label><input type="text" inputmode="decimal" id="rp-f-sogg" value="${v(b.soggiorno)}" placeholder="340,00" oninput="rpAggiornaTotale()"></div>
+      <div><label for="rp-f-tassa">Imposta di soggiorno €</label><input type="text" inputmode="decimal" id="rp-f-tassa" value="${v(b.tassa)}" placeholder="solo se incassata da te" oninput="rpAggiornaTotale()"></div></div>
+    <div class="muted" style="font-size:11.5px;margin-top:6px;line-height:1.45">Soggiorno = prezzo pattuito con l'ospite (notti e pulizie), prima della commissione di Airbnb all'host, senza i costi del servizio pagati dall'ospite ad Airbnb.</div>
+    <div class="rp-tot" id="rp-tot"></div>
+    <div id="rp-marca"></div>
+    <label for="rp-f-pag">Pagato tramite</label><select id="rp-f-pag">${rp.pagamenti.map(x=>`<option${x===b.pagamento?' selected':''}>${escText(x)}</option>`).join('')}</select>
+    ${b.chiediDati?'':`<div class="due"><div><label for="rp-f-data">Data della ricevuta</label><input type="date" id="rp-f-data" value="${v(b.data||dataKey(new Date()))}"></div>
+      <div><label for="rp-f-num">Numero</label><input type="number" id="rp-f-num" min="1" inputmode="numeric" value="${v(b.numero)}" placeholder="${v(prop.split('/')[0])}"></div></div>
+      <div class="muted" style="font-size:11.5px;margin-top:6px">Vuoto = il prossimo, <b>${escText(prop)}</b>. Scrivilo solo se quest'anno hai già fatto ricevute a mano.</div>`}
+    <label for="rp-f-nota">Nota <span class="muted">(facoltativa, es. codice della prenotazione)</span></label>
+    <input type="text" id="rp-f-nota" value="${v(b.nota)}" maxlength="300">
+    <div id="rp-f-msg"></div>
+    <div class="rp-az" style="margin-top:14px"><button class="btn primary" id="rp-f-salva" onclick="rpSalva()">${b.chiediDati?'💾 Salva e crea il link per l\'ospite':'💾 Salva e prepara la firma'}</button>
+      <button class="btn ghost" onclick="rp.bozza=null;rpRender()">Annulla</button></div>
+  </div>`;
+  rpAggiornaTotale();
+}
+// totale e, sopra € 77,47, la marca da bollo: dalla scorta (la più vecchia libera) o scritta a mano
+function rpAggiornaTotale(){
+  const b=rp.bozza; if(!b)return;
+  const sg=rpCent(($('#rp-f-sogg')||{}).value), tx=rpCent(($('#rp-f-tassa')||{}).value);
+  const tot=(sg>0?sg:0)+(tx>0?tx:0);
+  const box=$('#rp-tot'); if(box)box.innerHTML=`<span>Totale${isNaN(sg)||isNaN(tx)?' <span style="color:var(--err)">· importo non valido</span>':''}</span><b>€ ${rpEuro(tot)}</b>`;
+  const m=$('#rp-marca'); if(!m)return;
+  const prima={cod:($('#rp-f-mcod')||{}).value, data:($('#rp-f-mdata')||{}).value, sel:($('#rp-f-msel')||{}).value};
+  if(tot<=RP_SOGLIA){ m.innerHTML=tot?'<div class="muted" style="font-size:12px;margin-top:8px">Fino a € 77,47 la marca da bollo non serve.</div>':''; return; }
+  const libere=rp.marche.filter(x=>!x.usata||(b.id&&x.usata===b.id));
+  let scelta=prima.sel||b._msel||(b.marca&&libere.some(x=>x.codice===b.marca.codice)?b.marca.codice:b.marca&&b.marca.codice?'altra':(libere[0]||{}).codice||'altra');
+  if(scelta!=='altra'&&!libere.some(x=>x.codice===scelta))scelta=(libere[0]||{}).codice||'altra';
+  const altra=scelta==='altra';
+  const cod=prima.cod!=null?prima.cod:(altra&&b.marca?b.marca.codice:''), dt=prima.data!=null?prima.data:(altra&&b.marca?b.marca.data:'');
+  m.innerHTML=`<div class="rp-marca"><b>🏷️ Serve la marca da bollo da € 2</b> <span class="muted">(totale oltre € 77,47)</span>
+    ${libere.length?`<select id="rp-f-msel" style="margin-top:8px" onchange="rpAggiornaTotale()">${libere.map(x=>`<option value="${x.codice}"${x.codice===scelta?' selected':''}>Dalla scorta · n. …${x.codice.slice(-6)} del ${rpIt(x.data)}</option>`).join('')}
+        <option value="altra"${altra?' selected':''}>✏️ Un'altra, scrivo il codice</option></select>`
+      :'<div class="muted" style="font-size:12px;margin-top:6px">Nella scorta non ce ne sono: scrivi qui quella che userai (la aggiungo io alla scorta).</div>'}
+    ${altra?`<div class="due"><div><label for="rp-f-mcod">Codice (14 cifre)</label><input type="text" inputmode="numeric" id="rp-f-mcod" maxlength="20" value="${escText(cod||'')}" placeholder="01240564084592"></div>
+      <div><label for="rp-f-mdata">Data sulla marca</label><input type="date" id="rp-f-mdata" value="${escText(dt||'')}"></div></div>`:''}
+  </div>`;
+}
+async function rpSalva(){
+  rpLeggiForm();
+  const b=rp.bozza, msg=$('#rp-f-msg'), btn=$('#rp-f-salva'); if(!b)return;
+  const errore=t=>{ if(msg)msg.innerHTML=`<div class="hint" style="border-left-color:var(--err);color:var(--ink)">⚠️ ${escText(t)}</div>`;
+    if(/chi firma/i.test(t)){ const sez=$('#rpEmittSez'); if(sez)sez.open=true; } };
+  const tot=(rpCent(b.soggiorno)||0)+(rpCent(b.tassa)||0);
+  let marca=null;
+  if(tot>RP_SOGLIA){
+    if(b.marca&&b.marca.codice!==undefined&&(b._msel==='altra'||!b._msel)){
+      if(!/^\d{14}$/.test(b.marca.codice))return errore('Il codice della marca da bollo ha 14 cifre (è sotto il codice a barre, «IDENTIFICATIVO»)');
+      if(!b.marca.data)return errore('Scrivi la data stampata sulla marca da bollo');
+    }
+    marca=b.marca&&b.marca.codice?b.marca:null;
+  }
+  const testo=btn.textContent; btn.disabled=true; btn.textContent='Salvo…';
+  try{
+    const d=await chiamaRp({op:'salva', ricevuta:{id:b.id||'', casa:b.casa, chiediDati:!!b.chiediDati, intestatario:b.chiediDati?null:b.intestatario,
+      ospiti:b.ospiti, dal:b.dal, al:b.al, soggiorno:b.soggiorno, tassa:b.tassa, pagamento:b.pagamento,
+      data:b.chiediDati?'':b.data, numero:b.chiediDati?'':b.numero, marca, nota:b.nota}});
+    rpPrendi(d); rp.bozza=null; rp.evidenzia=d.id; rpRender();
+    const r=rp.lista.find(x=>x.id===d.id);
+    toast(r&&r.stato==='dati'?'✓ Fatto: ora manda il messaggio all\'ospite':'✓ Pronta: ora mandala da firmare');
+    setTimeout(()=>{ const c=$('#rp-'+d.id); if(c)c.scrollIntoView({block:'center',behavior:'smooth'}); },80);
+  }catch(e){ errore(e.message); btn.disabled=false; btn.textContent=testo; }
+}
+function rpCard(r){
+  const col=strutturaInfo(rpNomeCasa(r.casa)||r.casa).colore;
+  const em=r.emittente||rp.emittenti[r.casa]||{};
+  const chi=(r.intestatario&&r.intestatario.nome)||'Dati dell\'ospite in arrivo';
+  const quando=ts=>new Date(ts).toLocaleString('it-IT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const pill=r.stato==='dati'?(r.datiOspite?'<span class="rp-pill dati">📥 dati arrivati</span>':'<span class="rp-pill dati">⏳ aspetta i dati</span>')
+    :r.stato==='firmare'?'<span class="rp-pill firmare">✍️ da firmare</span>'
+    :r.stato==='firmata'?`<span class="rp-pill firmata">${r.mandata?'📤 mandata':'✅ firmata'}</span>`
+    :'<span class="rp-pill">annullata</span>';
+  const info=[`€ ${rpEuro(rpTot(r))}`, rpPeriodo(r.dal,r.al), rpNomeCasa(r.casa), r.data?'del '+rpIt(r.data):''].filter(Boolean).map(escText).join(' · ');
+  const note=[], az=[];
+  const bt=(t,f,cl)=>az.push(`<button class="btn ${cl||'ghost'} sm" onclick="${f}">${t}</button>`);
+  if(r.stato==='dati'&&!r.datiOspite){
+    note.push('Manda all\'ospite il link: scrive lui a chi intestarla. Quando l\'ha fatto ti arriva la notifica e la ricevuta passa «da firmare».');
+    bt('📋 Copia il messaggio per l\'ospite',`rpCopiaOspite('${r.id}')`,'primary');
+    bt('✏️ Scrivo io i dati',`rpModifica('${r.id}',true)`);
+  }else if(r.stato==='dati'){
+    note.push(`L'ospite ha mandato i dati il ${escText(quando(r.datiOspite.ts))}: controllali e prepara la firma.`);
+    bt('✏️ Controlla e prepara la firma',`rpModifica('${r.id}',true)`,'primary');
+  }else if(r.stato==='firmare'){
+    note.push(`Da far firmare a <b>${escText(em.nome||'?')}</b>: le mandi il link e firma col dito dal telefono. Quando ha firmato ti arriva la notifica.`);
+    bt(`📲 Manda a ${escText(rpPrimoNome(em.nome)||'chi firma')}`,`rpMandaFirma('${r.id}',true)`,'primary');
+    bt('📋 Copia il link per la firma',`rpMandaFirma('${r.id}',false)`);
+    bt('👁️ Anteprima',`rpPdf('${r.id}','ospite','vedi',this)`);
+    bt('✏️ Modifica',`rpModifica('${r.id}')`);
+  }else if(r.stato==='firmata'){
+    note.push(`Firmata da ${escText(em.nome||'')} il ${escText(quando(r.firma&&r.firma.ts||r.modificata))}.`+(r.mandata?` Mandata all'ospite il ${escText(quando(r.mandata))}.`:''));
+    if(r.marca)note.push(`🏷️ Stampa «Originale con la marca», attacca la marca n. …${escText(r.marca.codice.slice(-6))} nel riquadro, annullala scrivendo la data a cavallo tra marca e foglio e conservala 3 anni.`);
+    bt('📤 Manda il PDF all\'ospite',`rpPdf('${r.id}','ospite','condividi',this)`,r.mandata?'ghost':'primary');
+    bt('⬇️ Scarica il PDF',`rpPdf('${r.id}','ospite','scarica',this)`);
+    if(r.marca)bt('🖨️ Originale con la marca',`rpPdf('${r.id}','archivio','scarica',this)`);
+    bt(r.mandata?'↺ Non ancora mandata':'✓ Segna come mandata',`rpSegnaMandata('${r.id}',${!r.mandata})`);
+  }else{
+    note.push(`Annullata il ${escText(quando(r.annullata||r.modificata))}.`);
+    bt('🗑 Togli dall\'elenco',`rpTogli('${r.id}')`);
+  }
+  if(r.stato!=='annullata')az.push(`<button class="btn ghost sm" style="color:var(--err);flex:0 1 auto" onclick="rpAnnulla('${r.id}')">🗑 Annulla</button>`);
+  return `<div class="rp-card${r.stato==='annullata'?' spenta':''}" id="rp-${r.id}"${rp.evidenzia===r.id?' style="box-shadow:0 0 0 2px var(--amber)"':''}>
+    <div class="rp-top"><span class="pallo" style="background:${col}"></span>${r.numero?`<b>n. ${escText(rpNum(r))}</b>`:''}<span class="rp-chi">${escText(chi)}</span>${pill}</div>
+    <div class="rp-info">${info}${r.ospiti?'<br>Ospiti: '+escText(r.ospiti):''}</div>
+    ${note.map(n=>`<div class="rp-nota">${n}</div>`).join('')}
+    <div class="rp-az">${az.join('')}</div></div>`;
+}
+function rpRenderLista(){
+  const w=$('#rpLista'); if(!w)return;
+  const ord={dati:0,firmare:1,firmata:2,annullata:4};
+  const peso=r=>(ord[r.stato]??3)+(r.stato==='firmata'&&r.mandata?1:0);
+  const l=rp.lista.slice().sort((a,b)=>peso(a)-peso(b)||(b.creata||0)-(a.creata||0));
+  w.innerHTML=l.length?l.map(rpCard).join('')
+    :'<div class="muted" style="font-size:13px;margin-top:10px">Nessuna ricevuta ancora. Tocca «Nuova ricevuta», oppure dal calendario apri una prenotazione → «💶 Ricevuta di pagamento» (casa, date e ospiti sono già scritti).</div>';
+}
+function rpRenderMarche(){
+  const w=$('#rpMarche'); if(!w)return;
+  const libere=rp.marche.filter(m=>!m.usata);
+  const ri=$('#rpMarcheRias'); if(ri)ri.textContent=`· ${libere.length} disponibil${libere.length===1?'e':'i'}`;
+  const num=id=>{ const r=rp.lista.find(x=>x.id===id); return r?(r.numero?'n. '+rpNum(r):'in preparazione'):'usata'; };
+  w.innerHTML=`<div class="muted" style="font-size:12px;margin:8px 0;line-height:1.45">Comprale dal tabaccaio quando vuoi (marca da € 2) e scrivi qui il numero «IDENTIFICATIVO» di 14 cifre sotto il codice a barre e la data stampata: le uso io, una per ricevuta, dalla più vecchia.</div>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px"><input type="text" id="rp-m-cod" inputmode="numeric" maxlength="20" placeholder="Codice di 14 cifre"><input type="date" id="rp-m-data"></div>
+    <button class="btn ghost sm" style="width:100%;margin-top:8px" id="rp-m-btn" onclick="rpAggiungiMarca()">➕ Aggiungi alla scorta</button>
+    <div style="margin-top:8px">${rp.marche.map(m=>`<div class="rp-mriga"><code>${escText(m.codice)}</code><span class="muted">del ${escText(rpIt(m.data))}</span>
+      <span style="margin-left:auto;text-align:right">${m.usata?`<span class="muted">${escText(num(m.usata))}</span>`:`<button class="btn ghost sm" style="padding:6px 10px" onclick="rpTogliMarca('${m.codice}')">🗑</button>`}</span></div>`).join('')}</div>`;
+}
+function rpRenderEmittenti(){
+  const w=$('#rpEmittenti'); if(!w)return;
+  const ids=struttureList.map(x=>x.id);
+  const mancano=ids.filter(id=>{ const e=rp.emittenti[id]||{}; return !e.nome||!e.cf||!e.appartamento; });
+  const ri=$('#rpEmittRias'); if(ri)ri.innerHTML=mancano.length?`<span style="color:var(--err)">· ⚠️ da completare</span>`:`· ${ids.length} cas${ids.length===1?'a':'e'}`;
+  const v=x=>escText(x==null?'':x).replace(/"/g,'&quot;');
+  w.innerHTML=`<div class="muted" style="font-size:12px;margin:8px 0;line-height:1.45">Chi incassa e firma le ricevute di ogni casa (il proprietario). All'inizio prendo i dati del locatore del contratto di locazione: controllali.</div>`
+    +(ids.length?ids.map(id=>{ const e=rp.emittenti[id]||{}; return `<div class="rp-form" style="margin-top:8px">
+      <div style="font-weight:800"><span class="pallo" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${strutturaInfo(rpNomeCasa(id)||id).colore};margin-right:6px"></span>${escText(rpNomeCasa(id))}</div>
+      <label for="rp-e-${id}-nome">Nome e cognome</label><input type="text" id="rp-e-${id}-nome" value="${v(e.nome)}" maxlength="80">
+      <label for="rp-e-${id}-cf">Codice fiscale</label><input type="text" id="rp-e-${id}-cf" value="${v(e.cf)}" maxlength="20" style="text-transform:uppercase" autocapitalize="characters" spellcheck="false">
+      <label for="rp-e-${id}-ind">Indirizzo di residenza <span class="muted">(facoltativo)</span></label><input type="text" id="rp-e-${id}-ind" value="${v(e.indirizzo)}" maxlength="160">
+      <label for="rp-e-${id}-app">Indirizzo dell'appartamento <span class="muted">(va nella descrizione)</span></label><input type="text" id="rp-e-${id}-app" value="${v(e.appartamento)}" maxlength="160">
+      <button class="btn primary sm" style="width:100%;margin-top:10px" onclick="rpSalvaEmittente('${id}',this)">💾 Salva</button></div>`; }).join('')
+    :'<div class="muted" style="font-size:13px">Nessuna casa configurata.</div>');
+}
+function rpRender(){ rpLeggiForm(); rpRenderForm(); rpRenderLista(); rpRenderMarche(); rpRenderEmittenti(); }
+async function rpSalvaEmittente(id,btn){
+  const g=k=>(($(`#rp-e-${id}-${k}`)||{}).value||'');
+  if(btn){ btn.disabled=true; btn.textContent='Salvo…'; }
+  try{ rpPrendi(await chiamaRp({op:'emittente', casa:id, dati:{nome:g('nome'), cf:g('cf'), indirizzo:g('ind'), appartamento:g('app')}})); rpRender(); toast('✓ Salvato'); }
+  catch(e){ toast('⚠️ '+e.message); if(btn){ btn.disabled=false; btn.textContent='💾 Salva'; } }
+}
+async function rpAggiungiMarca(){
+  const codice=(($('#rp-m-cod')||{}).value||'').replace(/\D/g,''), data=($('#rp-m-data')||{}).value||'';
+  if(!/^\d{14}$/.test(codice)){ toast('⚠️ Il codice ha 14 cifre (sotto il codice a barre)'); return; }
+  if(!data){ toast('⚠️ Scrivi la data stampata sulla marca'); return; }
+  try{ rpPrendi(await chiamaRp({op:'marche', aggiungi:{codice,data}})); rpRender(); toast('✓ Marca aggiunta alla scorta'); }
+  catch(e){ toast('⚠️ '+e.message); }
+}
+async function rpTogliMarca(codice){
+  if(!confirm('Togliere questa marca dalla scorta?'))return;
+  try{ rpPrendi(await chiamaRp({op:'marche', togli:codice})); rpRender(); }catch(e){ toast('⚠️ '+e.message); }
+}
+async function rpAnnulla(id){
+  const r=rp.lista.find(x=>x.id===id); if(!r)return;
+  const domanda=r.stato==='firmata'
+    ?`Annullare la ricevuta ${rpNum(r)}, già firmata?\n\nResta nell'elenco come annullata e il suo numero non si riusa. La marca da bollo resta consumata.`
+    :`Annullare questa ricevuta?${r.marca?' La marca da bollo torna nella scorta.':''} I link per l'ospite e per la firma smettono di funzionare.`;
+  if(!confirm(domanda))return;
+  try{ rpPrendi(await chiamaRp({op:'annulla', id})); rpRender(); toast('Ricevuta annullata'); }catch(e){ toast('⚠️ '+e.message); }
+}
+async function rpTogli(id){
+  try{ rpPrendi(await chiamaRp({op:'togli', id})); rpRender(); }catch(e){ toast('⚠️ '+e.message); }
+}
+async function rpSegnaMandata(id,si){
+  try{ rpPrendi(await chiamaRp({op:'mandata', id, si})); rpRender(); }catch(e){ toast('⚠️ '+e.message); }
+}
+function rpCopia(testo,ok){
+  const fatto=()=>toast(ok);
+  const riserva=()=>{ const ta=document.createElement('textarea'); ta.value=testo; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); let k=false; try{ k=document.execCommand('copy'); }catch(e){} document.body.removeChild(ta); k?fatto():toast('Copia non riuscita'); };
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(testo).then(fatto).catch(riserva); else riserva();
+}
+// messaggi nello stile dell'host: niente trattini lunghi, prima persona plurale, 😊
+function rpCopiaOspite(id){
+  const r=rp.lista.find(x=>x.id===id); if(!r||!r.tokOspite)return;
+  const nome=rpPrimoNome(r.ospiti);
+  rpCopia(`Ciao${nome?' '+nome:''}! 😊 Per preparare la ricevuta ci servono i dati di chi la riceve: nome o ragione sociale, indirizzo e codice fiscale o partita IVA. Li puoi inserire qui:\n${rpLink(r.tokOspite)}\n\nAppena arrivano te la prepariamo. Grazie!`,
+    '📋 Messaggio copiato: incollalo nella chat con l\'ospite');
+}
+function rpMandaFirma(id,whatsapp){
+  const r=rp.lista.find(x=>x.id===id); if(!r||!r.tokFirma)return;
+  const em=r.emittente||{}, chi=(r.intestatario&&r.intestatario.nome)||'l\'ospite';
+  const testo=`Ciao ${rpPrimoNome(em.nome)}! 😊 C'è da firmare la ricevuta n. ${rpNum(r)} per ${chi} (€ ${rpEuro(rpTot(r))}). Apri il link, controlla e firma col dito:\n${rpLink(r.tokFirma)}\n\nGrazie mille!`;
+  if(whatsapp)apriWhatsApp(testo); else rpCopia(testo,'📋 Messaggio con il link copiato');
+}
+// PDF: "vedi" (anteprima), "scarica", "condividi" (sul telefono apre la condivisione: WhatsApp, email…).
+// Su iPhone la condivisione va chiesta subito dopo il tocco: se il PDF arriva dal server troppo tardi,
+// resta pronto e il pulsante chiede un secondo tocco.
+async function rpPdf(id,variante,modo,btn){
+  const k=id+'|'+variante;
+  const condividi=async f=>{
+    try{ await navigator.share({files:[f], title:f.name}); }
+    catch(e){
+      if(e&&e.name==='AbortError')return false;
+      if(e&&e.name==='NotAllowedError'&&btn){ btn.textContent='📤 PDF pronto: tocca per mandarlo'; toast('PDF pronto: tocca di nuovo per mandarlo'); return false; }
+      rpScarica(f); return false;
+    }
+    if(variante==='ospite'){ const r=rp.lista.find(x=>x.id===id); if(r&&!r.mandata)rpSegnaMandata(id,true); }
+    return true;
+  };
+  const puoCondividere=f=>{ try{ return !!(navigator.canShare&&navigator.share&&navigator.canShare({files:[f]})); }catch(e){ return false; } };
+  if(modo==='condividi'&&rp.pdf[k]&&puoCondividere(rp.pdf[k])){ condividi(rp.pdf[k]); return; }
+  const testo=btn?btn.textContent:''; if(btn){ btn.disabled=true; btn.textContent='Preparo il PDF…'; }
+  try{
+    const d=await chiamaRp({op:'pdf', id, variante});
+    const bin=atob(d.pdf), arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    const file=new File([arr],d.nome||'ricevuta.pdf',{type:'application/pdf'});
+    rp.pdf[k]=file;
+    if(btn){ btn.disabled=false; btn.textContent=testo; }
+    if(modo==='vedi'){ const u=URL.createObjectURL(file); if(!window.open(u,'_blank'))rpScarica(file); return; }
+    if(modo==='condividi'&&puoCondividere(file)){ await condividi(file); return; }
+    rpScarica(file);
+    if(modo==='condividi')toast('PDF scaricato: allegalo nel messaggio all\'ospite');
+  }catch(e){ toast('⚠️ '+e.message); if(btn){ btn.disabled=false; btn.textContent=testo; } }
+}
+function rpScarica(file){
+  const u=URL.createObjectURL(file), a=document.createElement('a');
+  a.href=u; a.download=file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),60000);
 }
 /* ===== TABELLE UFFICIALI (incorporate) ===== */
 const ITALIA_CODE = "100000100";
@@ -17308,6 +17697,9 @@ function apriSommario(chiave){
   if(e||v)az.push(`<button class="btn ghost" onclick="apriModifica('${e?'reg':'pend'}',${e?e.ts:`'${v.id}'`})">✏️ Modifica</button>`);
   if(e)az.push(`<button class="btn ghost" onclick="calApriRegistrato(${e.ts})">🗂️ Apri nell'Archivio</button>`);
   if(v)az.push(`<button class="btn ghost" onclick="apriDettaglioCheckin('${v.id}')">🪪 Documenti e dettagli</button>`);
+  // ricevuta di pagamento per chi chiede "la fattura" (casa, date e ospiti già scritti): solo per chi gestisce
+  window._somCorrente={s, nomi};
+  if(!s.team)az.push(`<button class="btn ghost" onclick="rpDaSommario()">💶 Ricevuta di pagamento</button>`);
   const orario=orariDi(s.strutturaId||idCasaDaNome(s.struttura));
   const body=$('#sommarioBody'); if(!body)return;
   body.innerHTML=`

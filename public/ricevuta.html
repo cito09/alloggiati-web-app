@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Ricevuta · KeyFlow</title>
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="%2384e3d3"/><circle cx="22" cy="32" r="8" fill="none" stroke="%230a2723" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="%230a2723" stroke-width="6" stroke-linecap="round" fill="none"/></svg>'>
+<style>
+  /* pagina pubblica delle RICEVUTE DI PAGAMENTO (/r/<codice>): stesso aspetto del gestionale.
+     Due usi, decisi dal codice del link: l'ospite scrive a chi intestare la ricevuta, oppure
+     il proprietario la firma col dito. Vedi api/_ricevutePagamento.js */
+  :root{--bg:#0a0a0c; --surface:#171719; --surface2:#242428; --line:#2c2c31; --ink:#f3f3f6; --muted:#9a9aa4;
+    --amber:#84e3d3; --accent-ink:#0a2723; --ok:#2dc653; --err:#ef476f}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:radial-gradient(1100px 620px at 50% -14%, rgba(132,227,211,.06), transparent 60%), var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif; font-size:16px; line-height:1.5;
+    padding:0 0 40px; padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right)}
+  header{padding:16px; padding-top:calc(16px + env(safe-area-inset-top)); border-bottom:1px solid var(--line)}
+  .brand{display:inline-flex; align-items:center; gap:10px; font-weight:800; font-size:17px}
+  .brand i{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#a7efe4,var(--amber))}
+  .brand i svg{width:19px;height:19px}
+  .brand b{color:var(--amber)}
+  .wrap{max-width:560px; margin:0 auto; padding:18px 16px}
+  h1{font-size:23px; margin:4px 0 6px; letter-spacing:-.02em}
+  .sub{color:var(--muted); font-size:14px}
+  .card{background:var(--surface); border-radius:24px; padding:18px; margin-top:16px}
+  label{display:block; font-size:12.5px; color:var(--muted); margin:14px 0 5px; font-weight:600}
+  input{width:100%; background:var(--surface2); border:1px solid var(--line); color:var(--ink); border-radius:13px; padding:13px 12px; font-size:16px; font-family:inherit}
+  input:focus{outline:none; border-color:var(--amber); box-shadow:0 0 0 3px rgba(132,227,211,.18)}
+  .btn{appearance:none; border:none; border-radius:16px; font-size:16px; font-weight:800; padding:15px 18px; cursor:pointer; font-family:inherit; width:100%; margin-top:16px}
+  .btn.primary{background:var(--amber); color:var(--accent-ink)}
+  .btn.ghost{background:var(--surface2); color:var(--ink); width:auto; font-size:13.5px; padding:9px 14px; margin-top:8px}
+  .btn:disabled{opacity:.55}
+  .err{color:var(--err); font-size:14px; margin-top:12px; font-weight:600}
+  .muted{color:var(--muted); font-size:13px}
+  .grande{font-size:48px; text-align:center; margin:8px 0 2px}
+  /* la ricevuta come foglio di carta */
+  .foglio{background:#fff; color:#15151a; border-radius:14px; padding:18px 16px; margin-top:16px; font-size:13.5px; line-height:1.45}
+  .foglio .top{display:flex; justify-content:space-between; gap:10px; align-items:baseline; border-bottom:1px solid #e3e4e8; padding-bottom:8px}
+  .foglio .tit{font-weight:900; font-size:16px; letter-spacing:.01em}
+  .foglio .num{font-weight:800; white-space:nowrap}
+  .foglio .et{font-size:10.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#6b6e76; margin-top:12px}
+  .foglio .cols{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .foglio .somma{font-size:24px; font-weight:900; margin-top:2px}
+  .foglio .gr{color:#6b6e76; font-size:12px}
+  .foglio .voce{display:flex; justify-content:space-between; gap:10px; margin-top:8px}
+  .foglio .tot{font-weight:800; border-top:1px solid #e3e4e8; padding-top:6px; margin-top:8px}
+  .sig-wrap{background:#fff; border-radius:16px; margin-top:12px; position:relative; overflow:hidden}
+  .sig-wrap canvas{width:100%; height:170px; display:block; touch-action:none; cursor:crosshair}
+  .sig-wrap .riga{position:absolute; left:18px; right:18px; bottom:40px; border-bottom:1.5px dashed #c8cad0; pointer-events:none}
+  .sig-wrap .x{position:absolute; left:16px; bottom:44px; color:#9a9ca4; font-size:15px; pointer-events:none}
+  .lingua{float:right; background:var(--surface2); color:var(--ink); border:none; border-radius:12px; padding:6px 10px; font-size:13px; font-family:inherit}
+</style>
+</head>
+<body>
+<header><span class="brand"><i><svg viewBox="0 0 64 64"><circle cx="22" cy="32" r="8" fill="none" stroke="#0a2723" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="#0a2723" stroke-width="6" stroke-linecap="round" fill="none"/></svg></i><span>Key<b>Flow</b></span></span></header>
+<div class="wrap" id="root"><div class="muted" style="margin-top:30px;text-align:center">…</div></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// il codice sta nell'indirizzo /r/<codice> (a prova di traduzione automatica delle chat, come /c/ del check-in)
+const TOK=(()=>{ const m=/\/r\/([A-Za-z0-9_-]{8,60})/.exec(location.pathname); if(m)return m[1];
+  return (new URLSearchParams(location.search).get('t')||'').replace(/[^A-Za-z0-9_-]/g,''); })();
+let lang=/^it/i.test(navigator.language||'it')?'it':'en';
+const T={
+  it:{tit_o:'Dati per la ricevuta', sub_o:'Scrivi a chi va intestata la ricevuta del soggiorno.', nome:'Nome e cognome o ragione sociale', ind:'Indirizzo (via, CAP, città)', cf:'Codice fiscale o partita IVA',
+    invia:'Invia i dati', grazie_t:'Grazie!', grazie:'Abbiamo ricevuto i dati: ti mandiamo la ricevuta appena è pronta.', soggiorno:'Soggiorno', dal:'dal', al:'al', errore:'Non riuscito, riprova tra poco'},
+  en:{tit_o:'Receipt details', sub_o:'Tell us who the receipt for your stay should be made out to.', nome:'Full name or company name', ind:'Address (street, postcode, city)', cf:'Tax code or VAT number',
+    invia:'Send details', grazie_t:'Thank you!', grazie:'We received your details: we will send you the receipt as soon as it is ready.', soggiorno:'Stay', dal:'from', al:'to', errore:'Something went wrong, please try again'}
+};
+const t=k=>(T[lang]||T.it)[k];
+const dIt=iso=>{ const [a,m,d]=String(iso||'').split('-'); return a?`${d}/${m}/${a}`:''; };
+const euro=c=>(c/100).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
+async function chiama(corpo){
+  const r=await fetch('/api/promemoria',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({azione:'ricevutaPubblica',tok:TOK},corpo))});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok&&!d.error)d.error=t('errore');
+  return d;
+}
+function errore(msg){
+  $('#root').innerHTML=`<div class="card" style="text-align:center"><div class="grande">⚠️</div><h1 style="font-size:20px">${esc(msg)}</h1>
+    <div class="muted">Se pensi che sia un errore, scrivi a chi ti ha mandato il link.</div></div>`;
+}
+let stato=null;
+async function avvia(){
+  if(!TOK){ errore('Il link è incompleto: copialo di nuovo per intero'); return; }
+  let d; try{ d=await chiama({op:'apri'}); }catch(e){ errore(t('errore')); return; }
+  if(!d.ok){ errore(d.error||t('errore')); return; }
+  stato=d;
+  if(d.modo==='ospite')return renderOspite(d);
+  renderFirma(d);
+}
+/* ===== l'ospite scrive a chi intestare la ricevuta ===== */
+function renderOspite(d){
+  const periodo=`${d.casa?esc(d.casa)+' · ':''}${t('dal')} ${dIt(d.dal)} ${t('al')} ${dIt(d.al)}`;
+  if(d.fatto){ $('#root').innerHTML=`<div class="card" style="text-align:center"><div class="grande">✅</div><h1>${t('grazie_t')}</h1><div class="sub">${t('grazie')}</div><div class="muted" style="margin-top:10px">${periodo}</div></div>`; return; }
+  $('#root').innerHTML=`
+    <select class="lingua" onchange="lang=this.value;renderOspite(stato)"><option value="it"${lang==='it'?' selected':''}>Italiano</option><option value="en"${lang==='en'?' selected':''}>English</option></select>
+    <h1>🧾 ${t('tit_o')}</h1><div class="sub">${t('sub_o')}</div>
+    <div class="card">
+      <div class="muted">${t('soggiorno')}: ${periodo}</div>
+      <label for="n">${t('nome')}</label><input id="n" autocomplete="organization" maxlength="120">
+      <label for="i">${t('ind')}</label><input id="i" autocomplete="street-address" maxlength="180">
+      <label for="c">${t('cf')}</label><input id="c" autocapitalize="characters" spellcheck="false" maxlength="30">
+      <div id="msg"></div>
+      <button class="btn primary" id="vai" onclick="inviaDati()">${t('invia')}</button>
+    </div>`;
+}
+async function inviaDati(){
+  const b=$('#vai'), msg=$('#msg');
+  const intestatario={nome:$('#n').value, indirizzo:$('#i').value, cf:$('#c').value};
+  b.disabled=true; msg.innerHTML='';
+  try{
+    const d=await chiama({op:'dati', intestatario});
+    if(!d.ok){ msg.innerHTML=`<div class="err">${esc(d.error||t('errore'))}</div>`; b.disabled=false; return; }
+    stato=d; renderOspite(d);
+  }catch(e){ msg.innerHTML=`<div class="err">${t('errore')}</div>`; b.disabled=false; }
+}
+/* ===== il proprietario la legge e la firma col dito ===== */
+function foglio(r){
+  const it=r.intestatario||{}, em=r.emittente||{};
+  return `<div class="foglio">
+    <div class="top"><span class="tit">RICEVUTA DI PAGAMENTO</span><span class="num">N. ${esc(r.numero)}/${esc(r.anno)}</span></div>
+    <div class="gr" style="text-align:right;margin-top:3px">Data ${dIt(r.data)}</div>
+    <div class="cols">
+      <div><div class="et">Emittente</div><b>${esc(em.nome)}</b>${em.indirizzo?'<br>'+esc(em.indirizzo):''}<br>C.F. ${esc(em.cf)}</div>
+      <div><div class="et">Ricevuti da</div><b>${esc(it.nome)}</b>${it.indirizzo?'<br>'+esc(it.indirizzo):''}${it.cf?'<br>C.F./P.IVA '+esc(it.cf):''}</div>
+    </div>
+    <div class="et">La somma di</div><div class="somma">€ ${euro(r.totale)}</div><div class="gr">(${esc(r.lettere)} euro)</div>
+    <div class="et">Per</div><div>${esc(r.descrizione)}${r.nota?' '+esc(r.nota):''}</div>
+    <div class="voce"><span>Corrispettivo della locazione<br><span class="gr">fuori campo IVA, art. 4 D.P.R. 633/1972</span></span><span>€ ${euro(r.soggiorno)}</span></div>
+    ${r.tassa?`<div class="voce"><span>Imposta di soggiorno<br><span class="gr">esclusa da IVA, art. 15 D.P.R. 633/1972</span></span><span>€ ${euro(r.tassa)}</span></div>`:''}
+    <div class="voce tot"><span>Totale</span><span>€ ${euro(r.totale)}</span></div>
+    <div class="gr" style="margin-top:6px">Pagamento ricevuto tramite: ${esc(r.pagamento)}.</div>
+    ${r.marca?`<div class="gr" style="margin-top:6px">Marca da bollo da € 2,00 n. ${esc(r.marca.codice)} del ${dIt(r.marca.data)}.</div>`:''}
+  </div>`;
+}
+let firmata=false, tracciata=false;
+function renderFirma(d){
+  const r=d.ricevuta||{};
+  if(d.firmata){
+    const q=new Date(d.firmata).toLocaleString('it-IT',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+    $('#root').innerHTML=`<div class="card" style="text-align:center"><div class="grande">✅</div><h1>Ricevuta firmata</h1>
+      <div class="sub">Firmata il ${esc(q)}. Grazie! Il PDF lo manda all'ospite chi te l'ha girata.</div></div>${foglio(r)}`;
+    return;
+  }
+  $('#root').innerHTML=`
+    <h1>✍️ Ricevuta da firmare</h1>
+    <div class="sub">Controlla la ricevuta n. ${esc(r.numero)}/${esc(r.anno)} per <b>${esc((r.intestatario||{}).nome)}</b> e firma col dito nel riquadro bianco in fondo.</div>
+    ${foglio(r)}
+    <div class="card">
+      <div style="font-weight:800">Firma di ${esc((r.emittente||{}).nome)}</div>
+      <div class="sig-wrap"><canvas id="cv"></canvas><span class="x">✕</span><span class="riga"></span></div>
+      <button class="btn ghost" onclick="cancella()">↺ Cancella e rifai</button>
+      <div id="msg"></div>
+      <button class="btn primary" id="vai" onclick="firma()">✍️ Firma la ricevuta</button>
+      <div class="muted" style="margin-top:10px">Firmando confermi di aver ricevuto la somma indicata.</div>
+    </div>`;
+  preparaCanvas();
+}
+function preparaCanvas(){
+  const cv=$('#cv'), ctx=cv.getContext('2d'), dpr=Math.min(window.devicePixelRatio||1,3), r=cv.getBoundingClientRect();
+  cv.width=Math.round(r.width*dpr); cv.height=Math.round(r.height*dpr); ctx.scale(dpr,dpr);
+  ctx.lineWidth=2.6; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#14141a';
+  let giu=false, ultimo=null, conPointer=false;
+  const pos=(x,y)=>{ const b=cv.getBoundingClientRect(); return {x:x-b.left,y:y-b.top}; };
+  const inizia=(x,y)=>{ giu=true; ultimo=pos(x,y); tracciata=true; ctx.beginPath(); ctx.arc(ultimo.x,ultimo.y,1.2,0,7); ctx.fillStyle='#14141a'; ctx.fill(); };
+  const muovi=(x,y)=>{ if(!giu)return; const p=pos(x,y); ctx.beginPath(); ctx.moveTo(ultimo.x,ultimo.y); ctx.lineTo(p.x,p.y); ctx.stroke(); ultimo=p; };
+  const fine=()=>{ giu=false; };
+  cv.addEventListener('pointerdown',e=>{ conPointer=true; e.preventDefault(); try{cv.setPointerCapture(e.pointerId);}catch(_){} inizia(e.clientX,e.clientY); });
+  cv.addEventListener('pointermove',e=>{ if(!giu)return; e.preventDefault(); muovi(e.clientX,e.clientY); });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>cv.addEventListener(ev,fine));
+  cv.addEventListener('touchstart',e=>{ if(conPointer)return; e.preventDefault(); const p=e.touches[0]; inizia(p.clientX,p.clientY); },{passive:false});
+  cv.addEventListener('touchmove',e=>{ if(conPointer)return; e.preventDefault(); const p=e.touches[0]; muovi(p.clientX,p.clientY); },{passive:false});
+  cv.addEventListener('touchend',e=>{ if(conPointer)return; e.preventDefault(); fine(); },{passive:false});
+}
+function cancella(){ const cv=$('#cv'); cv.getContext('2d').clearRect(0,0,cv.width,cv.height); tracciata=false; }
+// solo il tratto, ritagliato e rimpicciolito (niente spazio vuoto intorno nel PDF)
+function pngFirma(){
+  const cv=$('#cv'), ctx=cv.getContext('2d'), {width:w,height:h}=cv, px=ctx.getImageData(0,0,w,h).data;
+  let x0=w,y0=h,x1=-1,y1=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(px[(y*w+x)*4+3]>10){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  if(x1<0)return '';
+  const m=8; x0=Math.max(0,x0-m); y0=Math.max(0,y0-m); x1=Math.min(w-1,x1+m); y1=Math.min(h-1,y1+m);
+  const sw=x1-x0+1, sh=y1-y0+1, sc=Math.min(1,700/sw,260/sh);
+  const out=document.createElement('canvas'); out.width=Math.max(1,Math.round(sw*sc)); out.height=Math.max(1,Math.round(sh*sc));
+  out.getContext('2d').drawImage(cv,x0,y0,sw,sh,0,0,out.width,out.height);
+  return out.toDataURL('image/png');
+}
+async function firma(){
+  const b=$('#vai'), msg=$('#msg');
+  msg.innerHTML='';
+  if(!tracciata){ msg.innerHTML='<div class="err">Fai la firma col dito nel riquadro bianco.</div>'; return; }
+  const png=pngFirma(); if(!png){ msg.innerHTML='<div class="err">Fai la firma col dito nel riquadro bianco.</div>'; return; }
+  b.disabled=true; b.textContent='Firmo…';
+  try{
+    const d=await chiama({op:'firma', png});
+    if(!d.ok){ msg.innerHTML=`<div class="err">${esc(d.error||t('errore'))}</div>`; b.disabled=false; b.textContent='✍️ Firma la ricevuta'; return; }
+    renderFirma(d); window.scrollTo(0,0);
+  }catch(e){ msg.innerHTML=`<div class="err">${t('errore')}</div>`; b.disabled=false; b.textContent='✍️ Firma la ricevuta'; }
+}
+avvia();
+</script>
+</body>
+</html>

@@ -29,6 +29,10 @@
     {
       "source": "/c/:codice",
       "destination": "/checkin.html"
+    },
+    {
+      "source": "/r/:codice",
+      "destination": "/ricevuta.html"
     }
   ]
 }

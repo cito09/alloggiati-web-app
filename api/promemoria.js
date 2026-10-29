@@ -35,6 +35,8 @@ const { rimandaRossInSospeso } = require("./_ross");
 const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno } = require("./_calendari");
 const { pulizieProssime, segnaMandato } = require("./_pulizie");
 const { mandaPromemoriaEmail } = require("./_promemoriaEmail");
+const { azioneRicevute, azionePubblica } = require("./_ricevutePagamento");
+const { getStrutture } = require("./_alloggiati");
 
 const KEY_PENDENTI = "bookings_pending";
 const KEY_ISTAT = "istat_config";
@@ -346,6 +348,21 @@ module.exports = async (req, res) => {
         return res.status(500).json({ error: String(e.message || e) });
       }
     }
+    // ricevute di pagamento, pagina pubblica /r/<codice> (vedi api/_ricevutePagamento.js): l'ospite
+    // scrive a chi intestare la ricevuta, il proprietario la firma col dito. Niente codice d'accesso:
+    // vale il codice segreto del link, uno per ricevuta, che smette di valere a lavoro fatto.
+    if ((req.body || {}).azione === "ricevutaPubblica") {
+      if (!conn) return res.status(200).json({ ok: false, error: "Archivio non configurato" });
+      try {
+        const nomi = Object.fromEntries(getStrutture().map((x) => [x.id, x.nome]));
+        const fwd = req.headers["x-forwarded-for"];
+        const ip = (fwd ? String(fwd).split(",")[0].trim() : req.socket && req.socket.remoteAddress) || "";
+        const esito = await azionePubblica(conn, req.body || {}, { ip, nomeCasa: (id) => nomi[id] || "" });
+        return res.status(200).json(esito);
+      } catch (e) {
+        return res.status(500).json({ ok: false, error: "Non riuscito, riprova tra poco" });
+      }
+    }
     // pulizie → "✓ Mandato a Claudia alle 9:12": lo segna l'host o un collaboratore col permesso
     // delle pulizie (es. Sofia, che le coordina); resta scritto chi è stato
     if ((req.body || {}).azione === "pulizieMandato") {
@@ -501,6 +518,17 @@ module.exports = async (req, res) => {
           return res.status(200).json({ ok: true, inviate: n });
         }
         return res.status(200).json({ ok: true, ...(await pulizieProssime(conn, oggiIsoRoma())) });
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
+    // ricevute di pagamento agli ospiti (Impostazioni → 💶 Ricevute di pagamento): bozza, scorta delle
+    // marche da bollo, chi firma, PDF — vedi api/_ricevutePagamento.js
+    if ((req.body || {}).azione === "ricevute") {
+      try {
+        const esito = await azioneRicevute(conn, req.body || {}, { strutture: getStrutture().map((x) => ({ id: x.id, nome: x.nome })) });
+        return res.status(esito.ok ? 200 : 400).json(esito);
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }
