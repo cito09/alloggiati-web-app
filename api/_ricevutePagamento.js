@@ -97,13 +97,29 @@ async function scrivi(conn, s) {
   await redisCmd(conn, ["SET", KEY, JSON.stringify(s)]);
 }
 
+// indirizzo dell'appartamento scritto bene: nel contratto "indirizzoVia" è senza "via" (il testo dice
+// "posta in via …") e a volte contiene già la città ("DE'FALEGNAMI 8, Bologna (BO)" + comune "Bologna"
+// = Bologna doppio, visto il 29/10/2026). Si toglie la parte ripetuta e si aggiunge "Via" se manca.
+function indirizzoBello(a) {
+  const norm = (x) => String(x).toLowerCase().replace(/\([a-z]{2}\)/g, "").replace(/[^a-zà-ú0-9]/g, "");
+  const parti = [];
+  for (const p of String(a || "").split(",").map((x) => x.trim()).filter(Boolean)) {
+    const n = norm(p);
+    if (parti.some((q) => norm(q) === n || (n && norm(q).startsWith(n)))) continue;
+    parti.push(p);
+  }
+  let out = parti.join(", ");
+  if (out && !/^(via|viale|vicolo|v\.lo|piazza|piazzale|p\.za|corso|strada|streda|largo|località|loc\.|contrada|borgo|frazione|fraz\.)\b/i.test(out)) out = "Via " + out;
+  return out;
+}
+
 // chi firma le ricevute di una casa: quello salvato in Impostazioni, sennò i dati del locatore del
 // contratto di locazione (CONTRATTI_STRUTTURE: nome, codice fiscale, indirizzo dell'appartamento)
 function emittenteDi(s, casa) {
   let cfg = null;
   try { cfg = require("./_contratto").getContrattoStruttura(casa); } catch { cfg = null; }
   const salvato = s.emittenti[casa] || {};
-  const app = cfg ? [cfg.indirizzoVia, cfg.comune].filter(Boolean).join(", ") : "";
+  const app = cfg ? indirizzoBello([cfg.indirizzoVia, cfg.comune].filter(Boolean).join(", ")) : "";
   return {
     nome: salvato.nome != null ? salvato.nome : (cfg && cfg.locatoreNome) || "",
     cf: salvato.cf != null ? salvato.cf : (cfg && cfg.codiceFiscale) || "",
@@ -376,9 +392,17 @@ async function azionePubblica(conn, body, { ip = "", nomeCasa = (id) => id } = {
   }
 
   // firma del proprietario
-  if (r.stato === "firmata") return { ok: true, modo, firmata: r.firma && r.firma.ts, ricevuta: anteprima(r) };
+  if (r.stato === "firmata") {
+    if (op === "pdf") {
+      let firma = null;
+      if (r.firma && r.firma.url) { const f = await require("./_blob").leggiBlob(r.firma.url); firma = f && f.buffer; }
+      return { ok: true, pdf: (await pdfRicevuta(r, { variante: "ospite", firma })).toString("base64") };
+    }
+    return { ok: true, modo, firmata: r.firma && r.firma.ts, ricevuta: anteprima(r) };
+  }
   if (r.stato !== "firmare") return { ok: false, error: "La ricevuta non è ancora pronta da firmare" };
   if (op === "apri") return { ok: true, modo, ricevuta: anteprima(r) };
+  if (op === "pdf") return { ok: true, pdf: (await pdfRicevuta(r, { variante: "ospite" })).toString("base64") };
   if (op !== "firma") return { ok: false, error: "Azione non valida" };
   const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(body.png || ""));
   if (!m) return { ok: false, error: "Firma mancante" };
@@ -396,7 +420,7 @@ async function azionePubblica(conn, body, { ip = "", nomeCasa = (id) => id } = {
 // ---------- PDF ----------
 function descrizione(r) {
   const n = notti(r.dal, r.al);
-  const app = (r.emittente && r.emittente.appartamento) || "";
+  const app = indirizzoBello((r.emittente && r.emittente.appartamento) || "");
   return `Locazione turistica dell'appartamento${app ? " in " + app : ""}, dal ${isoIt(r.dal)} al ${isoIt(r.al)} (${n} nott${n === 1 ? "e" : "i"})`
     + (r.ospiti ? `. Ospiti: ${r.ospiti}` : "") + ".";
 }
@@ -538,4 +562,4 @@ async function pdfRicevuta(r, { variante = "ospite", firma = null } = {}) {
   return Buffer.from(await pdf.save());
 }
 
-module.exports = { azioneRicevute, azionePubblica, pdfRicevuta, inLettere, centesimi, euro, descrizione, KEY, SOGLIA_BOLLO };
+module.exports = { indirizzoBello, azioneRicevute, azionePubblica, pdfRicevuta, inLettere, centesimi, euro, descrizione, KEY, SOGLIA_BOLLO };

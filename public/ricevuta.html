@@ -52,12 +52,14 @@
   .sig-wrap canvas{width:100%; height:170px; display:block; touch-action:none; cursor:crosshair}
   .sig-wrap .riga{position:absolute; left:18px; right:18px; bottom:40px; border-bottom:1.5px dashed #c8cad0; pointer-events:none}
   .sig-wrap .x{position:absolute; left:16px; bottom:44px; color:#9a9ca4; font-size:15px; pointer-events:none}
+  .pdf-vista img{width:100%; display:block; border-radius:12px; margin-top:10px; background:#fff}
   .lingua{float:right; background:var(--surface2); color:var(--ink); border:none; border-radius:12px; padding:6px 10px; font-size:13px; font-family:inherit}
 </style>
 </head>
 <body>
 <header><span class="brand"><i><svg viewBox="0 0 64 64"><circle cx="22" cy="32" r="8" fill="none" stroke="#0a2723" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="#0a2723" stroke-width="6" stroke-linecap="round" fill="none"/></svg></i><span>Key<b>Flow</b></span></span></header>
 <div class="wrap" id="root"><div class="muted" style="margin-top:30px;text-align:center">…</div></div>
+<script src="/shared.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -139,18 +141,34 @@ function foglio(r){
   </div>`;
 }
 let firmata=false, tracciata=false;
+function bottonePdf(t){ return `<button class="btn ghost" id="pdfBtn" style="width:100%;margin-top:12px" onclick="vediPdf()">${t}</button><div class="pdf-vista" id="pdfVista"></div>`; }
+// il PDF vero, pagina per pagina come immagini (pdf.js): sul telefono un PDF dentro la pagina non si vede
+async function vediPdf(){
+  const b=$('#pdfBtn'), w=$('#pdfVista'); if(!w)return;
+  if(b){ b.disabled=true; b.textContent='Preparo il PDF…'; }
+  try{
+    const d=await chiama({op:'pdf'});
+    if(!d.ok||!d.pdf)throw new Error(d.error||t('errore'));
+    const img=await pdfToImmagini('data:application/pdf;base64,'+d.pdf,{maxPagine:3});
+    w.innerHTML=img.map(u=>`<img src="${u}" alt="PDF della ricevuta">`).join('');
+    if(b)b.style.display='none';
+  }catch(e){ if(b){ b.disabled=false; b.textContent='📄 Riprova a vedere il PDF'; } w.innerHTML=`<div class="err">${esc(e.message||t('errore'))}</div>`; }
+}
 function renderFirma(d){
   const r=d.ricevuta||{};
   if(d.firmata){
     const q=new Date(d.firmata).toLocaleString('it-IT',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
     $('#root').innerHTML=`<div class="card" style="text-align:center"><div class="grande">✅</div><h1>Ricevuta firmata</h1>
-      <div class="sub">Firmata il ${esc(q)}. Grazie! Il PDF lo manda all'ospite chi te l'ha girata.</div></div>${foglio(r)}`;
+      <div class="sub">Firmata il ${esc(q)}. Grazie! Il PDF lo manda all'ospite chi te l'ha girata.</div></div>
+      ${bottonePdf('📄 Vedi il PDF firmato')}`;
+    vediPdf();
     return;
   }
   $('#root').innerHTML=`
     <h1>✍️ Ricevuta da firmare</h1>
     <div class="sub">Controlla la ricevuta n. ${esc(r.numero)}/${esc(r.anno)} per <b>${esc((r.intestatario||{}).nome)}</b> e firma col dito nel riquadro bianco in fondo.</div>
     ${foglio(r)}
+    ${bottonePdf('📄 Vedi l\'anteprima del PDF')}
     <div class="card">
       <div style="font-weight:800">Firma di ${esc((r.emittente||{}).nome)}</div>
       <div class="sig-wrap"><canvas id="cv"></canvas><span class="x">✕</span><span class="riga"></span></div>

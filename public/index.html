@@ -892,6 +892,17 @@
   </div>
 </div>
 
+<div class="pagina-piena" id="rpPdfOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('rpPdfOverlay')" style="width:auto">← Indietro</button>
+    <h2 id="rpPdfTitolo" style="font-size:15px">PDF</h2>
+  </div>
+  <div class="pp-body">
+    <button class="btn ghost sm" style="width:100%" onclick="if(rp.pdfVisto)rpScarica(rp.pdfVisto)">⬇️ Scarica il PDF</button>
+    <div id="rpPdfPagine"></div>
+  </div>
+</div>
+
 <div class="pagina-piena" id="codiceOverlay">
   <div class="pp-head">
     <button class="btn ghost sm" onclick="chiudiPagina('codiceOverlay')" style="width:auto">← Indietro</button>
@@ -1916,7 +1927,9 @@ function rpCopiaOspite(id){
 function rpMandaFirma(id,whatsapp){
   const r=rp.lista.find(x=>x.id===id); if(!r||!r.tokFirma)return;
   const em=r.emittente||{}, chi=(r.intestatario&&r.intestatario.nome)||'l\'ospite';
-  const testo=`Ciao ${rpPrimoNome(em.nome)}! 😊 C'è da firmare la ricevuta n. ${rpNum(r)} per ${chi} (€ ${rpEuro(rpTot(r))}). Apri il link, controlla e firma col dito:\n${rpLink(r.tokFirma)}\n\nGrazie mille!`;
+  // ✍️ e non 😊: le emoji "nuove" (fuori dal piano base dell'Unicode) nella pagina di WhatsApp dal
+  // computer diventavano "�" (visto il 29/10/2026); ✍️ è del piano base e passa ovunque
+  const testo=`Ciao ${rpPrimoNome(em.nome)}! ✍️ C'è da firmare la ricevuta n. ${rpNum(r)} per ${chi} (€ ${rpEuro(rpTot(r))}). Apri il link, controlla e firma col dito:\n${rpLink(r.tokFirma)}\n\nGrazie mille!`;
   if(whatsapp)apriWhatsApp(testo); else rpCopia(testo,'📋 Messaggio con il link copiato');
 }
 // PDF: "vedi" (anteprima), "scarica", "condividi" (sul telefono apre la condivisione: WhatsApp, email…).
@@ -1943,11 +1956,24 @@ async function rpPdf(id,variante,modo,btn){
     const file=new File([arr],d.nome||'ricevuta.pdf',{type:'application/pdf'});
     rp.pdf[k]=file;
     if(btn){ btn.disabled=false; btn.textContent=testo; }
-    if(modo==='vedi'){ const u=URL.createObjectURL(file); if(!window.open(u,'_blank'))rpScarica(file); return; }
+    if(modo==='vedi'){ await rpVediPdf(file,d.pdf); return; }
     if(modo==='condividi'&&puoCondividere(file)){ await condividi(file); return; }
     rpScarica(file);
     if(modo==='condividi')toast('PDF scaricato: allegalo nel messaggio all\'ospite');
   }catch(e){ toast('⚠️ '+e.message); if(btn){ btn.disabled=false; btn.textContent=testo; } }
+}
+// anteprima DENTRO KeyFlow, pagina per pagina come immagini (pdf.js): sul telefono, e nell'app
+// Android, un PDF aperto in una scheda nuova spesso non si vede
+async function rpVediPdf(file,base64){
+  const w=$('#rpPdfPagine'); if(!w)return;
+  rp.pdfVisto=file;
+  $('#rpPdfTitolo').textContent=file.name.replace(/_/g,' ').replace(/\.pdf$/,'');
+  w.innerHTML='<div class="muted" style="font-size:13px;margin-top:20px;text-align:center">Preparo l\'anteprima…</div>';
+  apriPagina('rpPdfOverlay');
+  try{
+    const img=await pdfToImmagini('data:application/pdf;base64,'+base64,{maxPagine:3});
+    w.innerHTML=img.map(u=>`<img src="${u}" alt="PDF" style="width:100%;display:block;border-radius:12px;margin-top:10px;background:#fff">`).join('');
+  }catch(e){ w.innerHTML=`<div class="hint" style="border-left-color:var(--err)">⚠️ Anteprima non riuscita: scarica il PDF.</div>`; }
 }
 function rpScarica(file){
   const u=URL.createObjectURL(file), a=document.createElement('a');
