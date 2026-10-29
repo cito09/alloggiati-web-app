@@ -322,6 +322,36 @@ async function azioneRicevute(conn, body, { strutture = [] } = {}) {
     return { ...vista(), id: r.id };
   }
 
+  // cambia la marca di una ricevuta, anche già firmata (29/10/2026, l'utente: "il codice della marca
+  // devo ancora metterlo, c'è un codice a caso: dammi la possibilità di modificarlo"). Il resto della
+  // ricevuta non cambia; il PDF si rifà ogni volta dai dati, quindi esce col numero nuovo.
+  if (op === "cambiaMarca") {
+    const r = trova(body.id);
+    if (!r) return { ok: false, error: "Ricevuta non trovata" };
+    if (r.stato === "annullata") return { ok: false, error: "La ricevuta è annullata" };
+    if (!serveBollo(r)) return { ok: false, error: "Questa ricevuta non supera € 77,47: la marca non serve" };
+    const codice = String(body.codice || "").replace(/\D/g, "");
+    const data = String(body.data || "");
+    const inScorta = s.marche.find((m) => m.codice === codice);
+    const err = inScorta ? "" : marcaValida(codice, data);
+    if (err) return { ok: false, error: err };
+    const dataM = inScorta ? inScorta.data : data;
+    if (r.stato === "firmata" && r.data && dataM > r.data)
+      return { ok: false, error: `La data della marca (${isoIt(dataM)}) è dopo quella della ricevuta (${isoIt(r.data)}): la marca dev'essere comprata prima, o lo stesso giorno` };
+    if (r.marca && r.marca.codice === codice) return { ...vista(), id: r.id };
+    const prima = r.marca ? { ...r.marca } : null;
+    liberaMarca(s, r);
+    // la marca vecchia era sbagliata (di prova, letta male): via dalla scorta, così non finisce in un'altra ricevuta
+    if (prima && body.vecchia !== "rimetti") s.marche = s.marche.filter((m) => m.codice !== prima.codice || m.usata);
+    const e2 = assegnaMarca(s, r, { codice, data: dataM });
+    if (e2) return { ok: false, error: e2 };
+    if (r.stato !== "firmata") { const e3 = allineaData(s, r); if (e3) return { ok: false, error: e3 }; }
+    r.marcaCambiata = { ts: Date.now(), prima };
+    r.modificata = Date.now();
+    await scrivi(conn, s);
+    return { ...vista(), id: r.id };
+  }
+
   if (op === "annulla") {
     const r = trova(body.id);
     if (!r) return { ok: false, error: "Ricevuta non trovata" };

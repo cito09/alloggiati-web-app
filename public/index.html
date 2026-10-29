@@ -1839,7 +1839,7 @@ function rpCard(r){
     bt('✏️ Modifica',`rpModifica('${r.id}')`);
   }else if(r.stato==='firmata'){
     note.push(`Firmata da ${escText(em.nome||'')} il ${escText(quando(r.firma&&r.firma.ts||r.modificata))}.`+(r.mandata?` Mandata all'ospite il ${escText(quando(r.mandata))}.`:''));
-    if(r.marca)note.push(`🏷️ Stampa «Originale con la marca», attacca la marca n. …${escText(r.marca.codice.slice(-6))} nel riquadro, annullala scrivendo la data a cavallo tra marca e foglio e conservala 3 anni.`);
+    if(r.marca)note.push(`🏷️ Marca n. <b>${escText(r.marca.codice)}</b> del ${escText(rpIt(r.marca.data))}. Stampa «Originale con la marca», attaccala nel riquadro, annullala scrivendo la data a cavallo tra marca e foglio e conservala 3 anni.`);
     if(r.scaricata)note.push(`📥 L'ospite l'ha aperta il ${escText(quando(r.scaricata))}.`);
     bt('📋 Copia il messaggio con il link',`rpCopiaLinkPdf('${r.id}')`,r.mandata?'ghost':'primary');
     bt('⬇️ Scarica il PDF',`rpPdf('${r.id}','ospite','scarica',this)`);
@@ -1849,12 +1849,59 @@ function rpCard(r){
     note.push(`Annullata il ${escText(quando(r.annullata||r.modificata))}.`);
     bt('🗑 Togli dall\'elenco',`rpTogli('${r.id}')`);
   }
+  if(r.marca&&r.stato!=='annullata'){
+    if(r.stato!=='firmata')note.push(`🏷️ Marca n. <b>${escText(r.marca.codice)}</b> del ${escText(rpIt(r.marca.data))}.`);
+    bt('🏷️ Cambia la marca',`rpApriCambiaMarca('${r.id}')`);
+  }
   if(r.stato!=='annullata')az.push(`<button class="btn ghost sm" style="color:var(--err);flex:0 1 auto" onclick="rpAnnulla('${r.id}')">🗑 Annulla</button>`);
   return `<div class="rp-card${r.stato==='annullata'?' spenta':''}" id="rp-${r.id}"${rp.evidenzia===r.id?' style="box-shadow:0 0 0 2px var(--amber)"':''}>
     <div class="rp-top"><span class="pallo" style="background:${col}"></span>${r.numero?`<b>n. ${escText(rpNum(r))}</b>`:''}<span class="rp-chi">${escText(chi)}</span>${pill}</div>
     <div class="rp-info">${info}${r.ospiti?'<br>Ospiti: '+escText(r.ospiti):''}</div>
     ${note.map(n=>`<div class="rp-nota">${n}</div>`).join('')}
-    <div class="rp-az">${az.join('')}</div></div>`;
+    <div class="rp-az">${az.join('')}</div>${rp.cambiaMarca===r.id?rpFormCambiaMarca(r):''}</div>`;
+}
+/* ===== cambio della marca (anche su una ricevuta già firmata) ===== */
+function rpApriCambiaMarca(id){ rp.cambiaMarca=rp.cambiaMarca===id?null:id; rpRenderLista(); const el=$('#rp-cm-'+id); if(el)el.scrollIntoView({block:'center',behavior:'smooth'}); }
+function rpFormCambiaMarca(r){
+  const libere=rp.marche.filter(m=>!m.usata);
+  return `<div class="rp-form" id="rp-cm-${r.id}">
+    <div style="font-weight:700;margin-bottom:6px">🏷️ Marca giusta per la ricevuta${r.numero?' n. '+escText(rpNum(r)):''}</div>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Adesso c'è la n. ${escText(r.marca.codice)} del ${escText(rpIt(r.marca.data))}. Fotografa la marca vera o scrivi il numero (14 cifre sotto il codice a barre, «IDENTIFICATIVO») e la data stampata.</div>
+    <button class="btn primary sm" id="rp-cm-fbtn" onclick="$('#rp-cm-foto').click()">📷 Fotografa la marca</button>
+    <input type="file" id="rp-cm-foto" accept="image/*" capture="environment" hidden onchange="rpCambiaMarcaFoto('${r.id}',this.files);this.value=''">
+    ${libere.length?`<label for="rp-cm-scorta" style="margin-top:10px">Oppure una della scorta</label><select id="rp-cm-scorta" onchange="if(this.value){const m=rp.marche.find(x=>x.codice===this.value);$('#rp-cm-cod').value=m.codice;$('#rp-cm-data').value=m.data;}">
+      <option value="">…</option>${libere.map(m=>`<option value="${m.codice}">${m.codice} · ${escText(rpIt(m.data))}</option>`).join('')}</select>`:''}
+    <div class="due" style="margin-top:10px">
+      <div><label for="rp-cm-cod">Numero (14 cifre)</label><input type="text" id="rp-cm-cod" inputmode="numeric" maxlength="20" placeholder="01240564084592"></div>
+      <div><label for="rp-cm-data">Data sulla marca</label><input type="date" id="rp-cm-data"${r.stato==='firmata'&&r.data?` max="${r.data}"`:''}></div>
+    </div>
+    <label class="rp-scelta" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:13px"><input type="checkbox" id="rp-cm-butta" checked style="width:auto;margin-top:2px">La marca di adesso (…${escText(r.marca.codice.slice(-6))}) era sbagliata: toglila dalla scorta</label>
+    ${r.stato==='firmata'?`<div class="muted" style="font-size:12px;margin-top:8px">La ricevuta resta firmata: cambia solo il numero della marca sul PDF.${r.scaricata||r.mandata?' L\'ospite ha già il link: aprendolo di nuovo vede il PDF col numero giusto.':''}</div>`:''}
+    <div class="rp-az" style="margin-top:12px"><button class="btn primary sm" onclick="rpSalvaCambiaMarca('${r.id}')">💾 Salva la marca</button><button class="btn ghost sm" onclick="rpApriCambiaMarca('${r.id}')">Annulla</button></div>
+  </div>`;
+}
+async function rpCambiaMarcaFoto(id,files){
+  const f=[...(files||[])].find(x=>x&&/^image\//.test(x.type)); if(!f)return;
+  const b=$('#rp-cm-fbtn'), t=b&&b.textContent; if(b){ b.disabled=true; b.textContent='Leggo la marca…'; }
+  try{
+    const d=await apiExtract([await downscale(await fileToDataURL(f),2000,0.88)],'marca');
+    const m=(d&&Array.isArray(d.marche)?d.marche:[]).map(x=>({codice:String(x.codice||'').replace(/\D/g,''),data:String(x.data||''),importo:x.importo,sicuro:x.sicuro!==false}))[0];
+    if(!m||!/^\d{14}$/.test(m.codice)){ toast('⚠️ Non leggo bene il numero: riprova più da vicino, o scrivilo a mano'); return; }
+    $('#rp-cm-cod').value=m.codice;
+    if(/^\d{2}\/\d{2}\/\d{4}$/.test(m.data))$('#rp-cm-data').value=m.data.split('/').reverse().join('-');
+    if(m.importo!=null&&Math.abs(Number(m.importo)-2)>0.001)toast(`⚠️ Questa marca sembra da € ${m.importo}: serve quella da € 2`);
+    else toast(m.sicuro?'✓ Letta: controlla numero e data e salva':'⚠️ Letta, ma non benissimo: controlla bene il numero prima di salvare');
+  }catch(e){ toast('⚠️ '+e.message); }
+  finally{ if(b&&document.body.contains(b)){ b.disabled=false; b.textContent=t; } }
+}
+async function rpSalvaCambiaMarca(id){
+  const codice=($('#rp-cm-cod').value||'').replace(/\D/g,''), data=$('#rp-cm-data').value||'';
+  if(!/^\d{14}$/.test(codice))return toast('⚠️ Il numero della marca ha 14 cifre');
+  if(!data)return toast('⚠️ Scrivi la data stampata sulla marca');
+  try{
+    rpPrendi(await chiamaRp({op:'cambiaMarca', id, codice, data, vecchia:$('#rp-cm-butta').checked?'togli':'rimetti'}));
+    rp.cambiaMarca=null; rp.pdf={}; rpRender(); toast('✓ Marca cambiata: il PDF ora ha il numero giusto');
+  }catch(e){ toast('⚠️ '+e.message); }
 }
 function rpRenderLista(){
   const w=$('#rpLista'); if(!w)return;
