@@ -1862,6 +1862,11 @@ function rpCard(r){
 }
 /* ===== cambio della marca (anche su una ricevuta già firmata) ===== */
 function rpApriCambiaMarca(id){ rp.cambiaMarca=rp.cambiaMarca===id?null:id; rpRenderLista(); const el=$('#rp-cm-'+id); if(el)el.scrollIntoView({block:'center',behavior:'smooth'}); }
+// dalla scorta: una marca già usata non si cancella (è nella ricevuta), si sostituisce da lì
+function rpVaiCambiaMarca(id){
+  const r=rp.lista.find(x=>x.id===id); if(!r||!r.marca||r.stato==='annullata')return toast('Questa marca è in una ricevuta annullata: resta nell\'elenco');
+  rp.cambiaMarca=null; rpApriCambiaMarca(id);
+}
 function rpFormCambiaMarca(r){
   const libere=rp.marche.filter(m=>!m.usata);
   return `<div class="rp-form" id="rp-cm-${r.id}">
@@ -1924,7 +1929,7 @@ function rpRenderMarche(){
     <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-top:6px"><input type="text" id="rp-m-cod" inputmode="numeric" maxlength="20" placeholder="Codice di 14 cifre"><input type="date" id="rp-m-data"></div>
     <button class="btn ghost sm" style="width:100%;margin-top:8px" id="rp-m-btn" onclick="rpAggiungiMarca()">➕ Aggiungi alla scorta</button></details>
     <div style="margin-top:8px">${rp.marche.map(m=>`<div class="rp-mriga"><code>${escText(m.codice)}</code><span class="muted">del ${escText(rpIt(m.data))}</span>
-      <span style="margin-left:auto;text-align:right">${m.usata?`<span class="muted">${escText(num(m.usata))}</span>`:`<button class="btn ghost sm" style="padding:6px 10px" onclick="rpTogliMarca('${m.codice}')">🗑</button>`}</span></div>`).join('')}</div>`;
+      <span style="margin-left:auto;text-align:right">${m.usata?`<button class="btn ghost sm" style="padding:6px 10px" title="Questa marca è nella ricevuta: per toglierla mettine un'altra" onclick="rpVaiCambiaMarca('${m.usata}')">${escText(num(m.usata))} · cambia</button>`:`<button class="btn ghost sm" style="padding:6px 10px" onclick="rpTogliMarca('${m.codice}')">🗑</button>`}</span></div>`).join('')}</div>`;
 }
 function rpRenderEmittenti(){
   const w=$('#rpEmittenti'); if(!w)return;
