@@ -1771,7 +1771,7 @@ function rpAggiornaTotale(){
   m.innerHTML=`<div class="rp-marca"><b>🏷️ Serve la marca da bollo da € 2</b> <span class="muted">(totale oltre € 77,47)</span>
     ${libere.length?`<select id="rp-f-msel" style="margin-top:8px" onchange="rpAggiornaTotale()">${libere.map(x=>`<option value="${x.codice}"${x.codice===scelta?' selected':''}>Dalla scorta · n. …${x.codice.slice(-6)} del ${rpIt(x.data)}</option>`).join('')}
         <option value="altra"${altra?' selected':''}>✏️ Un'altra, scrivo il codice</option></select>`
-      :`<div class="muted" style="font-size:12px;margin-top:6px">Nella scorta non ce ne sono: fotografala o scrivi qui quella che userai (la aggiungo io alla scorta).</div>
+      :`<div class="muted" style="font-size:12px;margin-top:6px">Nella scorta non ce ne sono: fotografala o scrivila qui. <b>Se non l\'hai ancora, lascia vuoto</b>: salvo lo stesso e la aggiungi dopo (la firma aspetta la marca).</div>
         <input type="file" id="rp-f-mfoto" accept="image/*" multiple style="display:none" onchange="rpFotoMarche(this.files);this.value=''">
         <button type="button" class="btn primary sm" style="width:100%;margin-top:8px" id="rp-f-mfbtn" onclick="$('#rp-f-mfoto').click()">📷 Fotografa la marca</button>`}
     ${altra?`<div class="due"><div><label for="rp-f-mcod">Codice (14 cifre)</label><input type="text" inputmode="numeric" id="rp-f-mcod" maxlength="20" value="${escText(cod||'')}" placeholder="01240564084592"></div>
@@ -1786,8 +1786,9 @@ async function rpSalva(){
   const tot=(rpCent(b.soggiorno)||0)+(rpCent(b.tassa)||0);
   let marca=null;
   if(tot>RP_SOGLIA){
-    if(b.marca&&b.marca.codice!==undefined&&(b._msel==='altra'||!b._msel)){
-      if(!/^\d{14}$/.test(b.marca.codice))return errore('Il codice della marca da bollo ha 14 cifre (è sotto il codice a barre, «IDENTIFICATIVO»)');
+    // vuota = la marca si aggiunge dopo (la firma aspetta che ci sia)
+    if(b.marca&&b.marca.codice&&(b._msel==='altra'||!b._msel)){
+      if(!/^\d{14}$/.test(b.marca.codice))return errore('Il codice della marca da bollo ha 14 cifre (è sotto il codice a barre, «IDENTIFICATIVO»). Se non ce l\'hai ancora, lascialo vuoto e aggiungila dopo.');
       if(!b.marca.data)return errore('Scrivi la data stampata sulla marca da bollo');
     }
     marca=b.marca&&b.marca.codice?b.marca:null;
@@ -1808,10 +1809,11 @@ function rpCard(r){
   const em=r.emittente||rp.emittenti[r.casa]||{};
   const chi=(r.intestatario&&r.intestatario.nome)||'Dati dell\'ospite in arrivo';
   const quando=ts=>new Date(ts).toLocaleString('it-IT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-  const pill=r.stato==='dati'?(r.datiOspite?'<span class="rp-pill dati">📥 dati arrivati</span>':'<span class="rp-pill dati">⏳ aspetta i dati</span>')
-    :r.stato==='firmare'?'<span class="rp-pill firmare">✍️ da firmare</span>'
+  const senzaMarca=(r.stato==='dati'||r.stato==='firmare')&&rpTot(r)>RP_SOGLIA&&!r.marca;
+  const pill=(senzaMarca?'<span class="rp-pill firmare">🏷️ manca la marca</span>':'')+(r.stato==='dati'?(r.datiOspite?'<span class="rp-pill dati">📥 dati arrivati</span>':'<span class="rp-pill dati">⏳ aspetta i dati</span>')
+    :r.stato==='firmare'?(senzaMarca?'':'<span class="rp-pill firmare">✍️ da firmare</span>')
     :r.stato==='firmata'?`<span class="rp-pill firmata">${r.mandata?'📤 mandata':'✅ firmata'}</span>`
-    :'<span class="rp-pill">annullata</span>';
+    :'<span class="rp-pill">annullata</span>');
   const info=[`€ ${rpEuro(rpTot(r))}`, rpPeriodo(r.dal,r.al), rpNomeCasa(r.casa), r.data?'del '+rpIt(r.data):''].filter(Boolean).map(escText).join(' · ');
   const note=[], az=[];
   const bt=(t,f,cl)=>az.push(`<button class="btn ${cl||'ghost'} sm" onclick="${f}">${t}</button>`);
@@ -1822,6 +1824,10 @@ function rpCard(r){
   }else if(r.stato==='dati'){
     note.push(`L'ospite ha mandato i dati il ${escText(quando(r.datiOspite.ts))}: controllali e prepara la firma.`);
     bt('✏️ Controlla e prepara la firma',`rpModifica('${r.id}',true)`,'primary');
+  }else if(r.stato==='firmare'&&rpTot(r)>RP_SOGLIA&&!r.marca){
+    note.push('🏷️ <b>Manca la marca da bollo</b>: fotografala (o scrivila) e poi la mandi a firmare. Se la metti nella scorta, la prende da sola.');
+    bt('🏷️ Aggiungi la marca',`rpModifica('${r.id}')`,'primary');
+    bt('👁️ Anteprima',`rpPdf('${r.id}','ospite','vedi',this)`);
   }else if(r.stato==='firmare'){
     note.push(`Da far firmare a <b>${escText(em.nome||'?')}</b>: le mandi il link e firma col dito dal telefono. Quando ha firmato ti arriva la notifica.`);
     bt(`📲 Manda a ${escText(rpPrimoNome(em.nome)||'chi firma')}`,`rpMandaFirma('${r.id}',true)`,'primary');
@@ -1896,7 +1902,8 @@ async function rpAggiungiMarca(){
   const codice=(($('#rp-m-cod')||{}).value||'').replace(/\D/g,''), data=($('#rp-m-data')||{}).value||'';
   if(!/^\d{14}$/.test(codice)){ toast('⚠️ Il codice ha 14 cifre (sotto il codice a barre)'); return; }
   if(!data){ toast('⚠️ Scrivi la data stampata sulla marca'); return; }
-  try{ rpPrendi(await chiamaRp({op:'marche', aggiungi:{codice,data}})); rpRender(); toast('✓ Marca aggiunta alla scorta'); }
+  try{ const d=await chiamaRp({op:'marche', aggiungi:{codice,data}}); rpPrendi(d); rpRender();
+    toast((d.assegnate||[]).length?`✓ Marca messa nella ricevuta ${d.assegnate.join(', ')}: ora è da firmare`:'✓ Marca aggiunta alla scorta'); }
   catch(e){ toast('⚠️ '+e.message); }
 }
 // foto delle marche → l'AI legge numero (14 cifre, controllato con quello sotto il codice a barre) e data
@@ -1916,12 +1923,14 @@ async function rpFotoMarche(files){
       if(m.importo!=null&&Math.abs(Number(m.importo)-2)>0.001){ scartate.push(`…${m.codice.slice(-6)}: è da € ${m.importo}, non da € 2`); continue; }
       if(!m.sicuro&&!confirm(`Il numero di questa marca non si leggeva benissimo:\n\n${m.codice} del ${m.data}\n\nControlla che sia giusto (è sotto il codice a barre, «IDENTIFICATIVO»). Lo aggiungo?`)){ scartate.push(`…${m.codice.slice(-6)}: non confermata`); continue; }
       if(rp.marche.some(x=>x.codice===m.codice)){ scartate.push(`…${m.codice.slice(-6)}: già nella scorta`); continue; }
-      try{ rpPrendi(await chiamaRp({op:'marche', aggiungi:{codice:m.codice, data:iso}})); aggiunte.push(`…${m.codice.slice(-6)} del ${m.data}`); }
+      try{ const d=await chiamaRp({op:'marche', aggiungi:{codice:m.codice, data:iso}}); rpPrendi(d);
+        aggiunte.push(`…${m.codice.slice(-6)} del ${m.data}`+((d.assegnate||[]).length?` (messa nella ricevuta ${d.assegnate.join(', ')})`:'')); }
       catch(e){ scartate.push(`…${m.codice.slice(-6)}: ${e.message}`); }
     }
     rpRender();
     const sez=$('#rpMarcheSez'); if(sez&&aggiunte.length)sez.open=true;
-    if(aggiunte.length)toast(`✓ Aggiunt${aggiunte.length===1?'a 1 marca':'e '+aggiunte.length+' marche'} alla scorta`);
+    if(aggiunte.length)toast(aggiunte.some(x=>/ricevuta/.test(x))?'✓ Marca messa nella ricevuta che la aspettava: ora è da firmare'
+      :`✓ Aggiunt${aggiunte.length===1?'a 1 marca':'e '+aggiunte.length+' marche'} alla scorta`);
     if(scartate.length)alert((aggiunte.length?`Aggiunte: ${aggiunte.join(', ')}\n\n`:'')+`Non aggiunte:\n• ${scartate.join('\n• ')}`);
   }catch(e){ toast('⚠️ '+e.message); }
   finally{ bt.forEach((b,i)=>{ if(document.body.contains(b)){ b.disabled=false; b.textContent=testi[i]; } }); }

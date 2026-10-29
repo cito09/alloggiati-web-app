@@ -176,13 +176,34 @@ function assegnaMarca(s, r, richiesta) {
     }
   } else {
     scelta = s.marche.filter((m) => !m.usata).sort((a, b) => String(a.data).localeCompare(String(b.data)))[0];
-    if (!scelta) return "Il totale supera € 77,47 e serve una marca da bollo da € 2, ma nella scorta non ce ne sono: aggiungine una (codice di 14 cifre e data) qui sotto in «Scorta marche da bollo» o scrivila nella ricevuta";
+    // nessuna marca in scorta: si va avanti lo stesso (29/10/2026, l'utente: "voglio già mandare
+    // all'ospite il modulo, la marca la prendo più tardi"). La firma aspetta che la marca ci sia.
+    if (!scelta) return "";
   }
   if (r.marca && r.marca.codice !== scelta.codice) liberaMarca(s, r);
   scelta.usata = r.id;
   r.marca = { codice: scelta.codice, data: scelta.data };
   return "";
 }
+
+// la marca è comprata dopo aver preparato la ricevuta (non ancora firmata): la data della ricevuta
+// non può essere precedente a quella della marca, quindi si sposta alla data della marca
+function allineaData(s, r) {
+  if (!r.marca || !r.data || r.marca.data <= r.data || r.stato === "firmata") return "";
+  return r.stato === "firmare" ? preparaFirma(s, r, { data: r.marca.data, numero: r.anno === Number(r.marca.data.slice(0, 4)) ? r.numero : "" }) : (r.data = r.marca.data, "");
+}
+// ricevute in attesa della marca: quando la marca entra nella scorta va da sola alla più vecchia
+function assegnaAiInAttesa(s) {
+  const fatte = [];
+  for (const r of s.lista.filter((x) => (x.stato === "dati" || x.stato === "firmare") && serveBollo(x) && !x.marca).sort((a, b) => (a.creata || 0) - (b.creata || 0))) {
+    if (!s.marche.some((m) => !m.usata)) break;
+    if (assegnaMarca(s, r, null)) continue;
+    allineaData(s, r);
+    fatte.push(etichetta(r));
+  }
+  return fatte;
+}
+const manca = (r) => serveBollo(r) && !r.marca;
 
 // la ricevuta è completa: numero, data, chi firma (copia dei dati di quel momento), link per la firma
 function preparaFirma(s, r, { numero, data } = {}) {
@@ -245,6 +266,7 @@ async function azioneRicevute(conn, body, { strutture = [] } = {}) {
       if (err) return { ok: false, error: err };
       if (s.marche.some((m) => m.codice === codice)) return { ok: false, error: "Questa marca da bollo è già nella scorta" };
       s.marche.push({ codice, data, usata: null, aggiunta: Date.now() });
+      var assegnate = assegnaAiInAttesa(s);
     } else if (body.togli) {
       const m = s.marche.find((x) => x.codice === String(body.togli));
       if (!m) return { ok: false, error: "Marca non trovata" };
@@ -252,7 +274,7 @@ async function azioneRicevute(conn, body, { strutture = [] } = {}) {
       s.marche = s.marche.filter((x) => x !== m);
     }
     await scrivi(conn, s);
-    return vista();
+    return { ...vista(), assegnate: assegnate || [] };
   }
 
   if (op === "salva") {
@@ -285,6 +307,8 @@ async function azioneRicevute(conn, body, { strutture = [] } = {}) {
     if (!chiediDati && !(r.intestatario && r.intestatario.nome)) return { ok: false, error: "Scrivi a chi intestare la ricevuta, oppure fai inserire i dati all'ospite col link" };
     const errMarca = assegnaMarca(s, r, d.marca);
     if (errMarca) return { ok: false, error: errMarca };
+    // marca più nuova della data proposta (oggi): la ricevuta prende la data della marca
+    if (r.marca && isoOk(d.data) && r.marca.data > d.data && d.data >= oggiRoma()) d.data = r.marca.data;
     if (chiediDati) {
       if (!(r.intestatario && r.intestatario.nome)) r.intestatario = null;
       r.stato = "dati";
@@ -387,7 +411,7 @@ async function azionePubblica(conn, body, { ip = "", nomeCasa = (id) => id } = {
     // se il resto è già pronto passa subito "da firmare"; sennò l'host completa dal gestionale
     const err = preparaFirma(s, r, {});
     await scrivi(conn, s);
-    await avvisaHost(`💶 Dati per la ricevuta arrivati: ${intest.nome}` + (err ? ". Completala in KeyFlow." : ` · ricevuta ${etichetta(r)} pronta da far firmare a ${r.emittente.nome}`));
+    await avvisaHost(`💶 Dati per la ricevuta arrivati: ${intest.nome}` + (err ? ". Completala in KeyFlow." : manca(r) ? ` · ricevuta ${etichetta(r)}: manca solo la marca da bollo, poi è da firmare` : ` · ricevuta ${etichetta(r)} pronta da far firmare a ${r.emittente.nome}`));
     return { ...base, fatto: true };
   }
 
@@ -401,6 +425,7 @@ async function azionePubblica(conn, body, { ip = "", nomeCasa = (id) => id } = {
     return { ok: true, modo, firmata: r.firma && r.firma.ts, ricevuta: anteprima(r) };
   }
   if (r.stato !== "firmare") return { ok: false, error: "La ricevuta non è ancora pronta da firmare" };
+  if (manca(r)) return { ok: false, error: "La ricevuta aspetta ancora la marca da bollo: si potrà firmare appena c'è" };
   if (op === "apri") return { ok: true, modo, ricevuta: anteprima(r) };
   if (op === "pdf") return { ok: true, pdf: (await pdfRicevuta(r, { variante: "ospite" })).toString("base64") };
   if (op !== "firma") return { ok: false, error: "Azione non valida" };
