@@ -53,16 +53,24 @@
   .sig-wrap .riga{position:absolute; left:18px; right:18px; bottom:40px; border-bottom:1.5px dashed #c8cad0; pointer-events:none}
   .sig-wrap .x{position:absolute; left:16px; bottom:44px; color:#9a9ca4; font-size:15px; pointer-events:none}
   .pdf-vista img{width:100%; display:block; border-radius:12px; margin-top:10px; background:#fff}
-  .lingue{display:flex; flex-wrap:wrap; gap:7px; padding:2px 0 10px; margin-bottom:6px}
-  .lingue::-webkit-scrollbar{display:none}
-  .lingue button{flex:0 0 auto; border:none; background:var(--surface2); border-radius:12px; padding:8px; cursor:pointer; line-height:0; box-shadow:inset 0 0 0 2px transparent}
-  .lingue button.on{box-shadow:inset 0 0 0 2px var(--amber); background:rgba(132,227,211,.12)}
+  header{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .lang-switch-btn{background:var(--surface2); border:1px solid var(--line); color:var(--ink); border-radius:999px; padding:7px 12px; font-size:14px; font-weight:700;
+    font-family:inherit; cursor:pointer; display:none; align-items:center; gap:8px}
+  .lang-switch-btn .freccia{color:var(--muted); font-size:11px}
+  .lang-menu{position:absolute; right:12px; top:calc(58px + env(safe-area-inset-top)); z-index:20; background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:6px; box-shadow:0 16px 40px -10px rgba(0,0,0,.7); max-height:70vh; overflow-y:auto; min-width:210px; display:none}
+  .lang-menu.open{display:block}
+  .lang-menu button{display:flex; align-items:center; gap:12px; width:100%; border:none; background:none; color:var(--ink); font-family:inherit; font-size:15px; font-weight:700;
+    padding:11px 12px; border-radius:11px; cursor:pointer; text-align:left}
+  .lang-menu button.on{background:rgba(132,227,211,.12); color:var(--amber)}
   .flagsvg{display:block; width:30px; height:20px; border-radius:3px; box-shadow:0 0 0 1px rgba(255,255,255,.18)}
   .lingua{float:right; background:var(--surface2); color:var(--ink); border:none; border-radius:12px; padding:6px 10px; font-size:13px; font-family:inherit}
 </style>
 </head>
 <body>
-<header><span class="brand"><i><svg viewBox="0 0 64 64"><circle cx="22" cy="32" r="8" fill="none" stroke="#0a2723" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="#0a2723" stroke-width="6" stroke-linecap="round" fill="none"/></svg></i><span>Key<b>Flow</b></span></span></header>
+<header><span class="brand"><i><svg viewBox="0 0 64 64"><circle cx="22" cy="32" r="8" fill="none" stroke="#0a2723" stroke-width="6"/><path d="M30 32h22M46 32v9M38 32v6" stroke="#0a2723" stroke-width="6" stroke-linecap="round" fill="none"/></svg></i><span>Key<b>Flow</b></span></span>
+  <button class="lang-switch-btn" id="langBtn" onclick="menuLingua()" aria-haspopup="true"></button></header>
+<div class="lang-menu" id="langMenu" role="menu"></div>
 <div class="wrap" id="root"><div class="muted" style="margin-top:30px;text-align:center">…</div></div>
 <script src="/shared.js"></script>
 <script>
@@ -101,9 +109,22 @@ const T={
   hu:{"nomeLingua": "Magyar", "tit_o": "Adatok a nyugtához", "sub_o": "Írja meg, kinek a nevére szóljon a szállásról szóló nyugta.", "nome": "Teljes név vagy cégnév", "ind": "Cím (utca, irányítószám, város)", "cf": "Adóazonosító vagy közösségi adószám", "invia": "Adatok küldése", "grazie_t": "Köszönjük!", "grazie": "Megkaptuk az adatokat: a nyugtát elküldjük, amint elkészül.", "soggiorno": "Szállás", "dal": "", "al": "–", "errore": "Hiba történt, próbálja újra", "e_nome": "Adja meg a nevet vagy a cégnevet", "e_ind": "Adja meg a címet", "e_cf": "Adja meg az adóazonosítót vagy az adószámot"}
 };
 const LINGUE=Object.keys(T);
-let lang=(()=>{ try{ const x=localStorage.getItem('lingua'); if(x&&T[x])return x; }catch(e){} const n=(navigator.language||'it').slice(0,2).toLowerCase(); return T[n]?n:(n==='hr'||n==='sr'?'bs':'en'); })();
+let lang=(()=>{ try{ const x=localStorage.getItem('keyflow_lang')||localStorage.getItem('lingua'); if(x&&T[x])return x; }catch(e){} const n=(navigator.language||'it').slice(0,2).toLowerCase(); return T[n]?n:(n==='hr'||n==='sr'?'bs':'en'); })();
 const t=k=>{ const v=(T[lang]||T.it)[k]; return v==null?T.it[k]:v; };
-function scegliLingua(l){ lang=l; try{ localStorage.setItem('lingua',l); }catch(e){} renderOspite(stato); }
+// menu a tendina della lingua, come nel check-in: bandiera + nome, in alto a destra
+function aggiornaLangBtn(){
+  const b=$('#langBtn'); if(!b)return;
+  b.innerHTML=`${FLAGS[lang]||'🌐'}<span>${esc(T[lang].nomeLingua)}</span><span class="freccia">▾</span>`;
+  b.style.display=stato&&stato.modo==='ospite'&&!stato.fatto?'inline-flex':'none';
+  $('#langMenu').innerHTML=LINGUE.map(l=>`<button type="button" role="menuitem" class="${l===lang?'on':''}" onclick="scegliLingua('${l}')">${FLAGS[l]}${esc(T[l].nomeLingua)}</button>`).join('');
+}
+function menuLingua(){ $('#langMenu').classList.toggle('open'); }
+document.addEventListener('click',e=>{ if(!e.target.closest('#langMenu,#langBtn'))$('#langMenu').classList.remove('open'); });
+function scegliLingua(l){
+  lang=l; try{ localStorage.setItem('keyflow_lang',l); }catch(e){}
+  document.documentElement.lang=l; $('#langMenu').classList.remove('open');
+  if(stato&&stato.modo==='ospite')renderOspite(stato);
+}
 const dIt=iso=>{ const [a,m,d]=String(iso||'').split('-'); return a?`${d}/${m}/${a}`:''; };
 const euro=c=>(c/100).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2});
 async function chiama(corpo){
@@ -127,10 +148,10 @@ async function avvia(){
 }
 /* ===== l'ospite scrive a chi intestare la ricevuta ===== */
 function renderOspite(d){
+  setTimeout(aggiornaLangBtn,0);
   const periodo=`${d.casa?esc(d.casa)+' · ':''}${t('dal')} ${dIt(d.dal)} ${t('al')} ${dIt(d.al)}`.replace(/ {2,}/g,' ').replace(/· $/,'');
   if(d.fatto){ $('#root').innerHTML=`<div class="card" style="text-align:center"><div class="grande">✅</div><h1>${t('grazie_t')}</h1><div class="sub">${t('grazie')}</div><div class="muted" style="margin-top:10px">${periodo}</div></div>`; return; }
   $('#root').innerHTML=`
-    <div class="lingue">${LINGUE.map(l=>`<button type="button" class="${l===lang?'on':''}" title="${T[l].nomeLingua}" aria-label="${T[l].nomeLingua}" onclick="scegliLingua('${l}')">${FLAGS[l]||l}</button>`).join('')}</div>
     <h1>🧾 ${t('tit_o')}</h1><div class="sub">${t('sub_o')}</div>
     <div class="card">
       <div class="muted">${t('soggiorno')}: ${periodo}</div>
