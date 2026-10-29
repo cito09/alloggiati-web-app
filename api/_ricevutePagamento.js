@@ -359,6 +359,13 @@ async function azioneRicevute(conn, body, { strutture = [] } = {}) {
     return vista();
   }
 
+  if (op === "linkOspite") {
+    const r = trova(body.id);
+    if (!r) return { ok: false, error: "Ricevuta non trovata" };
+    if (!r.tokOspite) { r.tokOspite = token(); await scrivi(conn, s); }
+    return { ...vista(), tok: r.tokOspite };
+  }
+
   if (op === "mandata") {
     const r = trova(body.id);
     if (!r) return { ok: false, error: "Ricevuta non trovata" };
@@ -415,6 +422,17 @@ async function azionePubblica(conn, body, { ip = "", nomeCasa = (id) => id } = {
 
   if (modo === "ospite") {
     const base = { ok: true, modo, casa: nomeCasa(r.casa), dal: r.dal, al: r.al };
+    // ricevuta firmata: dallo STESSO link l'ospite la vede e scarica il PDF (29/10/2026, l'utente: "non
+    // posso mandare il PDF sulla chat di Airbnb: manda un link per scaricarlo")
+    if (r.stato === "firmata") {
+      if (op === "pdf") {
+        let firma = null;
+        if (r.firma && r.firma.url) { const f = await require("./_blob").leggiBlob(r.firma.url); firma = f && f.buffer; }
+        if (!r.scaricata) { r.scaricata = Date.now(); await scrivi(conn, s); await avvisaHost(`📥 ${(r.intestatario && r.intestatario.nome) || "L'ospite"} ha aperto la ricevuta ${etichetta(r)}`); }
+        return { ok: true, nome: nomeFile(r, "ospite"), pdf: (await pdfRicevuta(r, { variante: "ospite", firma })).toString("base64") };
+      }
+      return { ...base, pronta: true, numero: r.numero, anno: r.anno };
+    }
     if (r.stato !== "dati" || r.datiOspite) return { ...base, fatto: true };
     if (op === "apri") return base;
     if (op !== "dati") return { ok: false, error: "Azione non valida" };

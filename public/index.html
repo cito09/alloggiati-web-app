@@ -874,7 +874,7 @@
     <h2>💶 Ricevute di pagamento</h2>
   </div>
   <div class="pp-body">
-    <div class="muted" style="font-size:12.5px;line-height:1.5">Per chi chiede «la fattura»: da privati la fattura non si fa, si fa una <b>ricevuta</b> firmata da chi incassa (il proprietario). La prepari tu, il proprietario la firma col dito da un link, tu mandi il PDF all'ospite. Numero, marca da bollo e diciture li mette KeyFlow.</div>
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Per chi chiede «la fattura»: da privati la fattura non si fa, si fa una <b>ricevuta</b> firmata da chi incassa (il proprietario). La prepari tu, il proprietario la firma col dito da un link, tu mandi all'ospite un link da cui la scarica (la chat di Airbnb non accetta PDF). Numero, marca da bollo e diciture li mette KeyFlow.</div>
     <div id="rpAvviso"></div>
     <div id="rpForm"></div>
     <button class="btn primary" id="rpNuovaBtn" style="margin-top:12px" onclick="rpNuova()">➕ Nuova ricevuta</button>
@@ -1815,7 +1815,7 @@ function rpCard(r){
   const senzaMarca=(r.stato==='dati'||r.stato==='firmare')&&rpTot(r)>RP_SOGLIA&&!r.marca;
   const pill=(senzaMarca?'<span class="rp-pill firmare">🏷️ manca la marca</span>':'')+(r.stato==='dati'?(r.datiOspite?'<span class="rp-pill dati">📥 dati arrivati</span>':'<span class="rp-pill dati">⏳ aspetta i dati</span>')
     :r.stato==='firmare'?(senzaMarca?'':'<span class="rp-pill firmare">✍️ da firmare</span>')
-    :r.stato==='firmata'?`<span class="rp-pill firmata">${r.mandata?'📤 mandata':'✅ firmata'}</span>`
+    :r.stato==='firmata'?`<span class="rp-pill firmata">${r.scaricata?'📥 aperta':r.mandata?'📤 mandata':'✅ firmata'}</span>`
     :'<span class="rp-pill">annullata</span>');
   const info=[`€ ${rpEuro(rpTot(r))}`, rpPeriodo(r.dal,r.al), rpNomeCasa(r.casa), r.data?'del '+rpIt(r.data):''].filter(Boolean).map(escText).join(' · ');
   const note=[], az=[];
@@ -1840,7 +1840,8 @@ function rpCard(r){
   }else if(r.stato==='firmata'){
     note.push(`Firmata da ${escText(em.nome||'')} il ${escText(quando(r.firma&&r.firma.ts||r.modificata))}.`+(r.mandata?` Mandata all'ospite il ${escText(quando(r.mandata))}.`:''));
     if(r.marca)note.push(`🏷️ Stampa «Originale con la marca», attacca la marca n. …${escText(r.marca.codice.slice(-6))} nel riquadro, annullala scrivendo la data a cavallo tra marca e foglio e conservala 3 anni.`);
-    bt('📤 Manda il PDF all\'ospite',`rpPdf('${r.id}','ospite','condividi',this)`,r.mandata?'ghost':'primary');
+    if(r.scaricata)note.push(`📥 L'ospite l'ha aperta il ${escText(quando(r.scaricata))}.`);
+    bt('📋 Copia il messaggio con il link',`rpCopiaLinkPdf('${r.id}')`,r.mandata?'ghost':'primary');
     bt('⬇️ Scarica il PDF',`rpPdf('${r.id}','ospite','scarica',this)`);
     if(r.marca)bt('🖨️ Originale con la marca',`rpPdf('${r.id}','archivio','scarica',this)`);
     bt(r.mandata?'↺ Non ancora mandata':'✓ Segna come mandata',`rpSegnaMandata('${r.id}',${!r.mandata})`);
@@ -1977,6 +1978,16 @@ function rpCopiaOspite(id){
   const nome=rpPrimoNome(r.ospiti);
   rpCopia(`Ciao${nome?' '+nome:''}! 😊 Per preparare la ricevuta ci servono i dati di chi la riceve: nome o ragione sociale, indirizzo e codice fiscale o partita IVA. Li puoi inserire qui:\n${rpLink(r.tokOspite)}\n\nAppena arrivano te la prepariamo. Grazie!`,
     '📋 Messaggio copiato: incollalo nella chat con l\'ospite');
+}
+// la chat di Airbnb non accetta PDF: all'ospite va un LINK da cui vede e scarica la ricevuta firmata
+// (è lo stesso link /r/… della pagina dei dati, se c'era)
+async function rpCopiaLinkPdf(id){
+  let r=rp.lista.find(x=>x.id===id); if(!r)return;
+  if(!r.tokOspite){ try{ const d=await chiamaRp({op:'linkOspite', id}); rpPrendi(d); r=rp.lista.find(x=>x.id===id); }catch(e){ toast('⚠️ '+e.message); return; } }
+  const nome=rpPrimoNome(r.ospiti);
+  rpCopia(`Ciao${nome?' '+nome:''}! 😊 Ecco la ricevuta del soggiorno, la puoi scaricare in PDF da qui:\n${rpLink(r.tokOspite)}\n\nGrazie ancora e a presto!`,
+    '📋 Messaggio copiato: incollalo nella chat di Airbnb');
+  if(!r.mandata)rpSegnaMandata(id,true);
 }
 function rpMandaFirma(id,whatsapp){
   const r=rp.lista.find(x=>x.id===id); if(!r||!r.tokFirma)return;
