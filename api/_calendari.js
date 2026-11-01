@@ -635,4 +635,22 @@ async function azioneCalendariInTurno(conn, corpo) {
   return vista;
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, blocchiDaEventi, unisciBlocchi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, vistaCalendari, azioneCalendari, conNomi, haFonti, conTurno };
+/* Quanti ospiti ha la prenotazione di una casa con quel giorno d'arrivo (1/11/2026, l'utente: "lui
+   aveva caricato tre documenti e ha letto un ospite solo… si può collegare la prenotazione col
+   check-in, che lo obbliga a mettere quel numero di documenti?"). Il link del check-in è uno per
+   casa, ma una casa non ha due arrivi nello stesso giorno: casa + giorno d'arrivo = la prenotazione.
+   Il numero viene dall'email di conferma di Airbnb (o da ProhostAI, o dalla modifica accettata).
+   Si dà SOLO il numero (mai nome, codice o altro): la pagina del check-in è pubblica.
+   arrivo/partenza "gg/mm/aaaa"; null se la prenotazione non c'è o il numero non si sa. */
+function ospitiPrenotazione(stato, casa, arrivo, partenza) {
+  const c = String(casa || "").trim().toLowerCase(), a = String(arrivo || "").trim(), p = String(partenza || "").trim();
+  if (!c || !/^\d{2}\/\d{2}\/\d{4}$/.test(a)) return null;
+  const lista = (vistaCalendari(stato || {}).prenotazioni || [])
+    .filter((x) => String(x.strutturaId || "").toLowerCase() === c && x.arrivo === a && Number(x.ospiti) > 0);
+  if (!lista.length) return null;
+  const giusta = lista.find((x) => x.partenza === p) || lista[0];
+  const n = Number(giusta.ospiti);
+  return n >= 1 && n <= 30 ? n : null;
+}
+
+module.exports = { leggiIcal, prenotazioniDaEventi, blocchiDaEventi, unisciBlocchi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, vistaCalendari, azioneCalendari, conNomi, haFonti, conTurno, ospitiPrenotazione };

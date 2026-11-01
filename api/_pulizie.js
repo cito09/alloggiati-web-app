@@ -59,11 +59,17 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
     tutti.push({ casa: idCasa(e.struttura, strutture), arrivo: arr, partenza: arr + notti * GIORNO, ospiti: recs.length || e.valide || null, peso: 3,
       nome: primoNome((recs[0] || "").slice(64, 94)), stato: "registrato" });
   }
-  for (const v of pending || []) {
+  // prima i check-in "veri", poi gli ospiti aggiunti dopo ("➕ Aggiungi altri ospiti", stessa
+  // prenotazione): quelli si SOMMANO al check-in della stessa casa e dello stesso arrivo
+  const pend = (pending || []).slice().sort((a, b) => (a.aggiunta ? 1 : 0) - (b.aggiunta ? 1 : 0));
+  for (const v of pend) {
     const arr = msDa(v.arrivo); if (!arr) continue;
     const par = msDa(v.partenza) || (v.notti ? arr + Number(v.notti) * GIORNO : null);
     if (!par || par <= arr) continue;
-    tutti.push({ casa: idCasa(v.strutturaId || v.strutturaNome, strutture), arrivo: arr, partenza: par, ospiti: (v.ospiti || []).length || null, peso: 2,
+    const casa = idCasa(v.strutturaId || v.strutturaNome, strutture), n = (v.ospiti || []).length;
+    const primo = v.aggiunta && tutti.find((x) => x.stato === "checkin" && x.casa === casa && x.arrivo === arr);
+    if (primo) { primo.ospiti = (primo.ospiti || 0) + n || null; continue; }
+    tutti.push({ casa, arrivo: arr, partenza: par, ospiti: n || null, peso: 2,
       nome: primoNome(((v.ospiti || [])[0] || {}).nome), stato: "checkin" });
   }
   for (const p of esterne || []) {
@@ -88,8 +94,12 @@ function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
     const lista = perCasa[s.casa] || (perCasa[s.casa] = []);
     const uguale = lista.find((x) => x.arrivo < s.partenza && x.partenza > s.arrivo);
     if (!uguale) { lista.push(s); continue; }
-    // lo stesso soggiorno, ma col check-in fatto si sa quanti sono anche se l'altro non lo sa
-    if (!uguale.ospiti && s.ospiti) uguale.ospiti = s.ospiti;
+    // lo stesso soggiorno, ma col check-in fatto si sa quanti sono anche se l'altro non lo sa.
+    // Il numero della prenotazione di Airbnb (email di conferma) però non scende MAI (1/11/2026,
+    // l'utente: "se uno carica solo un documento e sono di più, non deve modificarsi il messaggio
+    // delle pulizie: deve prevalere quello della prenotazione di Airbnb"). Se invece al check-in
+    // sono di più (un bambino aggiunto…) vale il numero più alto: letti e asciugamani per tutti.
+    if (s.ospiti && (!uguale.ospiti || (s.peso === 1 && s.ospiti > uguale.ospiti))) uguale.ospiti = s.ospiti;
     if (!uguale.nome && s.nome) uguale.nome = s.nome;
     // dopo il check-in la prenotazione su Airbnb resta apribile (come nel gestionale dell'host)
     if (!uguale.url && s.url) { uguale.url = s.url; uguale.fonteUrl = s.fonteUrl; }

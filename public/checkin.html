@@ -125,6 +125,10 @@
   .step-item.active{color:var(--ink)}
   .step-item.done .dot{background:rgba(45,198,83,.15); border-color:var(--ok); color:var(--ok)}
   .btn.big{font-size:17px; padding:17px 16px}
+  .pren-box{font-size:14px; color:var(--ink); background:rgba(90,160,242,.13); border:1px solid rgba(90,160,242,.5); border-radius:10px; padding:11px 13px; margin-top:10px; font-weight:700; line-height:1.4}
+  .orf-thumbs{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0}
+  .orf-thumbs img,.orf-thumbs span{width:52px; height:52px; object-fit:cover; border-radius:8px; border:1px solid rgba(255,183,3,.5); display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--surface)}
+  .link-meno{display:block; width:100%; margin-top:14px; background:none; border:0; color:var(--muted); font-size:13px; text-decoration:underline; cursor:pointer; font-family:inherit}
   .warn-box{font-size:13px; color:#ffd98a; background:rgba(255,183,3,.1); border:1px solid rgba(255,183,3,.4); border-radius:10px; padding:10px 12px; margin-top:10px; font-weight:600}
   .recap-item{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--line); font-size:14px}
   .recap-item:last-child{border-bottom:none}
@@ -1167,7 +1171,30 @@ const T2={
     lettura_ko:'Ezeken a fotókon egyetlen okmányt sem sikerült beolvasni.', lettura_ko_hint:'Próbálja újra éles, jól megvilágított fotókkal (okmányonként egy), vagy írja be az adatokat kézzel: csak egy perc.', btn_manuale:'✍️ Adatok beírása kézzel', ok_add_more:'➕ További vendégek hozzáadása', ok_add_more_hint:'Valaki kimaradt? Adja hozzá most: a szerződést és a szelfit nem kell megismételni.', aggiunta_banner:'További vendégeket ad hozzá a már elküldött bejelentkezéshez: töltse fel az okmányaikat, akár mindet egyszerre.', foto_non_leggibile:'Ez a fotó ezen a telefonon nem nyitható meg (nem támogatott formátum): küldje el JPG-ként, vagy készítsen képernyőképet.', date_passate:'Kérjük, ellenőrizze a tartózkodás dátumait: úgy tűnik, a múltban vannak.',
     link_monco_tit:'A link hiányosan érkezett meg', link_monco_txt:'A link egy része hiányzik: ez akkor fordul elő, ha a csevegőalkalmazás lefordítja vagy levágja. Nyissa meg a linket az eredeti üzenetből (automatikus fordítás nélkül), vagy másolja be teljes egészében a böngészőbe. Ha így sem működik, kérje meg a szálláshelyet, hogy küldje el újra.' },
 };
+/* Prenotazione collegata al check-in e foto non lette (1/11/2026: un ospite di un gruppo di 3 aveva
+   caricato tre documenti ma ne è stato letto uno solo, e il check-in è partito con un ospite).
+   Testi tenuti a parte perché le righe di T e T2 sono lunghissime e fragili: si uniscono a T2 e
+   si leggono con t2(). {n} = ospiti della prenotazione, {k} = inseriti, {x} = foto non lette.
+   Niente "3 ospiti" con il numero accanto alla parola: nelle lingue slave e in ungherese la parola
+   cambia col numero; si scrive "Ospiti nella prenotazione: 3". */
+const T2_PREN={
+  it:{ pren_ospiti:'Ospiti nella prenotazione: {n}. Carica il documento di ognuno, anche dei bambini.', pren_conta:'Ospiti nella prenotazione: {n} · inseriti finora: {k}', pren_mancano:'Aggiungi gli altri ospiti: per legge vanno registrati tutti quelli che dormono nell\'alloggio.', btn_prossimo:'➕ Aggiungi il prossimo ospite', pren_meno:'Siamo meno persone di quelle prenotate', pren_meno_tit:'Ospiti nella prenotazione: {n}. Per legge vanno registrati tutti quelli che dormono nell\'alloggio: continua solo se gli altri non vengono.', pren_meno_ok:'✓ Confermo, siamo meno', foto_non_lette:'Foto non lette: {x}', foto_non_lette_hint:'Se è il documento di un altro ospite tocca «Aggiungi il prossimo ospite»: la foto è già caricata.', foto_non_lette_retro:'Se è il retro di un documento già letto, prosegui pure.' },
+  en:{ pren_ospiti:'Guests in the booking: {n}. Please upload a document for each of them, children included.', pren_conta:'Guests in the booking: {n} · added so far: {k}', pren_mancano:'Please add the other guests: by law everyone sleeping in the apartment must be registered.', btn_prossimo:'➕ Add the next guest', pren_meno:'There are fewer of us than booked', pren_meno_tit:'Guests in the booking: {n}. By law everyone sleeping in the apartment must be registered: continue only if the others are not coming.', pren_meno_ok:'✓ I confirm, there are fewer of us', foto_non_lette:'Photos we could not read: {x}', foto_non_lette_hint:'If it is another guest\'s document, tap “Add the next guest”: the photo is already uploaded.', foto_non_lette_retro:'If it is the back of a document already read, just continue.' },
+  fr:{ pren_ospiti:'Voyageurs dans la réservation : {n}. Chargez le document de chacun, enfants compris.', pren_conta:'Voyageurs dans la réservation : {n} · ajoutés jusqu\'ici : {k}', pren_mancano:'Ajoutez les autres voyageurs : la loi impose d\'enregistrer toutes les personnes qui dorment dans le logement.', btn_prossimo:'➕ Ajouter le voyageur suivant', pren_meno:'Nous sommes moins nombreux que prévu', pren_meno_tit:'Voyageurs dans la réservation : {n}. La loi impose d\'enregistrer toutes les personnes qui dorment dans le logement : continuez seulement si les autres ne viennent pas.', pren_meno_ok:'✓ Je confirme, nous sommes moins nombreux', foto_non_lette:'Photos non lues : {x}', foto_non_lette_hint:'Si c\'est le document d\'un autre voyageur, touchez « Ajouter le voyageur suivant » : la photo est déjà chargée.', foto_non_lette_retro:'Si c\'est le verso d\'un document déjà lu, continuez.' },
+  es:{ pren_ospiti:'Huéspedes en la reserva: {n}. Sube el documento de cada uno, también de los niños.', pren_conta:'Huéspedes en la reserva: {n} · añadidos hasta ahora: {k}', pren_mancano:'Añade a los demás huéspedes: por ley hay que registrar a todas las personas que duermen en el alojamiento.', btn_prossimo:'➕ Añadir el siguiente huésped', pren_meno:'Somos menos de los reservados', pren_meno_tit:'Huéspedes en la reserva: {n}. Por ley hay que registrar a todas las personas que duermen en el alojamiento: continúa solo si los demás no vienen.', pren_meno_ok:'✓ Confirmo, somos menos', foto_non_lette:'Fotos no leídas: {x}', foto_non_lette_hint:'Si es el documento de otro huésped, toca «Añadir el siguiente huésped»: la foto ya está subida.', foto_non_lette_retro:'Si es el reverso de un documento ya leído, continúa.' },
+  de:{ pren_ospiti:'Gäste in der Buchung: {n}. Bitte laden Sie für jeden ein Dokument hoch, auch für Kinder.', pren_conta:'Gäste in der Buchung: {n} · bisher hinzugefügt: {k}', pren_mancano:'Bitte fügen Sie die anderen Gäste hinzu: Laut Gesetz müssen alle Personen gemeldet werden, die in der Unterkunft übernachten.', btn_prossimo:'➕ Nächsten Gast hinzufügen', pren_meno:'Wir sind weniger als gebucht', pren_meno_tit:'Gäste in der Buchung: {n}. Laut Gesetz müssen alle Personen gemeldet werden, die in der Unterkunft übernachten: Fahren Sie nur fort, wenn die anderen nicht kommen.', pren_meno_ok:'✓ Ich bestätige, wir sind weniger', foto_non_lette:'Nicht gelesene Fotos: {x}', foto_non_lette_hint:'Ist es das Dokument eines anderen Gastes, tippen Sie auf „Nächsten Gast hinzufügen“: Das Foto ist schon hochgeladen.', foto_non_lette_retro:'Ist es die Rückseite eines bereits gelesenen Dokuments, fahren Sie einfach fort.' },
+  ro:{ pren_ospiti:'Oaspeți în rezervare: {n}. Încărcați documentul fiecăruia, inclusiv al copiilor.', pren_conta:'Oaspeți în rezervare: {n} · adăugați până acum: {k}', pren_mancano:'Adăugați ceilalți oaspeți: conform legii trebuie înregistrate toate persoanele care dorm în locuință.', btn_prossimo:'➕ Adaugă următorul oaspete', pren_meno:'Suntem mai puțini decât în rezervare', pren_meno_tit:'Oaspeți în rezervare: {n}. Conform legii trebuie înregistrate toate persoanele care dorm în locuință: continuați doar dacă ceilalți nu vin.', pren_meno_ok:'✓ Confirm, suntem mai puțini', foto_non_lette:'Fotografii necitite: {x}', foto_non_lette_hint:'Dacă este documentul altui oaspete, atingeți „Adaugă următorul oaspete”: fotografia este deja încărcată.', foto_non_lette_retro:'Dacă este versoul unui document deja citit, continuați.' },
+  pt:{ pren_ospiti:'Hóspedes na reserva: {n}. Carregue o documento de cada um, incluindo as crianças.', pren_conta:'Hóspedes na reserva: {n} · adicionados até agora: {k}', pren_mancano:'Adicione os outros hóspedes: por lei, todas as pessoas que dormem no alojamento têm de ser registadas.', btn_prossimo:'➕ Adicionar o próximo hóspede', pren_meno:'Somos menos do que os reservados', pren_meno_tit:'Hóspedes na reserva: {n}. Por lei, todas as pessoas que dormem no alojamento têm de ser registadas: continue só se os outros não vierem.', pren_meno_ok:'✓ Confirmo, somos menos', foto_non_lette:'Fotos não lidas: {x}', foto_non_lette_hint:'Se for o documento de outro hóspede, toque em «Adicionar o próximo hóspede»: a foto já está carregada.', foto_non_lette_retro:'Se for o verso de um documento já lido, continue.' },
+  pl:{ pren_ospiti:'Liczba gości w rezerwacji: {n}. Wgraj dokument każdej osoby, także dzieci.', pren_conta:'Liczba gości w rezerwacji: {n} · dodano do tej pory: {k}', pren_mancano:'Dodaj pozostałych gości: zgodnie z prawem trzeba zameldować wszystkie osoby nocujące w mieszkaniu.', btn_prossimo:'➕ Dodaj kolejnego gościa', pren_meno:'Jest nas mniej niż w rezerwacji', pren_meno_tit:'Liczba gości w rezerwacji: {n}. Zgodnie z prawem trzeba zameldować wszystkie osoby nocujące w mieszkaniu: kontynuuj tylko, jeśli pozostali nie przyjadą.', pren_meno_ok:'✓ Potwierdzam, jest nas mniej', foto_non_lette:'Nieodczytane zdjęcia: {x}', foto_non_lette_hint:'Jeśli to dokument innego gościa, dotknij „Dodaj kolejnego gościa”: zdjęcie jest już wgrane.', foto_non_lette_retro:'Jeśli to tył dokumentu już odczytanego, po prostu kontynuuj.' },
+  cs:{ pren_ospiti:'Počet hostů v rezervaci: {n}. Nahrajte doklad každého z nich, i dětí.', pren_conta:'Počet hostů v rezervaci: {n} · zatím přidáno: {k}', pren_mancano:'Přidejte ostatní hosty: podle zákona musí být přihlášeni všichni, kdo v ubytování přespávají.', btn_prossimo:'➕ Přidat dalšího hosta', pren_meno:'Je nás méně, než bylo rezervováno', pren_meno_tit:'Počet hostů v rezervaci: {n}. Podle zákona musí být přihlášeni všichni, kdo v ubytování přespávají: pokračujte, jen pokud ostatní nepřijedou.', pren_meno_ok:'✓ Potvrzuji, je nás méně', foto_non_lette:'Nepřečtené fotky: {x}', foto_non_lette_hint:'Pokud je to doklad jiného hosta, klepněte na „Přidat dalšího hosta“: fotka je už nahraná.', foto_non_lette_retro:'Pokud je to zadní strana již přečteného dokladu, klidně pokračujte.' },
+  sl:{ pren_ospiti:'Število gostov v rezervaciji: {n}. Naložite dokument vsakega, tudi otrok.', pren_conta:'Število gostov v rezervaciji: {n} · dodanih do zdaj: {k}', pren_mancano:'Dodajte ostale goste: po zakonu je treba prijaviti vse, ki prenočijo v nastanitvi.', btn_prossimo:'➕ Dodajte naslednjega gosta', pren_meno:'Nas je manj, kot je rezervirano', pren_meno_tit:'Število gostov v rezervaciji: {n}. Po zakonu je treba prijaviti vse, ki prenočijo v nastanitvi: nadaljujte le, če ostali ne pridejo.', pren_meno_ok:'✓ Potrjujem, nas je manj', foto_non_lette:'Neprebrane fotografije: {x}', foto_non_lette_hint:'Če je to dokument drugega gosta, tapnite »Dodajte naslednjega gosta«: fotografija je že naložena.', foto_non_lette_retro:'Če je to hrbtna stran že prebranega dokumenta, kar nadaljujte.' },
+  bs:{ pren_ospiti:'Broj gostiju u rezervaciji: {n}. Učitajte dokument svakog od njih, i djece.', pren_conta:'Broj gostiju u rezervaciji: {n} · dodano do sada: {k}', pren_mancano:'Dodajte ostale goste: po zakonu se moraju prijaviti svi koji spavaju u smještaju.', btn_prossimo:'➕ Dodajte sljedećeg gosta', pren_meno:'Ima nas manje nego u rezervaciji', pren_meno_tit:'Broj gostiju u rezervaciji: {n}. Po zakonu se moraju prijaviti svi koji spavaju u smještaju: nastavite samo ako ostali ne dolaze.', pren_meno_ok:'✓ Potvrđujem, ima nas manje', foto_non_lette:'Nepročitane fotografije: {x}', foto_non_lette_hint:'Ako je to dokument drugog gosta, dodirnite „Dodajte sljedećeg gosta”: fotografija je već učitana.', foto_non_lette_retro:'Ako je to poleđina već pročitanog dokumenta, samo nastavite.' },
+  hu:{ pren_ospiti:'Vendégek száma a foglalásban: {n}. Töltse fel mindenki okmányát, a gyerekekét is.', pren_conta:'Vendégek száma a foglalásban: {n} · eddig hozzáadva: {k}', pren_mancano:'Adja hozzá a többi vendéget: a törvény szerint mindenkit be kell jelenteni, aki a szálláson alszik.', btn_prossimo:'➕ Következő vendég hozzáadása', pren_meno:'Kevesebben vagyunk, mint a foglalásban', pren_meno_tit:'Vendégek száma a foglalásban: {n}. A törvény szerint mindenkit be kell jelenteni, aki a szálláson alszik: csak akkor folytassa, ha a többiek nem jönnek.', pren_meno_ok:'✓ Megerősítem, kevesebben vagyunk', foto_non_lette:'Be nem olvasott fotók: {x}', foto_non_lette_hint:'Ha egy másik vendég okmánya, koppintson a „Következő vendég hozzáadása” gombra: a fotó már fel van töltve.', foto_non_lette_retro:'Ha egy már beolvasott okmány hátoldala, nyugodtan folytassa.' },
+};
+Object.keys(T2_PREN).forEach(l=>{ if(T2[l]) Object.assign(T2[l],T2_PREN[l]); });
 function t2(key){ return (T2[lang]||T2.it)[key]; }
+// t2 con i numeri dentro: t2n('pren_conta',{n:3,k:1})
+function t2n(key,v){ return String(t2(key)||'').replace(/\{(\w)\}/g,(m,c)=>v&&v[c]!=null?v[c]:m); }
 // bandierine disegnate (SVG): si vedono uguali ovunque, anche su Windows che
 // mostrerebbe le emoji-bandiera come sigle di due lettere (IT, GB, FR, ES).
 const FLAGS={
@@ -1289,6 +1316,36 @@ let consensoOk=false;
 // Contratto e selfie li ha già fatti il titolare col primo invio: qui non si richiedono di nuovo.
 let aggiunta=false;
 function mostraPasso(p){ passo=p; render(); window.scrollTo(0,0); }
+
+/* ===== la prenotazione collegata al check-in (1/11/2026) =====
+   Il link del check-in è uno per casa, ma una casa non ha due arrivi lo stesso giorno: con casa +
+   date il server trova la prenotazione di Airbnb e dice quanti ospiti ha (dall'email di conferma).
+   Allora il check-in chiede il documento di TUTTI: finché ne mancano, invece di "No, continua" c'è
+   "➕ Aggiungi il prossimo ospite" (e, in piccolo, "Siamo meno persone", da confermare: l'host lo
+   vede nella scheda). Se il numero non si sa (Booking, email non lette…) tutto va come prima. */
+let ospitiAttesi=null, _prenChiave='', menoOspiti=false, _menoChiedi=false;
+// com'è andata la lettura delle foto: va nella scheda dell'host (i registri di Vercel durano un'ora)
+const letturaStat={foto:0, lette:0, errori:0, ripresa:0};
+async function cercaPrenotazione(){
+  if(aggiunta||!codice||!strutturaId||!/^\d{2}\/\d{2}\/\d{4}$/.test(arrivo))return;
+  const chiave=strutturaId+'|'+arrivo+'|'+partenza;
+  if(chiave===_prenChiave)return;
+  _prenChiave=chiave; ospitiAttesi=null; menoOspiti=false; _menoChiedi=false;
+  try{
+    const r=await fetch('/api/checkin-verify?c='+encodeURIComponent(codice)+'&s='+encodeURIComponent(strutturaId)
+      +'&a='+encodeURIComponent(arrivo)+'&p='+encodeURIComponent(partenza));
+    const d=await r.json();
+    if(chiave!==_prenChiave)return;   // nel frattempo ha cambiato le date
+    const n=Number(d&&d.ok&&d.ospiti)||0;
+    ospitiAttesi=n>=1&&n<=30?n:null;
+    if(ospitiAttesi&&vistaAttuale==='formWrap'&&(passo==='foto'||passo==='altro'))render();
+  }catch(e){ /* senza il numero il check-in va avanti come prima */ }
+}
+const ospitiInseriti=()=>guests.filter(g=>g.cognome||g.nome).length;
+// mancano ospiti della prenotazione (e l'ospite non ha confermato che sono meno)
+const mancanoOspiti=()=>!aggiunta&&!!ospitiAttesi&&!menoOspiti&&ospitiInseriti()<ospitiAttesi;
+// foto caricate ma non lette da nessuna parte (né documento riconosciuto né errore risolto)
+const fotoNonLette=()=>guests.flatMap(g=>(g._orfane||[]).filter(im=>(g.imgs||[]).includes(im)).map(im=>({g,im})));
 
 /* ===== tasto Indietro di Android/browser: naviga DENTRO il check-in invece di uscire =====
    Chiude prima gli overlay aperti (contratto a schermo, fotocamera, selettore lingua), poi
@@ -1729,6 +1786,7 @@ function applicaEstratto(g,j){
     cittadinanza:j.cittadinanza||g.cittadinanza,tipoDoc:j.tipo_documento||g.tipoDoc,numeroDoc:j.numero_documento||g.numeroDoc,
     luogoRilascio:normalizzaLuogoRilascio(j.luogo_rilascio||g.luogoRilascio)});
   g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
+  g._letto=true;   // dati letti dalla foto (non scritti a mano): conta nella scheda dell'host
 }
 /* ===== barra di avanzamento durante la lettura dei documenti ===== */
 function mostraProgresso(){ const o=$('#progressOverlay'); if(!o)return; $('#progTitle').textContent=t('progress_title'); aggiornaProgresso(0,''); o.classList.add('show'); }
@@ -1741,7 +1799,7 @@ function unisciOspite(dst,src){ CAMPI_AI.forEach(k=>{ if(!dst[k]&&src[k])dst[k]=
 
 async function estraiDati(id){
   const g=getG(id); if(!g.imgs.length){toast(t('toast_add_photo_first'));return;}
-  g._busy=true; g._letturaKo=false; render();
+  g._busy=true; g._letturaKo=false; g._orfane=[]; render();
   // Le foto possono contenere i documenti di PIÙ persone, e questo vale per OGNI ospite, non
   // solo per il primo: chi aggiunge il resto del gruppo dopo carica i documenti tutti insieme
   // (prima, dal secondo ospite in poi, si leggeva una persona sola e gli altri sparivano).
@@ -1753,8 +1811,10 @@ async function estraiDati(id){
     const raccolti=[]; const perChiave={}; const imgAssegnate=new Set();
     let errori=0, ultimoErrore=null;
     const norm=s=>String(s||'').trim().toUpperCase().replace(/\s+/g,' ');
-    for(let i=0;i<imgs.length;i++){
-      aggiornaProgresso(i/imgs.length*100, `${t('progress_reading_doc')} ${i+1} ${t('progress_of')} ${imgs.length}`);
+    // Una foto non letta (errore di rete, risposta storta, documento non visto) si riprova UNA
+    // volta da sola alla fine: prima restava "orfana" in silenzio e finiva sul primo ospite (caso
+    // del 31/10/2026: tre passaporti caricati, uno solo letto, check-in partito con un ospite).
+    const leggi=async(i,giro)=>{
       try{
         const j=await apiExtract([imgs[i]],'auto');
         // documento fotografato capovolto o di lato: lo raddrizzo subito, così arriva dritto
@@ -1767,12 +1827,33 @@ async function estraiDati(id){
           else { o._imgs=[imgs[i]]; perChiave[key]=o; raccolti.push(o); }
           imgAssegnate.add(imgs[i]);
         });
-      }catch(e){ errori++; ultimoErrore=e; }   // un documento illeggibile non blocca gli altri
+        return true;
+      }catch(e){ if(giro===2){ errori++; ultimoErrore=e; } return false; }   // un documento illeggibile non blocca gli altri
+    };
+    const daFare=imgs.map((_,i)=>i);
+    for(let n=0;n<daFare.length;n++){
+      aggiornaProgresso(n/imgs.length*90, `${t('progress_reading_doc')} ${n+1} ${t('progress_of')} ${imgs.length}`);
+      await leggi(daFare[n],1);
     }
+    const ancora=daFare.filter(i=>!imgAssegnate.has(imgs[i]));
+    for(let n=0;n<ancora.length;n++){
+      aggiornaProgresso(90+n/ancora.length*10, `${t('progress_reading_doc')} ${ancora[n]+1} ${t('progress_of')} ${imgs.length}`);
+      await leggi(ancora[n],2);
+    }
+    letturaStat.foto+=imgs.length; letturaStat.lette+=imgs.filter(im=>imgAssegnate.has(im)).length; letturaStat.errori+=errori;
     aggiornaProgresso(100,t('progress_done'));
     await new Promise(r=>setTimeout(r,350));
     nascondiProgresso();
     g._busy=false;
+    // la foto di un ospite nuovo era il retro (o un'altra foto) di qualcuno già inserito: va a
+    // lui, e il nuovo ospite vuoto sparisce
+    const chiaveDi=o=>norm(o.cognome)+'|'+norm(o.nome);
+    const gia=raccolti.length===1&&!g.cognome&&!g.nome&&guests.find(x=>x!==g&&(x.cognome||x.nome)&&chiaveDi(x)===chiaveDi(raccolti[0]));
+    if(gia){
+      imgs.forEach(im=>{ if(!(gia.imgs||[]).includes(im))(gia.imgs=gia.imgs||[]).push(im); });
+      guests=guests.filter(x=>x!==g); gIdx=guests.indexOf(gia);
+      mostraPasso('altro'); return;
+    }
     if(!raccolti.length){
       // Niente riconosciuto. Se TUTTE le letture sono andate in errore il problema non è il
       // documento (foto troppo pesanti, connessione caduta): diciamo quello, invece del
@@ -1787,6 +1868,10 @@ async function estraiDati(id){
     // contratto seguono davvero la persona giusta (il titolare della prenotazione). Le immagini
     // non attribuite a nessuno (illeggibili) restano su questo ospite, per non perderle.
     const orfane=imgs.filter(im=>!imgAssegnate.has(im));
+    // le foto non lette restano su questo ospite (si mandano all'host), ma segnate: nella schermata
+    // "Ospite aggiunto" l'ospite le vede e con "➕ Aggiungi il prossimo ospite" diventano il
+    // documento del prossimo, senza ricaricarle
+    g._orfane=orfane.slice();
     applicaEstratto(g,raccolti[0]);
     // _docImg = SOLO il documento di questo ospite (per la verifica selfie). imgs = tutte le foto
     // per l'invio, comprese le orfane (illeggibili), che però NON entrano nel confronto biometrico.
@@ -1879,6 +1964,7 @@ function avantiDate(){
   if(italianToDate(arrivo)<dataMinimaArrivo()||italianToDate(partenza)<oggiMezzanotte()){toast(t2('date_passate'));return;}
   if(!(notti>0)){toast(t('notti_error'));return;}
   if(!guests.length)guests.push(nuovoOspite());
+  cercaPrenotazione();   // in sottofondo: quando arriva il numero la pagina si aggiorna da sola
   gIdx=0; mostraPasso('foto');
 }
 
@@ -1889,8 +1975,9 @@ function renderFoto(root){
   const primo=gIdx===0;
   root.innerHTML=`
     <div class="card">
-      ${primo?'':`<div class="gname" style="font-size:16px">👤 ${t('guest_default_name')} ${gIdx+1}</div>`}
+      ${primo?'':`<div class="gname" style="font-size:16px">👤 ${t('guest_default_name')} ${gIdx+1}${(ospitiAttesi&&!aggiunta&&gIdx<ospitiAttesi)?` <span class="muted" style="font-weight:600">/ ${ospitiAttesi}</span>`:''}</div>`}
       <div class="steplbl" ${primo?'':'style="margin-top:10px"'}>${primo?t('step1_label_first'):t('step1_label')}</div>
+      ${(primo&&ospitiAttesi>1&&!aggiunta)?`<div class="pren-box">👥 ${t2n('pren_ospiti',{n:ospitiAttesi})}</div>`:''}
       <div class="hint">${(aggiunta&&primo)?t2('aggiunta_banner'):t('first_multi_hint')}</div>
       ${primo&&inAppBrowserAndroid()?`<div class="hint">${t('inapp_hint')}</div>`:''}
       ${g._letturaKo?`<div class="warn-box">⚠️ ${t2('lettura_ko')}<br><span style="font-weight:600">${t2('lettura_ko_hint')}</span></div>`:''}
@@ -1910,7 +1997,13 @@ function renderFoto(root){
 function indietroDaFoto(){
   const g=guests[gIdx];
   if(gIdx>0){
-    if(!(g.imgs||[]).length&&!g.cognome&&!g.nome) guests.splice(gIdx,1);
+    // ospite ancora senza dati: via. Le sue foto (es. una foto non letta passata a lui) tornano
+    // all'ospite prima, tra quelle non lette, così non si perdono
+    if(!g.cognome&&!g.nome){
+      const prima=guests[gIdx-1];
+      (g.imgs||[]).forEach(im=>{ if(!(prima.imgs||[]).includes(im)){ (prima.imgs=prima.imgs||[]).push(im); (prima._orfane=prima._orfane||[]).push(im); } });
+      guests.splice(gIdx,1);
+    }
     gIdx=Math.min(gIdx-1,guests.length-1);
     mostraPasso('verifica');
   } else mostraPasso('date');
@@ -1963,16 +2056,44 @@ function indietroDaVerifica(){
 
 /* ---- passo 3b: altri ospiti? ---- */
 function renderAltro(root){
+  const manca=mancanoOspiti(), orf=fotoNonLette(), k=ospitiInseriti();
+  const avvisi=[];
+  if(manca) avvisi.push(`<div class="pren-box" style="text-align:left">👥 ${t2n('pren_conta',{n:ospitiAttesi,k})}<br><span style="font-weight:600">${t2('pren_mancano')}</span></div>`);
+  if(orf.length) avvisi.push(`<div class="warn-box" style="text-align:left">⚠️ ${t2n('foto_non_lette',{x:orf.length})}
+      <div class="orf-thumbs">${orf.map(o=>String(o.im).startsWith('data:application/pdf')?'<span>📄</span>':`<img src="${o.im}" alt="">`).join('')}</div>
+      <span style="font-weight:600">${t2('foto_non_lette_hint')}${manca?'':' '+t2('foto_non_lette_retro')}</span></div>`);
+  // "Siamo meno persone": si chiede conferma QUI nella pagina (confirm() nelle app come Airbnb a
+  // volte non si apre e risponde "no" da solo: l'ospite resterebbe bloccato)
+  const meno=!manca?'':_menoChiedi
+    ?`<div class="warn-box" style="text-align:left;margin-top:14px">${t2n('pren_meno_tit',{n:ospitiAttesi})}</div>
+      <button class="btn ghost" style="margin-top:10px" onclick="confermaMeno()">${t2('pren_meno_ok')}</button>`
+    :`<button class="link-meno" onclick="_menoChiedi=true;render()">${t2('pren_meno')}</button>`;
   root.innerHTML=`
     <div class="card" style="text-align:center; padding:28px 18px">
       <div class="icon-badge" style="width:64px; height:64px; margin-bottom:12px"><svg style="width:30px;height:30px" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.6"/><path d="m8.3 12.4 2.6 2.6 5-5.6"/></svg></div>
       <div style="font-weight:800; font-size:18px">${t('guest_added')}</div>
-      <div class="muted" style="margin:8px 0 18px">${t('add_more_q')}</div>
-      <button class="btn ghost" onclick="aggiungiAltroOspite()">${t('btn_add_guest')}</button>
-      <button class="btn primary big" style="margin-top:10px" onclick="avantiAltro()">${t('btn_no_continue')} →</button>
+      ${avvisi.length?avvisi.join('')+'<div style="height:14px"></div>':`<div class="muted" style="margin:8px 0 18px">${t('add_more_q')}</div>`}
+      ${(manca||orf.length)
+        ?`<button class="btn primary big" onclick="aggiungiAltroOspite()">${t2('btn_prossimo')}</button>
+          ${manca?meno:`<button class="btn ghost" style="margin-top:10px" onclick="avantiAltro()">${t('btn_no_continue')} →</button>`}`
+        :`<button class="btn ghost" onclick="aggiungiAltroOspite()">${t('btn_add_guest')}</button>
+          <button class="btn primary big" style="margin-top:10px" onclick="avantiAltro()">${t('btn_no_continue')} →</button>`}
     </div>`;
 }
-function aggiungiAltroOspite(){ guests.push(nuovoOspite()); gIdx=guests.length-1; mostraPasso('foto'); }
+// nuovo ospite: se c'è una foto non letta diventa il SUO documento (niente da ricaricare) e si
+// prova subito a leggerla; se non si legge, nel passo foto ci sono "Riprova" e "Scrivi a mano"
+function aggiungiAltroOspite(){
+  const ng=nuovoOspite(); guests.push(ng); gIdx=guests.length-1; _menoChiedi=false;
+  const o=fotoNonLette()[0];
+  if(o){
+    o.g._orfane=(o.g._orfane||[]).filter(x=>x!==o.im);
+    o.g.imgs=(o.g.imgs||[]).filter(x=>x!==o.im);
+    ng.imgs=[o.im]; letturaStat.ripresa++;
+    mostraPasso('foto'); estraiDati(ng.id); return;
+  }
+  mostraPasso('foto');
+}
+function confermaMeno(){ menoOspiti=true; _menoChiedi=false; avantiAltro(); }
 /* Dopo l'invio: "Aggiungi altri ospiti". Prima l'ospite che aveva finito il check-in non
    poteva più aggiungere nessuno (doveva riaprire il link e rifare tutto, contratto e selfie
    compresi, e spesso non ci riusciva). Qui si riapre il modulo tenendo le date, si caricano
@@ -1984,11 +2105,13 @@ function aggiungiAltriOspitiDopo(){
   deVisu={selfie:null, esito:'', distanza:null, tentativi:0, ts:0};
   firmaDataUrl=null; firmaTracciata=false; contrattoLetto=false; consensoOk=false;
   contrattoPdfBase64=null; emailOspiteVal=''; _descDocCache=null;
+  Object.assign(letturaStat,{foto:0, lette:0, errori:0, ripresa:0});
   mostraSolo('formWrap');
   mostraPasso('foto');
 }
 // con più ospiti chiedo chi è il titolare; con uno solo si salta e si va al selfie
 function avantiAltro(){
+  if(mancanoOspiti()){ mostraPasso('altro'); return; }   // prima i documenti di tutti quelli della prenotazione
   if(aggiunta){ mostraPasso('invio'); return; }   // titolare, contratto e selfie già fatti col primo invio
   mostraPasso(guests.filter(g=>g.cognome||g.nome).length>1?'titolare':'selfie');
 }
@@ -2248,6 +2371,7 @@ async function inviaCheckin(){
   if(!(notti>0)){toast(t('notti_error'));return;}
   const validi=guests.filter(g=>g.cognome||g.nome);
   if(!validi.length){toast(t('toast_add_guest'));return;}
+  if(mancanoOspiti()){ mostraPasso('altro'); return; }   // mancano ancora ospiti della prenotazione
   // se il tratto c'è ma il salvataggio automatico non è avvenuto (gesto interrotto,
   // browser particolare), recuperiamo la firma direttamente dal riquadro adesso
   // con "aggiungi altri ospiti" il contratto è già firmato e il selfie già fatto dal titolare
@@ -2296,7 +2420,9 @@ async function inviaCheckin(){
       statoNascita:g.statoNascita,cittadinanza:g.cittadinanza,tipoDoc:g.tipoDoc,numeroDoc:g.numeroDoc,luogoRilascio:g.luogoRilascio,
       incertezze:(g._warn||[]), immagini:urlsPerOspite[i]
     })), firma:(serveContratto?firmaDataUrl:undefined), emailOspite:(serveContratto?(emailOspiteVal||'').trim():undefined),
-    deVisu: selfieUrl?{esito:deVisu.esito||'non_disponibile', distanza:deVisu.distanza, tentativi:deVisu.tentativi, ts:deVisu.ts, selfieUrl}:undefined};
+    deVisu: selfieUrl?{esito:deVisu.esito||'non_disponibile', distanza:deVisu.distanza, tentativi:deVisu.tentativi, ts:deVisu.ts, selfieUrl}:undefined,
+    menoOspiti: menoOspiti||undefined,
+    lettura: Object.assign({}, letturaStat, {nonLette:fotoNonLette().length, aMano:validi.filter(g=>!g._letto).length})};
 
     let r;
     try{

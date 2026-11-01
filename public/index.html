@@ -14820,6 +14820,7 @@ function renderCheckinPending(soloLista){
   });
 
   const conteggiDoppioni=checkinConteggiDoppioni();
+  const prenMappa=ospitiPrenotazioneMappa();
 
   w.innerHTML='<div class="struttura-grid">'+gruppi.map(g=>{
     const info=g.warn?{emoji:'⚠️',colore:'var(--amber)'}:strutturaInfo(g.nome);
@@ -14840,7 +14841,7 @@ function renderCheckinPending(soloLista){
         return `<div class="checkin-card" onclick="apriDettaglioCheckin('${v.id}')">
           <div class="cc-info">
             <div class="cc-nomi">${escText(nomi)}</div>
-            <div class="cc-meta"><span>${v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare'}</span><span>👤 ${(v.ospiti||[]).length}</span>${icone?`<span class="cc-icons">${icone}</span>`:''}</div>
+            <div class="cc-meta"><span>${v.arrivo?('arrivo '+escText(v.arrivo)):'data da verificare'}</span><span>👤 ${(v.ospiti||[]).length}</span>${pillMancanoOspiti(v,prenMappa,true)}${icone?`<span class="cc-icons">${icone}</span>`:''}</div>
             ${urg?`<span class="urg-pill${urg.ritardo?' ritardo':''}" style="margin-top:6px">${urg.testo}</span>`:''}
           </div>
           ${pendingAzione(v,'padding:8px 12px;font-size:12.5px')}
@@ -14848,6 +14849,40 @@ function renderCheckinPending(soloLista){
       }).join('')}
     </div>`;
   }).join('')+'</div>';
+}
+/* ---- il check-in ha meno ospiti della prenotazione di Airbnb? (1/11/2026) ----
+   Numero della prenotazione: salvato dal server all'invio del check-in (ospitiPrenotazione), oppure
+   dalla prenotazione del calendario che si accavalla (ospitiEst, numero dall'email di conferma).
+   Ospiti nel check-in: i suoi più quelli "aggiunti dopo" (stessa casa e stesso arrivo). */
+// com'è andata la lettura delle foto nel check-in dell'ospite (solo se c'è qualcosa da sapere)
+function testoLettura(v){
+  const l=v&&v.lettura; if(!l)return '';
+  const pezzi=[];
+  if(l.nonLette)pezzi.push(`${l.nonLette} foto su ${l.foto||'?'} non lette`);
+  if(l.aMano)pezzi.push(`${l.aMano===1?'1 ospite scritto':l.aMano+' ospiti scritti'} a mano dall'ospite`);
+  if(l.ripresa)pezzi.push(`${l.ripresa===1?'1 foto non letta passata':l.ripresa+' foto non lette passate'} a un altro ospite`);
+  return pezzi.length?'Lettura dei documenti: '+pezzi.join(' · '):'';
+}
+function ospitiPrenotazioneMappa(){
+  const m={};
+  try{ soggiorniHome().forEach(x=>{ if(!x.registrato&&!x.esterna&&x.id&&x.ospitiEst)m[x.id]=x.ospitiEst; }); }catch(e){}
+  return m;
+}
+function ospitiPrenotazioneDi(v,mappa){
+  if(!v||v.aggiunta)return 0;
+  return Number(v.ospitiPrenotazione)||(mappa||ospitiPrenotazioneMappa())[v.id]||0;
+}
+function ospitiCheckinTotali(v){
+  const casa=v.strutturaId||v.strutturaNome||'';
+  return (v.ospiti||[]).length+checkinPending.filter(x=>x!==v&&x.aggiunta&&x.arrivo===v.arrivo&&(x.strutturaId||x.strutturaNome||'')===casa)
+    .reduce((t,x)=>t+(x.ospiti||[]).length,0);
+}
+// pastiglia "👥 1 su 3": vuota se il numero torna (o non si sa)
+function pillMancanoOspiti(v,mappa,breve){
+  const n=ospitiPrenotazioneDi(v,mappa), k=ospitiCheckinTotali(v);
+  if(!n||k>=n)return '';
+  return breve?`<span class="pill err" title="Ospiti nella prenotazione di Airbnb: ${n}">👥 ${k}/${n}</span>`
+    :`<span class="pill err">👥 ${k} ospit${k===1?'e':'i'} su ${n} della prenotazione${v.menoOspiti?' · l\'ospite dice che sono meno':''}</span>`;
 }
 /* ---- dettaglio a schermo intero di un check-in in attesa (tocco su una card compatta) ---- */
 function apriDettaglioCheckin(id){
@@ -14864,6 +14899,7 @@ function apriDettaglioCheckin(id){
       <div class="storico-head" style="margin-top:10px"><span>check-in ${escText(quando)}</span></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
         ${v.aggiunta?'<span class="pill wait">➕ ospiti aggiunti dopo il primo check-in</span>':''}
+        ${pillMancanoOspiti(v)}
         ${v.presa?'<span class="pill wait">🕓 in prenotazione, da inviare</span>':''}
         ${v.contrattoRichiesto?(v.contrattoInviato?'<span class="pill ok">📝 contratto inviato</span>':'<span class="pill err">📝 contratto non inviato</span>'):''}
         ${pillIdentita(v.deVisu)}
@@ -14877,6 +14913,7 @@ function apriDettaglioCheckin(id){
       ${v.contrattoRichiesto&&!v.contrattoInviato&&v.contrattoErrore?`<div style="color:var(--err);font-size:12px;margin-top:6px">📝 Contratto non inviato: ${escText(v.contrattoErrore)}</div>`:''}
       ${v.uploadErrori&&v.uploadErrori.length?`<div style="color:var(--err);font-size:12px;margin-top:6px">⚠️ Alcune foto NON sono state salvate (${v.uploadErrori.length}): ${escText(v.uploadErrori[0])}${v.uploadErrori.length>1?' …':''} — chiedi all'ospite di rimandarle.</div>`:''}
       ${nomi?`<div class="storico-ospiti" style="margin-top:8px;font-size:13.5px">${escText(nomi)}</div>`:''}
+      ${testoLettura(v)?`<div class="muted" style="font-size:12px;margin-top:6px">📷 ${escText(testoLettura(v))}</div>`:''}
       ${(foto.length||(v.deVisu&&v.deVisu.selfieUrl))?`<div class="thumbs" style="margin-top:10px">${foto.map(u=>`<div class="thumb">${/\.pdf(\?|$)/i.test(u)?`<a ${fotoHref(u)} target="_blank" rel="noopener" class="thumb-pdf" style="text-decoration:none">📄<span>PDF</span></a>`:`<img ${fotoSrc(u)} class="zoomable" style="cursor:zoom-in">`}</div>`).join('')}${v.deVisu&&v.deVisu.selfieUrl?`<div class="thumb" style="position:relative"><img ${fotoSrc(v.deVisu.selfieUrl)} class="zoomable" style="cursor:zoom-in" title="selfie di verifica"><span style="position:absolute;bottom:2px;left:2px;font-size:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:1px 4px">🪪</span></div>`:''}</div>`:''}
       ${v.contrattoUrl?`<div style="margin-top:10px"><a class="btn ghost sm btn-link" ${fotoHref(v.contrattoUrl)} target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px">📝 Contratto firmato</a></div>`:''}
       ${(v.deVisu||(!v.aggiunta&&!v.recuperato))?boxIdentita(v.deVisu,'p',v.id):''}
@@ -16736,7 +16773,11 @@ try{ recStato=JSON.parse(localStorage.getItem('recensioni_stato')||'{}')||{}; }c
 let recPref={};   // quale versione del testo (🔄), per soggiorno (solo su questo dispositivo)
 try{ recPref=JSON.parse(localStorage.getItem('recensioni_pref')||'{}')||{}; }catch(e){ recPref={}; }
 let recVoci=[], recTutte=false;
-const recAperte=new Set();      // righe con i testi aperti da leggere
+// I testi si vedono SUBITO, senza toccare (1/11/2026, l'utente: "voglio che si veda subito il menu a
+// tendina senza che clicco"): qui ci sono le righe che l'host ha CHIUSO lui toccando il nome, e
+// restano chiuse finché l'app è aperta
+const recChiuse=new Set();
+const recAperta=k=>!recChiuse.has(k);
 const recAppenaFatte=new Set(); // segnate fatte adesso: restano (sbiadite, con Annulla) fino a che si riapre l'app
 // fatta = segnata con ✓, oppure tutte e due copiate da più di 3 ore
 function recFatta(k){
@@ -16787,12 +16828,12 @@ function recRiga(g){
   const top=`<div class="rec-top" onclick="recApri('${ke}')">
       <span class="pal" style="background:${g.colore}"></span>
       <span class="nm"><b>${escText(t0.nome)}</b> <span class="muted">${escText(t0.cognome||'')} · 👤${n}</span></span>
-      <span class="qd">${quando}${fatta?'':' '+(recAperte.has(k)?'▴':'▾')}</span></div>`;
+      <span class="qd">${quando}${fatta?'':' '+(recAperta(k)?'▴':'▾')}</span></div>`;
   if(fatta) return `<div class="rec-riga fatta">${top.replace(`onclick="recApri('${ke}')"`,'')}
     <div class="rec-az"><button class="btn ghost sm cp" onclick="recAnnulla('${ke}')">↺ Annulla, non è ancora fatta</button></div></div>`;
   const bt=(campo,et)=>`<button class="btn ghost sm cp${st[campo]?' fatto':''}" onclick="recCopia('${ke}','${campo}')">${st[campo]?'✓':'📋'} ${et}</button>`;
   let ant='';
-  if(recAperte.has(k)){
+  if(recAperta(k)){
     const t=recTesti(g);
     ant=`<div class="rec-ant">
       <div class="et">Pubblica · la vedono tutti · ${t.lingua==='en'?'in inglese':'in italiano'}</div>
@@ -16820,13 +16861,13 @@ function renderRecensioni(){
   w.innerHTML=`<div class="gcal-case" style="margin:-2px 0 6px">
       <button class="${em?'on':''}" onclick="recScegliEmoji(true)">😊 Con emoji</button>
       <button class="${em?'':'on'}" onclick="recScegliEmoji(false)">Senza emoji</button></div>
-    <div class="muted" style="font-size:12px;margin:0 0 2px">📋 copia, poi incolla su Airbnb · 🔄 nuova versione · ✓ fatta. Tocca il nome per leggere.</div>`
+    <div class="muted" style="font-size:12px;margin:0 0 2px">📋 copia, poi incolla su Airbnb · 🔄 nuova versione · ✓ fatta. Tocca il nome per chiudere.</div>`
     +mostra.map(recRiga).join('')
     +(vis.length>REC_RIGHE?`<button class="btn ghost sm" style="width:100%;margin-top:8px" onclick="recTutte=!recTutte;renderRecensioni()">${recTutte?'▴ Mostra meno':'▾ Altri ospiti ('+(vis.length-REC_RIGHE)+')'}</button>`:'');
 }
 function recApri(ke){
   const k=decodeURIComponent(ke);
-  if(recAperte.has(k))recAperte.delete(k); else recAperte.add(k);
+  if(recChiuse.has(k))recChiuse.delete(k); else recChiuse.add(k);
   renderRecensioni();
 }
 function recCopia(ke,campo){
@@ -16836,7 +16877,7 @@ function recCopia(ke,campo){
     toast(campo==='p'?'⭐ Recensione pubblica copiata: incollala su Airbnb':'🔒 Nota privata copiata: incollala su Airbnb');
     recSegna(g.chiave,{[campo]:Date.now()}); renderRecensioni();
   };
-  const aMano=()=>{ recAperte.add(g.chiave); renderRecensioni(); toast('Copia non riuscita: tieni premuto sul testo per copiarlo'); };
+  const aMano=()=>{ recChiuse.delete(g.chiave); renderRecensioni(); toast('Copia non riuscita: tieni premuto sul testo per copiarlo'); };
   const riserva=()=>{
     const ta=document.createElement('textarea'); ta.value=testo; ta.style.position='fixed'; ta.style.opacity='0';
     document.body.appendChild(ta); ta.focus(); ta.select();
@@ -17077,7 +17118,7 @@ function copiaPulizie(k){
 }
 function recFatto(ke){
   const k=decodeURIComponent(ke);
-  recSegna(k,{ok:Date.now()}); recAppenaFatte.add(k); recAperte.delete(k);
+  recSegna(k,{ok:Date.now()}); recAppenaFatte.add(k);
   renderRecensioni();
 }
 function recAnnulla(ke){
@@ -17092,7 +17133,7 @@ function recAltro(ke){
   p.v=(p.v||0)+1; delete p.lingua; recSalvaPref();
   const st=recStato[k]||{};
   if(st.p||st.r)recSegna(k,{p:null,r:null});
-  recAperte.add(k); renderRecensioni();
+  recChiuse.delete(k); renderRecensioni();
   toast('🔄 Nuova versione pronta');
 }
 
@@ -17669,6 +17710,10 @@ function soggiorniHome(){
       // ancora aprire Airbnb anche dopo il check-in (prima il link spariva con la barra a righe)
       if(p.url)out.forEach(x=>{ if(!x.esterna&&!x.urlEst&&(!x.struttura||casaCanon(x.struttura)===casa)&&x.arrivo<par
         &&(x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1))>arr){ x.urlEst=p.url; x.fonteEst=p.fonte||'Airbnb'; } });
+      // e anche quanti ospiti ha la prenotazione (email di conferma): se nel check-in ce ne sono
+      // meno, il riepilogo lo dice (1/11/2026: tre documenti caricati, un ospite solo letto)
+      if(p.ospiti)out.forEach(x=>{ if(!x.esterna&&!x.ospitiEst&&(!x.struttura||casaCanon(x.struttura)===casa)&&x.arrivo<par
+        &&(x.partenza&&x.partenza>x.arrivo?x.partenza:piuGiorni(x.arrivo,1))>arr){ x.ospitiEst=Number(p.ospiti)||null; } });
       return;
     }
     out.push({arrivo:arr, partenza:par, nome:p.nome||('Prenotazione '+(p.fonte||'Airbnb')), nomeBello:p.nome?maiuscoleIniziali(p.nome):('Ospite '+(p.fonte||'Airbnb')), ospiti:p.ospiti||null, struttura:casa,
@@ -17829,6 +17874,14 @@ function apriSommario(chiave){
   }
   if(nomi.length)riga('👥',nomi.map(escText).join('<br>'));
   else if(n)riga('👥',`${n} ospit${n===1?'e':'i'}`);
+  // meno ospiti di quelli della prenotazione di Airbnb (numero dall'email di conferma): le pulizie
+  // contano comunque quelli della prenotazione; qui l'host vede chi manca da registrare
+  const nPren=s.team?0:v?ospitiPrenotazioneDi(v):(s.ospitiEst||0), nQui=v?ospitiCheckinTotali(v):(nomi.length||n);
+  if(nPren&&nQui&&nQui<nPren){
+    riga('⚠️',`<b style="color:#ffb703">Su Airbnb gli ospiti sono ${nPren}, qui ${nQui===1?'ce n\'è 1':'ce ne sono '+nQui}</b>`
+      +`<br><span class="muted">${v&&v.menoOspiti?'L\'ospite ha confermato che sono meno persone. ':''}Le pulizie contano ${nPren} ospiti.${e?'':' Gli altri vanno aggiunti prima di registrare.'}</span>`);
+  }
+  if(v&&testoLettura(v))riga('📷',`<span class="muted">${escText(testoLettura(v))}</span>`);
   const pul=infoPulizia(s); if(pul)riga('🧹',pul);   // (al posto delle ultime cifre del telefono: "inutile")
   const az=[];
   if(url)az.push(bottonePortale({url,fonte},'padding:11px 14px;font-size:13.5px'));

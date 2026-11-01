@@ -269,6 +269,24 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Quanti ospiti ha la prenotazione su Airbnb (casa + giorno d'arrivo, vedi ospitiPrenotazione):
+    // se nel check-in ce ne sono meno, l'host lo vede subito nella scheda. menoOspiti = l'ospite ha
+    // confermato "siamo meno persone di quelle prenotate". lettura = com'è andata la lettura delle
+    // foto (quante caricate, quante lette, se ha scritto a mano): resta nella scheda, perché i
+    // registri di Vercel durano solo un'ora (1/11/2026: tre documenti finiti su un ospite solo e
+    // nessun modo di capire perché).
+    let ospitiPrenotazioneN = null;
+    if (!aggiunta) {
+      try {
+        const { leggiCalendari, ospitiPrenotazione } = require("./_calendari");
+        ospitiPrenotazioneN = ospitiPrenotazione(await leggiCalendari(conn), struttura, arrivo, partenza);
+      } catch { ospitiPrenotazioneN = null; }
+    }
+    const lt = (req.body || {}).lettura;
+    const lettura = lt && typeof lt === "object"
+      ? { foto: Number(lt.foto) || 0, lette: Number(lt.lette) || 0, nonLette: Number(lt.nonLette) || 0, errori: Number(lt.errori) || 0,
+          aMano: Number(lt.aMano) || 0, ripresa: Number(lt.ripresa) || 0 }
+      : undefined;
     const voce = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       ts: Date.now(),
@@ -284,6 +302,9 @@ module.exports = async (req, res) => {
       contrattoUrl,
       deVisu: deVisuSalvata,
       aggiunta: aggiunta ? true : undefined,
+      ospitiPrenotazione: ospitiPrenotazioneN || undefined,
+      menoOspiti: (req.body || {}).menoOspiti && ospitiPrenotazioneN && validi.length < ospitiPrenotazioneN ? true : undefined,
+      lettura,
       uploadErrori: uploadErrori.length ? uploadErrori.slice(0, 10) : undefined,
     };
 
@@ -304,8 +325,14 @@ module.exports = async (req, res) => {
 
     const nomi = ospitiSalvati.map((o) => [o.cognome, o.nome].filter(Boolean).join(" ")).filter(Boolean).join(", ");
     const cosaHaFatto = aggiunta ? "· aggiunti a un check-in già fatto" : "ha completato il check-in";
+    // meno ospiti di quelli della prenotazione: l'host lo sa subito dalla notifica
+    const mancano = ospitiPrenotazioneN && validi.length < ospitiPrenotazioneN
+      ? ` ⚠️ Nel check-in ${validi.length} ospit${validi.length === 1 ? "e" : "i"} su ${ospitiPrenotazioneN} della prenotazione${voce.menoOspiti ? " (l'ospite dice che sono meno)" : ""}.` : "";
+    console.log("check-in ricevuto", JSON.stringify({ casa: struttura || "", arrivo: arrivo || "", ospiti: validi.length,
+      prenotazione: ospitiPrenotazioneN, meno: !!voce.menoOspiti, aggiunta: !!aggiunta, lettura: lettura || null,
+      foto: ospitiSalvati.map((o) => (o.fotoUrls || []).length) }));
     await notificaHost(
-      `${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ${cosaHaFatto}`
+      `${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ${cosaHaFatto}${mancano}`
     );
 
     return res.status(200).json({ ok: true, contrattoPdfBase64 });
