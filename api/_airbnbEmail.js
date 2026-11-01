@@ -10,7 +10,7 @@
 const MESI = { gen: 1, feb: 2, mar: 3, apr: 4, mag: 5, giu: 6, lug: 7, ago: 8, set: 9, ott: 10, nov: 11, dic: 12,
   jan: 1, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, dec: 12 };
 const ATTESA_MS = 28000;
-const VERSIONE_LETTURA = 4;   // 2 = si leggono anche le email di cancellazione; 3 = si ripassano le conferme vecchie per l'archivio dei link ad Airbnb; 4 = anche le modifiche (numero di ospiti)
+const VERSIONE_LETTURA = 5;   // 2 = si leggono anche le email di cancellazione; 3 = si ripassano le conferme vecchie per l'archivio dei link ad Airbnb; 4 = anche le modifiche (numero di ospiti); 5 = numero di ospiti senza gli animali (si rileggono le conferme per correggerlo)
 
 // solo le conferme che arrivano a chi OSPITA ("Prenotazione confermata - Anna Rossi arriverà
 // il …"); non quelle dei viaggi fatti come ospite ("La tua prenotazione … è confermata"),
@@ -54,10 +54,18 @@ function eRichiestaModifica(oggetto) {
 function eModificaAccettata(oggetto) {
   return new RegExp(PRIMA_FWD + "(?:prenotazione aggiornata|reservation (?:updated|altered|changed)|booking updated)", "i").test(String(oggetto || ""));
 }
+// Quante PERSONE in una riga di Airbnb: "2 adulti, 1 bambino, 1 neonato" → 4. Gli animali NON
+// sono ospiti (1/11/2026: prima si sommavano tutti i numeri della riga, "2 adulti, 1 animale
+// domestico" faceva 3, e ora quel numero decide quanti documenti chiede il check-in).
+function contaOspitiRiga(riga) {
+  return String(riga || "").split(/,|;|·|\s+e\s+|\s+and\s+/i)
+    .filter((pezzo) => !/animal|\bpets?\b|haustier|mascot/i.test(pezzo))
+    .reduce((tot, pezzo) => tot + (pezzo.match(/\d+/g) || []).reduce((a, x) => a + Number(x), 0), 0);
+}
 // la riga sotto (o accanto) a un'etichetta: "OSPITI RICHIESTI\n\n2 adulti, 1 bambino" → 3
 function ospitiDopo(t, etichetta) {
   const m = new RegExp("(?:^|\\n)\\s*(?:" + etichetta + ")\\s*:?\\s*(?:\\n\\s*)*([^\\n]+)", "i").exec(t);
-  const n = m ? (m[1].match(/\d+/g) || []).reduce((a, x) => a + Number(x), 0) : 0;
+  const n = m ? contaOspitiRiga(m[1]) : 0;
   return n > 0 && n <= 30 ? n : null;
 }
 const tsDi = (date) => (date instanceof Date && !isNaN(date) ? date.getTime() : Date.now());
@@ -110,7 +118,7 @@ function datiDaEmailAirbnb({ subject, text, date }) {
   let nome = ((/(?:confermata|confirmed)\s*[-–—:]\s*(.+?)\s+(?:arriverà|arriva|arrives|will arrive|is arriving)(?=[\s.,!]|$)/i.exec(subject || "")) || [])[1];
   if (!nome) nome = ((/reservations\/details\/[A-Z0-9]+\S*\s+([^\n[\]]{2,80})/i.exec(t)) || [])[1];
   const rigaOspiti = ((/(?:^|\n)\s*(?:ospiti|guests)\s*\n+\s*([^\n]+)/i.exec(t)) || [])[1] || "";
-  const ospiti = (rigaOspiti.match(/\d+/g) || []).reduce((a, n) => a + Number(n), 0) || null;
+  const ospiti = contaOspitiRiga(rigaOspiti) || null;
   const rigaDate = ((/check-?in\s+check-?out\s*\n+\s*([^\n]+)/i.exec(t)) || [])[1] || "";
   const date_ = rigaDate ? dateCheckin(rigaDate, date) : null;
   return {

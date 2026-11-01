@@ -14872,17 +14872,40 @@ function ospitiPrenotazioneDi(v,mappa){
   if(!v||v.aggiunta)return 0;
   return Number(v.ospitiPrenotazione)||(mappa||ospitiPrenotazioneMappa())[v.id]||0;
 }
+// Tutte le PERSONE di una prenotazione (casa + giorno d'arrivo), da tutti i pezzi: check-in in
+// attesa (anche quelli fatti da un'altra persona del gruppo col suo telefono, o "aggiunti dopo") e
+// soggiorni già registrati. Ognuno contato una volta: stesso documento, oppure stesso nome e cognome
+// (come contaPersone in api/_pulizie.js).
+function personeDellaPrenotazione(casaId, arrivo){
+  const norm=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
+  const viste=[];
+  const conta=(cognome,nome,doc)=>{
+    const d=norm(doc).replace(/ /g,''), k=norm(cognome)+'|'+norm(nome), haNome=k!=='|';
+    const gia=viste.find(x=>(d&&x.d&&x.d===d)||(haNome&&x.k===k&&!(d&&x.d&&d!==x.d)));
+    if(gia){ if(!gia.d&&d)gia.d=d; return; }
+    viste.push({d, k:haNome?k:'#'+viste.length});
+  };
+  if(!casaId||!arrivo)return 0;
+  checkinPending.forEach(x=>{
+    if(x.arrivo!==arrivo||(x.strutturaId||idCasaDaNome(x.strutturaNome))!==casaId)return;
+    (x.ospiti||[]).forEach(o=>conta(o&&o.cognome,o&&o.nome,o&&o.numeroDoc));
+  });
+  storico.forEach(e=>{
+    const recs=(e.records||[]).filter(r=>typeof r==='string'&&r.length===168); if(!recs.length)return;
+    if((e.arrivo||recs[0].slice(2,12).trim())!==arrivo||idCasaDaNome(e.struttura)!==casaId)return;
+    recs.forEach(r=>conta(r.slice(14,64),r.slice(64,94),r.slice(139,159)));
+  });
+  return viste.length;
+}
 function ospitiCheckinTotali(v){
-  const casa=v.strutturaId||v.strutturaNome||'';
-  return (v.ospiti||[]).length+checkinPending.filter(x=>x!==v&&x.aggiunta&&x.arrivo===v.arrivo&&(x.strutturaId||x.strutturaNome||'')===casa)
-    .reduce((t,x)=>t+(x.ospiti||[]).length,0);
+  return personeDellaPrenotazione(v.strutturaId||idCasaDaNome(v.strutturaNome), v.arrivo)||(v.ospiti||[]).length;
 }
 // pastiglia "👥 1 su 3": vuota se il numero torna (o non si sa)
 function pillMancanoOspiti(v,mappa,breve){
   const n=ospitiPrenotazioneDi(v,mappa), k=ospitiCheckinTotali(v);
   if(!n||k>=n)return '';
   return breve?`<span class="pill err" title="Ospiti nella prenotazione di Airbnb: ${n}">👥 ${k}/${n}</span>`
-    :`<span class="pill err">👥 ${k} ospit${k===1?'e':'i'} su ${n} della prenotazione${v.menoOspiti?' · l\'ospite dice che sono meno':''}</span>`;
+    :`<span class="pill err">👥 ${k} ospit${k===1?'e':'i'} su ${n} della prenotazione${v.menoOspiti?' · per l\'ospite gli altri non vengono o fanno il check-in da soli':''}</span>`;
 }
 /* ---- dettaglio a schermo intero di un check-in in attesa (tocco su una card compatta) ---- */
 function apriDettaglioCheckin(id){
@@ -17876,10 +17899,11 @@ function apriSommario(chiave){
   else if(n)riga('👥',`${n} ospit${n===1?'e':'i'}`);
   // meno ospiti di quelli della prenotazione di Airbnb (numero dall'email di conferma): le pulizie
   // contano comunque quelli della prenotazione; qui l'host vede chi manca da registrare
-  const nPren=s.team?0:v?ospitiPrenotazioneDi(v):(s.ospitiEst||0), nQui=v?ospitiCheckinTotali(v):(nomi.length||n);
+  const nPren=s.team?0:v?ospitiPrenotazioneDi(v):(s.ospitiEst||0);
+  const nQui=v?ospitiCheckinTotali(v):e?(personeDellaPrenotazione(idCasaDaNome(e.struttura),e.arrivo||((e.records||[])[0]||'').slice(2,12).trim())||nomi.length||n):(nomi.length||n);
   if(nPren&&nQui&&nQui<nPren){
     riga('⚠️',`<b style="color:#ffb703">Su Airbnb gli ospiti sono ${nPren}, qui ${nQui===1?'ce n\'è 1':'ce ne sono '+nQui}</b>`
-      +`<br><span class="muted">${v&&v.menoOspiti?'L\'ospite ha confermato che sono meno persone. ':''}Le pulizie contano ${nPren} ospiti.${e?'':' Gli altri vanno aggiunti prima di registrare.'}</span>`);
+      +`<br><span class="muted">${v&&v.menoOspiti?'L\'ospite ha detto che gli altri non vengono o fanno il check-in da soli. ':''}Le pulizie contano ${nPren} ospiti.${e?'':' Gli altri vanno aggiunti prima di registrare.'}</span>`);
   }
   if(v&&testoLettura(v))riga('📷',`<span class="muted">${escText(testoLettura(v))}</span>`);
   const pul=infoPulizia(s); if(pul)riga('🧹',pul);   // (al posto delle ultime cifre del telefono: "inutile")

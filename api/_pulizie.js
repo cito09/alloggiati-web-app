@@ -45,33 +45,83 @@ function idCasa(nomeOId, strutture) {
   return s ? s.id : n;
 }
 
+/* Le PERSONE di uno stesso soggiorno, senza contarne nessuna due volte (1/11/2026). Lo stesso
+   gruppo può arrivare a KeyFlow in più pezzi: due check-in separati (es. due coppie con una sola
+   prenotazione), "➕ Aggiungi altri ospiti" dopo l'invio, una parte già registrata e una ancora in
+   attesa, l'invio ufficiale e il .txt della stessa schedina. Stessa persona = stesso numero di
+   documento, oppure stesso cognome e nome (salvo due documenti diversi: allora sono due persone). */
+const normTesto = (x) => String(x || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim();
+function contaPersone(persone) {
+  const viste = [];
+  for (const p of persone || []) {
+    const d = normTesto(p.doc).replace(/ /g, ""), k = normTesto(p.cognome) + "|" + normTesto(p.nome);
+    const haNome = k !== "|";
+    const gia = viste.find((v) => (d && v.d && v.d === d) || (haNome && v.k === k && !(d && v.d && d !== v.d)));
+    if (gia) { if (!gia.d && d) gia.d = d; continue; }
+    viste.push({ d, k: haNome ? k : `#${viste.length}` });
+  }
+  return viste.length;
+}
+// schedina (168 caratteri): cognome 14-64, nome 64-94, numero del documento 139-159
+const personeDaRecords = (recs) => recs.map((r) => ({ cognome: r.slice(14, 64), nome: r.slice(64, 94), doc: r.slice(139, 159) }));
+const personeDaCheckin = (v) => (v.ospiti || []).map((o) => ({ cognome: o && o.cognome, nome: o && o.nome, doc: o && o.numeroDoc }));
+const recordsValidi = (e) => (e.records || []).filter((r) => typeof r === "string" && r.length === 168);
+
+// Quanti ospiti hanno GIÀ fatto il check-in (in attesa o registrati) per la prenotazione di una
+// casa con quel giorno d'arrivo: il check-in di chi arriva dopo chiede solo i documenti che mancano.
+function personeGiaFatte({ storico, pending, strutture }, casa, arrivo) {
+  const arr = msDa(arrivo), c = String(casa || "").trim().toLowerCase();
+  if (!arr || !c) return 0;
+  const persone = [];
+  for (const e of storico || []) {
+    const recs = recordsValidi(e);
+    if (!recs.length || String(idCasa(e.struttura, strutture)).toLowerCase() !== c) continue;
+    if (msDa(e.arrivo || recs[0].slice(2, 12)) !== arr) continue;
+    persone.push(...personeDaRecords(recs));
+  }
+  for (const v of pending || []) {
+    if (!v || String(idCasa(v.strutturaId || v.strutturaNome, strutture)).toLowerCase() !== c || msDa(v.arrivo) !== arr) continue;
+    persone.push(...personeDaCheckin(v));
+  }
+  return contaPersone(persone);
+}
+
 // tutti i soggiorni che KeyFlow conosce, casa per casa: registrati, check-in in attesa e
 // prenotazioni lette dai calendari di Airbnb. Una casa non ha due soggiorni accavallati:
 // se si accavallano è lo stesso, e vince il più preciso (registrato > check-in > Airbnb).
 function soggiorniPerCasa({ storico, pending, esterne, strutture }) {
   const tutti = [];
+  // Registrati e check-in con la stessa casa e lo stesso giorno d'arrivo sono LO STESSO soggiorno
+  // (una casa non ha due arrivi nello stesso giorno): un soggiorno solo, con le persone di tutti i
+  // pezzi contate una volta (vedi contaPersone). Date e nome vengono dal pezzo più preciso.
+  const gruppi = new Map();
+  const metti = (s, persone) => {
+    if (!s.casa) return;
+    const k = s.casa + "|" + s.arrivo, g = gruppi.get(k);
+    if (!g) { gruppi.set(k, { s, persone: persone.slice() }); return; }
+    g.persone.push(...persone);
+    if (s.peso > g.s.peso) g.s = s;   // il registrato vince sul check-in
+  };
   for (const e of storico || []) {
-    const recs = (e.records || []).filter((r) => r && r.length === 168);
+    const recs = recordsValidi(e);
     const arr = msDa(e.arrivo || (recs[0] || "").slice(2, 12));
     const notti = parseInt((recs[0] || "").slice(12, 14), 10) || 0;
     if (!arr || !notti) continue;
     // nome = solo il nome di battesimo (schedina, caratteri 64-94): serve al calendario dei collaboratori
-    tutti.push({ casa: idCasa(e.struttura, strutture), arrivo: arr, partenza: arr + notti * GIORNO, ospiti: recs.length || e.valide || null, peso: 3,
-      nome: primoNome((recs[0] || "").slice(64, 94)), stato: "registrato" });
+    metti({ casa: idCasa(e.struttura, strutture), arrivo: arr, partenza: arr + notti * GIORNO, ospiti: recs.length || e.valide || null, peso: 3,
+      nome: primoNome((recs[0] || "").slice(64, 94)), stato: "registrato" }, personeDaRecords(recs));
   }
-  // prima i check-in "veri", poi gli ospiti aggiunti dopo ("➕ Aggiungi altri ospiti", stessa
-  // prenotazione): quelli si SOMMANO al check-in della stessa casa e dello stesso arrivo
-  const pend = (pending || []).slice().sort((a, b) => (a.aggiunta ? 1 : 0) - (b.aggiunta ? 1 : 0));
+  // prima i check-in "veri", poi gli ospiti aggiunti dopo ("➕ Aggiungi altri ospiti"): il nome
+  // del soggiorno resta quello del titolare del primo check-in
+  const pend = (pending || []).filter(Boolean).slice().sort((a, b) => (a.aggiunta ? 1 : 0) - (b.aggiunta ? 1 : 0));
   for (const v of pend) {
     const arr = msDa(v.arrivo); if (!arr) continue;
     const par = msDa(v.partenza) || (v.notti ? arr + Number(v.notti) * GIORNO : null);
     if (!par || par <= arr) continue;
-    const casa = idCasa(v.strutturaId || v.strutturaNome, strutture), n = (v.ospiti || []).length;
-    const primo = v.aggiunta && tutti.find((x) => x.stato === "checkin" && x.casa === casa && x.arrivo === arr);
-    if (primo) { primo.ospiti = (primo.ospiti || 0) + n || null; continue; }
-    tutti.push({ casa, arrivo: arr, partenza: par, ospiti: n || null, peso: 2,
-      nome: primoNome(((v.ospiti || [])[0] || {}).nome), stato: "checkin" });
+    metti({ casa: idCasa(v.strutturaId || v.strutturaNome, strutture), arrivo: arr, partenza: par, ospiti: (v.ospiti || []).length || null, peso: 2,
+      nome: primoNome(((v.ospiti || [])[0] || {}).nome), stato: "checkin" }, personeDaCheckin(v));
   }
+  for (const g of gruppi.values()) tutti.push({ ...g.s, ospiti: contaPersone(g.persone) || g.s.ospiti || null });
   for (const p of esterne || []) {
     const arr = msDa(p.arrivo), par = msDa(p.partenza);
     if (!arr || !par || par <= arr) continue;
@@ -190,4 +240,4 @@ async function pulizieProssime(conn, oggiIso) {
   return { giorno: oggiIso, lunedi: new Date(oggiMs).getUTCDay() === 1, oggi, settimane, mandate };
 }
 
-module.exports = { pulizieProssime, segnaMandato, soggiorniPerCasa, msDa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };
+module.exports = { pulizieProssime, segnaMandato, soggiorniPerCasa, personeGiaFatte, contaPersone, msDa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };

@@ -282,6 +282,21 @@ module.exports = async (req, res) => {
         ospitiPrenotazioneN = ospitiPrenotazione(await leggiCalendari(conn), struttura, arrivo, partenza);
       } catch { ospitiPrenotazioneN = null; }
     }
+    // Persone di quella prenotazione che hanno GIÀ fatto il check-in (un altro pezzo del gruppo, es.
+    // l'altra coppia col suo telefono): contano anche loro. giaFattiN = prima di questo invio,
+    // totaleDopo = con questo invio, contando una volta sola chi fosse mandato due volte.
+    let giaFattiN = 0, totaleDopo = validi.length;
+    if (ospitiPrenotazioneN) {
+      try {
+        const { personeGiaFatte } = require("./_pulizie");
+        const leggiLista = async (k) => { try { const raw = await redisCmd(conn, ["GET", k]); const d = raw ? JSON.parse(raw) : []; return Array.isArray(d) ? d : []; } catch { return []; } };
+        const [storicoGia, pendingGia] = await Promise.all([leggiLista("storico_schedine"), leggiLista(KEY)]);
+        const strutture = getStrutture() || [];
+        giaFattiN = personeGiaFatte({ storico: storicoGia, pending: pendingGia, strutture }, struttura, arrivo);
+        totaleDopo = personeGiaFatte({ storico: storicoGia, pending: [{ strutturaId: struttura, arrivo, ospiti: validi }, ...pendingGia], strutture }, struttura, arrivo)
+          || validi.length;
+      } catch { giaFattiN = 0; totaleDopo = validi.length; }
+    }
     const lt = (req.body || {}).lettura;
     const lettura = lt && typeof lt === "object"
       ? { foto: Number(lt.foto) || 0, lette: Number(lt.lette) || 0, nonLette: Number(lt.nonLette) || 0, errori: Number(lt.errori) || 0,
@@ -303,7 +318,8 @@ module.exports = async (req, res) => {
       deVisu: deVisuSalvata,
       aggiunta: aggiunta ? true : undefined,
       ospitiPrenotazione: ospitiPrenotazioneN || undefined,
-      menoOspiti: (req.body || {}).menoOspiti && ospitiPrenotazioneN && validi.length < ospitiPrenotazioneN ? true : undefined,
+      giaFatti: giaFattiN || undefined,
+      menoOspiti: (req.body || {}).menoOspiti && ospitiPrenotazioneN && totaleDopo < ospitiPrenotazioneN ? true : undefined,
       lettura,
       uploadErrori: uploadErrori.length ? uploadErrori.slice(0, 10) : undefined,
     };
@@ -326,10 +342,10 @@ module.exports = async (req, res) => {
     const nomi = ospitiSalvati.map((o) => [o.cognome, o.nome].filter(Boolean).join(" ")).filter(Boolean).join(", ");
     const cosaHaFatto = aggiunta ? "· aggiunti a un check-in già fatto" : "ha completato il check-in";
     // meno ospiti di quelli della prenotazione: l'host lo sa subito dalla notifica
-    const mancano = ospitiPrenotazioneN && validi.length < ospitiPrenotazioneN
-      ? ` ⚠️ Nel check-in ${validi.length} ospit${validi.length === 1 ? "e" : "i"} su ${ospitiPrenotazioneN} della prenotazione${voce.menoOspiti ? " (l'ospite dice che sono meno)" : ""}.` : "";
+    const mancano = ospitiPrenotazioneN && totaleDopo < ospitiPrenotazioneN
+      ? ` ⚠️ Check-in fatto per ${totaleDopo} ospit${totaleDopo === 1 ? "e" : "i"} su ${ospitiPrenotazioneN} della prenotazione${voce.menoOspiti ? " (l'ospite dice che gli altri non vengono o fanno il check-in da soli)" : ""}.` : "";
     console.log("check-in ricevuto", JSON.stringify({ casa: struttura || "", arrivo: arrivo || "", ospiti: validi.length,
-      prenotazione: ospitiPrenotazioneN, meno: !!voce.menoOspiti, aggiunta: !!aggiunta, lettura: lettura || null,
+      prenotazione: ospitiPrenotazioneN, giaFatti: giaFattiN, totale: totaleDopo, meno: !!voce.menoOspiti, aggiunta: !!aggiunta, lettura: lettura || null,
       foto: ospitiSalvati.map((o) => (o.fotoUrls || []).length) }));
     await notificaHost(
       `${nomi || "Nuovo ospite"}${strutturaInfo ? " · " + strutturaInfo.nome : ""}${arrivo ? " · arrivo " + arrivo : ""} ${cosaHaFatto}${mancano}`

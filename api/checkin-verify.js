@@ -15,13 +15,30 @@ module.exports = async (req, res) => {
   // confronto tollerante (spazi, punteggiatura, maiuscole aggiunti dalle chat): vedi _codice.js
   const ok = codiceValido(q.c);
   if (!ok || !q.s || !q.a) return res.status(200).json({ ok, configurato: true });
-  let ospiti = null;
+  let ospiti = null, gia = 0;
   try {
     const conn = upstash();
     if (conn) {
       const { leggiCalendari, ospitiPrenotazione } = require("./_calendari");
       ospiti = ospitiPrenotazione(await leggiCalendari(conn), q.s, q.a, q.p);
+      // quanti di quella prenotazione hanno GIÀ fatto il check-in (es. l'altra coppia del gruppo,
+      // col suo telefono): si chiedono solo i documenti che mancano
+      if (ospiti) gia = await giaFatti(conn, q.s, q.a);
     }
-  } catch { ospiti = null; }   // senza il numero il check-in va avanti come prima
-  return res.status(200).json({ ok, configurato: true, ospiti });
+  } catch { ospiti = null; gia = 0; }   // senza il numero il check-in va avanti come prima
+  return res.status(200).json({ ok, configurato: true, ospiti, gia });
 };
+
+// persone già arrivate a KeyFlow (check-in in attesa o registrati) per la casa e il giorno d'arrivo
+async function giaFatti(conn, casa, arrivo) {
+  try {
+    const { redisCmd } = require("./_kv");
+    const { personeGiaFatte } = require("./_pulizie");
+    const { getStrutture } = require("./_alloggiati");
+    const leggi = async (k) => { try { const raw = await redisCmd(conn, ["GET", k]); const d = raw ? JSON.parse(raw) : []; return Array.isArray(d) ? d : []; } catch { return []; } };
+    const [storico, pending] = await Promise.all([leggi("storico_schedine"), leggi("checkin_pending")]);
+    let strutture = [];
+    try { strutture = getStrutture() || []; } catch { strutture = []; }
+    return personeGiaFatte({ storico, pending, strutture }, casa, arrivo);
+  } catch { return 0; }
+}
