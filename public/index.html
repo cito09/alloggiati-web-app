@@ -561,6 +561,9 @@
   .ev-date{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .ev-form .gcal-case{margin:2px 0 0}
   /* nome e ospiti di una prenotazione scritti a mano (quando l'email di Airbnb non arriva qui) */
+  .dc-tit{font-size:12px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; margin:14px 0 4px}
+  .dc-tit:first-child{margin-top:0}
+  .dc-tit .muted{text-transform:none; letter-spacing:0; font-weight:600}
   .no-stepper{display:flex; align-items:center; gap:16px; margin-top:6px}
   .no-stepper button{width:48px; height:48px; border-radius:16px; border:0; background:var(--surface2); color:var(--ink); font:inherit; font-size:24px; font-weight:800; cursor:pointer}
   .no-stepper b{font-size:30px; min-width:44px; text-align:center}
@@ -16566,6 +16569,24 @@ function chiudiAllarmeDaFare(){ const b=$('#allarmeDaFare'); if(b)b.classList.re
 document.addEventListener('click',e=>{
   if(e.target.closest&&e.target.closest('#allarmeLista button'))chiudiAllarmeDaFare();
 },true);
+/* 📭 Prenotazioni future lette solo dal calendario (Airbnb, Booking…) a cui mancano nome o numero di
+   ospiti: l'email di conferma non è arrivata alle caselle delle case (o non si è letta). Quelle con
+   il check-in fatto non ci sono (soggiorniHome tiene la prenotazione del calendario solo se non c'è
+   già il soggiorno vero). 1-2 notti "chiuse" senza link attaccate a un altro soggiorno = date
+   bloccate di Booking, non prenotazioni. Stesse regole di prenotazioniSenzaDati in api/_calendari.js. */
+function prenotazioniDaCompletare(){
+  if(teamRistretto())return [];
+  const oggi0=new Date(); oggi0.setHours(0,0,0,0);
+  const tutti=soggiorniHome();
+  const casaDi=x=>nomeStrutturaCanonico(x.struttura||'');   // (function: si può usare anche durante l'avvio)
+  return tutti.filter(x=>{
+    if(!x.esterna||!x.arrivo||!x.partenza||x.partenza<oggi0)return false;
+    if(!x.senzaNome&&x.ospiti)return false;   // (x.nome senza nome vero = "Prenotazione Airbnb")
+    const corta=!x.url&&x.senzaNome&&!x.ospiti&&(x.partenza-x.arrivo)<=2*864e5+3600e3;
+    if(corta&&tutti.some(y=>y!==x&&casaDi(y)===casaDi(x)&&((y.partenza&&dataKey(y.partenza)===dataKey(x.arrivo))||dataKey(y.arrivo)===dataKey(x.partenza))))return false;
+    return true;
+  }).sort((a,b)=>a.arrivo-b.arrivo);
+}
 function aggiornaOggi(){
   if(!$('#page-oggi'))return;
   // "Da fare": i check-in arrivati, ordinati per data di arrivo (chi arriva prima in cima),
@@ -16596,10 +16617,27 @@ function aggiornaOggi(){
           ${urg?`<span class="muted">${v.strutturaNome?`<span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span>`
             :`<span class="muted">${quando}${v.strutturaNome?` · <span style="color:${sIn.colore}">●</span> `+escText(v.strutturaNome):''}</span>`}</div>
         ${azione}${urg?`<div class="urg-riga">${quando}</div>`:''}</div>`;
-    }).join(''):'<div class="muted" style="font-size:13px">✅ Tutto fatto: nessun check-in da gestire.</div>';
+    }).join(''):'';
+    // 📭 prenotazioni del calendario ancora senza nome o senza numero di ospiti (2/11/2026, l'utente:
+    // "voglio un alert se c'è una prenotazione senza il numero ospiti o i vari dettagli")
+    const dc=prenotazioniDaCompletare();
+    if(dc.length)todo.innerHTML+=`<div class="dc-tit">📭 Da completare <span class="muted">· senza ${dc.every(x=>x.senzaNome&&!x.ospiti)?'nome e ospiti':'nome o ospiti'}</span></div>`
+      +dc.map(x=>{
+        const giorni=Math.round((x.arrivo-oggi0)/864e5), info=strutturaInfo(x.struttura||'');
+        const quando=giorni<=0?'<b style="color:var(--err)">arriva OGGI</b>':giorni===1?'<b style="color:var(--err)">arriva domani</b>'
+          :giorni<=3?`<b style="color:#ffb703">fra ${giorni} giorni</b>`:`fra ${giorni} giorni`;
+        const k=calChiave(x), ue=encodeURIComponent(x.uid||'').replace(/'/g,'%27');
+        return `<div class="todo-row" onclick="apriSommario('${k}')" style="border-left:3px solid ${info.colore};padding-left:9px">
+          <div style="flex:1;font-size:13px;line-height:1.45;min-width:0"><b>${escText(!x.senzaNome?maiuscoleIniziali(x.nome):casaBreve(x.struttura||'')+' · '+somPeriodo(x.arrivo,x.partenza))}</b>
+            ${!x.senzaNome?`<span class="muted"> · ${escText(somPeriodo(x.arrivo,x.partenza))}</span>`:''}<br>
+            <span class="muted">${quando} · manca ${x.senzaNome&&!x.ospiti?'chi è e quanti sono':x.senzaNome?'il nome':'quanti sono'}${x.posta==='non_trovata'?' · 📭 email non arrivata':''}</span></div>
+          <button class="btn primary sm" style="width:auto;padding:8px 12px;font-size:12.5px" onclick="event.stopPropagation();apriSommario('${k}');apriNomeOspiti('${ue}')">✏️ Scrivi</button></div>`;
+      }).join('');
+    if(!voci.length&&!dc.length)todo.innerHTML='<div class="muted" style="font-size:13px">✅ Tutto fatto: nessun check-in da gestire.</div>';
     const bd=$('#oggiTodoBadge');
     const nUrg=pendingUrgenti().length;
-    if(bd){ if(voci.length){bd.textContent=(nUrg?'🚨 ':'')+voci.length; bd.style.display='';} else bd.style.display='none'; }
+    const nTot=voci.length+dc.length;
+    if(bd){ if(nTot){bd.textContent=(nUrg?'🚨 ':'')+nTot; bd.style.display='';} else bd.style.display='none'; }
   }
   if(typeof renderRecensioni==='function')renderRecensioni();
   if(typeof renderCalendario==='function')renderCalendario();
@@ -17101,8 +17139,12 @@ function riquadriSezioni(){
   const vis=id=>{ const c=document.getElementById(id); return !!c&&c.style.display!=='none'; };
   // Da fare = i check-in arrivati da registrare
   const n=(checkinPending||[]).length, nUrg=pendingUrgenti().length;
-  const daFare={id:'oggiTodoCard', ico:'📌', c:'#84e3d3', tit:'Da fare', val:n||'✓',
-    nota:nUrg?`🚨 ${nUrg} urgent${nUrg===1?'e':'i'}`:n?'da registrare':'tutto fatto', st:nUrg?'urg':n?'att':'ok'};
+  // più le prenotazioni senza nome/ospiti (📭): urgenti se arrivano entro 3 giorni
+  const dc=prenotazioniDaCompletare(), oggi0=new Date(); oggi0.setHours(0,0,0,0);
+  const dcVicine=dc.filter(x=>x.arrivo-oggi0<=3*864e5).length;
+  const daFare={id:'oggiTodoCard', ico:'📌', c:'#84e3d3', tit:'Da fare', val:(n+dc.length)||'✓',
+    nota:nUrg?`🚨 ${nUrg} urgent${nUrg===1?'e':'i'}`:n&&dc.length?`${n} check-in · 📭 ${dc.length}`:n?'da registrare':dc.length?'📭 senza nome/ospiti':'tutto fatto',
+    st:nUrg||dcVicine?'urg':(n||dc.length)?'att':'ok'};
   // Pulizie: la prossima (oggi / domani / il giorno), con la casa e gli ospiti
   let p=null; try{ p=pulizie&&pulizie.giorno===dataKey(new Date())?pulizie:null; }catch(e){}   // (si caricano dopo)
   const voci=p?(p.settimane||[]).flatMap(m=>(m.voci||[]).map(v=>({...v,nome:m.nome}))).sort((x,y)=>x.giorno<y.giorno?-1:x.giorno>y.giorno?1:0):[];
@@ -17802,7 +17844,7 @@ function soggiorniHome(){
       nomeBreve:nomeProprio(p.nome),
       colore:strutturaInfo(casa).colore, registrato:false, esterna:true, fonte:p.fonte||'Airbnb',
       uid:p.uid, url:p.url||'', telefono4:p.telefono4||'', codice:p.codice||'', strutturaId:p.strutturaId,
-      posta:p.posta||'', manuale:!!p.manuale});
+      posta:p.posta||'', manuale:!!p.manuale, senzaNome:!p.nome});
   });
   linkDaArchivio(out);
   return out;

@@ -454,6 +454,7 @@ async function sincronizzaCalendari(conn, stato) {
   const nuovo = { link: stato.link || {}, prenotazioni, blocchi, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost, archivio, manuali: stato.manuali };
   await salvaCalendari(conn, nuovo);
   await avvisaCancellazioni(stato, nuovo);
+  try { await avvisaSenzaDati(conn, nuovo); } catch (e) { console.log("avviso senza dati non riuscito", String((e && e.message) || e).slice(0, 120)); }
   return nuovo;
 }
 
@@ -710,6 +711,78 @@ async function azioneCalendariInTurno(conn, corpo) {
   return vista;
 }
 
+/* 📭 Prenotazioni senza nome o senza numero di ospiti (2/11/2026, l'utente: "voglio un alert nel caso
+   in cui venga aggiunta una prenotazione dal link del calendario che poi non colleghi a una mail per
+   qualche motivo"). Solo le future, con il calendario come unica fonte: se l'ospite ha già fatto il
+   check-in (o è registrato) KeyFlow sa chi è e non serve. Una casa non ha due soggiorni accavallati:
+   tra calendari doppi (Booking che riporta le date di Airbnb come "CLOSED") vale il più preciso;
+   1-2 notti "chiuse" senza link attaccate a un altro soggiorno non sono prenotazioni. */
+function prenotazioniSenzaDati(prenotazioni, soggiorniKeyflow, oggiMs) {
+  const ms = (x) => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(x || ""); return m ? Date.UTC(+m[3], +m[2] - 1, +m[1]) : 0; };
+  const ordine = (p) => (p.sorgente === "prohost" ? 0 : p.fonte === "Airbnb" ? 1 : 2);
+  const tenute = [], fuori = [];
+  const occupate = Object.entries(soggiorniKeyflow || {}).flatMap(([casa, l]) => (l || []).map((x) => ({ casa, a: x.arrivo, p: x.partenza })));
+  for (const p of (prenotazioni || []).slice().sort((x, y) => ordine(x) - ordine(y))) {
+    const a = ms(p.arrivo), z = ms(p.partenza), casa = String(p.strutturaId || "");
+    if (!a || !z || z <= a || z < oggiMs || !casa) continue;
+    const accavalla = (x) => x.casa === casa && x.a < z && x.p > a;
+    if (occupate.some(accavalla) || tenute.some(accavalla)) continue;
+    const corta = !p.url && !p.nome && !p.ospiti && z - a <= 2 * 86400000;
+    tenute.push({ casa, a, p: z, corta });
+    if (!p.nome || !p.ospiti) fuori.push({ casa, arrivo: p.arrivo, partenza: p.partenza, a, z, corta, codice: p.codice || "", uid: p.uid || "", fonte: p.fonte || "Airbnb",
+      manca: !p.nome && !p.ospiti ? "nome e ospiti" : !p.nome ? "nome" : "ospiti", posta: p.posta || "" });
+  }
+  // notti chiuse (1-2, senza link, attaccate a un altro soggiorno della stessa casa): via
+  const attaccata = (f) => [...tenute, ...occupate].some((t) => t.casa === f.casa && !(t.a === f.a && t.p === f.z) && (t.p === f.a || t.a === f.z));
+  return fuori.filter((f) => !(f.corta && attaccata(f))).map(({ corta, ...f }) => f);
+}
+const KEY_SENZA_DATI = "avvisi_senza_dati";
+async function avvisaSenzaDati(conn, stato) {
+  if (!conn) return;
+  const leggi = async (k) => { try { const raw = await redisCmd(conn, ["GET", k]); return raw ? JSON.parse(raw) : null; } catch { return null; } };
+  const [storico, pending, gia] = await Promise.all([leggi("storico_schedine"), leggi("checkin_pending"), leggi(KEY_SENZA_DATI)]);
+  const strutture = struttureConfigurate();
+  const { soggiorniPerCasa } = require("./_pulizie");
+  const keyflow = soggiorniPerCasa({ storico: Array.isArray(storico) ? storico : [], pending: Array.isArray(pending) ? pending : [], esterne: [], strutture });
+  const oggi = new Date(); const oggiMs = Date.UTC(oggi.getUTCFullYear(), oggi.getUTCMonth(), oggi.getUTCDate());
+  const lista = prenotazioniSenzaDati(vistaCalendari(stato).prenotazioni, keyflow, oggiMs);
+  const nomeCasa = (id) => ((strutture.find((x) => x.id === id) || {}).nome || id).replace(/\s+House$/i, "");
+  const gg = (x) => String(x || "").slice(0, 5);
+  // nei registri di Vercel, per controllare (niente dati degli ospiti: non ce ne sono)
+  console.log("prenotazioni senza dati", JSON.stringify(lista.map((f) => ({ casa: f.casa, arrivo: f.arrivo, partenza: f.partenza, manca: f.manca, posta: f.posta || "da cercare", fonte: f.fonte }))));
+  const vecchi = gia && typeof gia === "object" ? gia : {};
+  const nuovi = {}, daAvvisare = [], vicine = [];
+  const em = stato.email || {}, cerc = em.cercati || {};
+  for (const f of lista) {
+    const k = f.codice ? f.codice.toUpperCase() : "uid:" + f.uid;
+    const v = { ...(vecchi[k] || {}) };
+    if (!v.visto) v.visto = Date.now();
+    // si avvisa quando la ricerca dell'email è già stata fatta e non l'ha trovata, oppure dopo 20 ore
+    // (il tempo che arrivi un'email inoltrata); una volta sola. Poi di nuovo se mancano 3 giorni.
+    const cercato = f.codice && cerc[k] && !cerc[k].letta;
+    if (!v.avvisato && (cercato || Date.now() - v.visto > 20 * 3600000 || !f.codice)) {
+      daAvvisare.push(f); v.avvisato = Date.now();
+      if (f.a - oggiMs <= 3 * 86400000) v.vicino = Date.now();   // già vicina: un avviso solo
+    }
+    else if (!v.vicino && f.a - oggiMs <= 3 * 86400000) { vicine.push(f); v.vicino = Date.now(); }
+    nuovi[k] = v;
+  }
+  try { await redisCmd(conn, ["SET", KEY_SENZA_DATI, JSON.stringify(nuovi)]); } catch { /* si riprova alla lettura dopo */ }
+  const topic = process.env.NTFY_TOPIC;
+  if (!topic || (!daAvvisare.length && !vicine.length)) return lista;
+  const riga = (f) => `• ${nomeCasa(f.casa)} ${gg(f.arrivo)}–${gg(f.partenza)} (manca ${f.manca})`;
+  const testo = [
+    ...(daAvvisare.length ? [daAvvisare.length === 1 ? "📭 Una prenotazione è senza nome o ospiti:" : `📭 ${daAvvisare.length} prenotazioni sono senza nome o ospiti:`, ...daAvvisare.map(riga)] : []),
+    ...(vicine.length ? [(daAvvisare.length ? "\n" : "") + "⏰ Arrivano fra pochi giorni e non so ancora chi sono:", ...vicine.map(riga)] : []),
+    "L'email di conferma di Airbnb non è arrivata alle caselle delle case. Apri KeyFlow → Da fare → ✏️ Scrivi (anche da screenshot).",
+  ].join("\n");
+  try {
+    await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, { method: "POST",
+      headers: { Title: "Prenotazioni da completare", Tags: "mailbox_with_no_mail", Click: process.env.APP_URL || "https://keyflowcheckin.vercel.app" }, body: testo });
+  } catch { /* si vede comunque in KeyFlow */ }
+  return lista;
+}
+
 /* Quanti ospiti ha la prenotazione di una casa con quel giorno d'arrivo (1/11/2026, l'utente: "lui
    aveva caricato tre documenti e ha letto un ospite solo… si può collegare la prenotazione col
    check-in, che lo obbliga a mettere quel numero di documenti?"). Il link del check-in è uno per
@@ -728,4 +801,4 @@ function ospitiPrenotazione(stato, casa, arrivo, partenza) {
   return n >= 1 && n <= 30 ? n : null;
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, blocchiDaEventi, unisciBlocchi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, salvaCalendari, vistaCalendari, azioneCalendari, conNomi, conManuali, azionePrenotazioneManuale, haFonti, conTurno, ospitiPrenotazione };
+module.exports = { leggiIcal, prenotazioniDaEventi, blocchiDaEventi, unisciBlocchi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, salvaCalendari, vistaCalendari, azioneCalendari, conNomi, conManuali, azionePrenotazioneManuale, haFonti, conTurno, ospitiPrenotazione, prenotazioniSenzaDati, avvisaSenzaDati };
