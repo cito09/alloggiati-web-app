@@ -18016,12 +18016,17 @@ async function nomeDaScreenshot(files){
   try{
     const j=await apiExtract([await fileToDataURL(f)],'pren_ospite');
     const b=nomBozza; if(!b)return;
-    const cod=String(j.codice||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    // solo un vero codice di prenotazione Airbnb (HM…): mai il "codice d'accesso" della porta che
+    // l'app di Airbnb mostra nella stessa schermata (caso reale 2/11/2026: "7797")
+    const codGrezzo=String(j.codice||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    const cod=/^HM[A-Z0-9]{6,12}$/.test(codGrezzo)?codGrezzo:'';
     if(cod&&b.codice&&cod!==b.codice){ b.avviso=`⚠️ Lo screenshot è di un'altra prenotazione (codice ${escText(cod)}, questa è ${escText(b.codice)}): non l'ho usato.`; renderNomeOspiti(); return; }
     if(j.nome)b.nome=maiuscoleIniziali(String(j.nome));
     const o=parseInt(j.ospiti,10)||((parseInt(j.adulti,10)||0)+(parseInt(j.bambini,10)||0)+(parseInt(j.neonati,10)||0));
     if(o>=1&&o<=30)b.ospiti=o;
-    b.avviso=(j.data_arrivo&&b.arrivo&&j.data_arrivo!==b.arrivo&&!cod)
+    // date confrontate come giorni ("9/11/2026" = "09/11/2026")
+    const giorno=x=>{ const m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(x||'').trim()); return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:''; };
+    b.avviso=(giorno(j.data_arrivo)&&giorno(b.arrivo)&&giorno(j.data_arrivo)!==giorno(b.arrivo)&&!cod)
       ?`⚠️ Nello screenshot l'arrivo è il ${escText(j.data_arrivo)}, qui il ${escText(b.arrivo)}: controlla che sia la prenotazione giusta.`
       :(!j.nome&&!(o>=1))?'Non ho trovato nome e ospiti nello screenshot: scrivili qui sotto.':'';
     renderNomeOspiti();
