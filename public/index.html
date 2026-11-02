@@ -324,6 +324,38 @@
   .rp-az .btn{flex:1 1 150px; width:auto; background:var(--surface)}
   .rp-az .btn.primary{background:var(--amber)}
   .rp-form{background:var(--surface2); border-radius:20px; padding:14px 14px 16px; margin-top:12px}
+  /* scheda della ricevuta più semplice (2/11/2026, l'utente: "non si capisce nulla dai tasti, c'è troppo
+     casino"): tappe con le icone, UN pulsante con la cosa da fare adesso, il resto in "⋯ Altro" */
+  .rp-testa{display:flex; align-items:center; gap:10px}
+  .rp-testa .pallo{width:10px; height:10px; border-radius:50%; flex:0 0 auto}
+  .rp-tit{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px}
+  .rp-tit b{font-size:15.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .rp-tit span{font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .rp-euro{font-size:19px; font-weight:800; white-space:nowrap}
+  .rp-passi{display:flex; align-items:flex-start; margin:14px 2px 4px}
+  .rp-passo{flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:5px; width:58px; text-align:center; font-size:11px; font-weight:700; color:var(--muted)}
+  .rp-passo i{font-style:normal; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; background:var(--surface); border:2px solid transparent}
+  .rp-passo:not(.fatto):not(.ora) i{filter:grayscale(1); opacity:.5}
+  .rp-passo.fatto{color:var(--ok)}
+  .rp-passo.fatto i{background:rgba(45,198,83,.18); border-color:rgba(45,198,83,.55); font-size:16px; color:var(--ok)}
+  .rp-passo.ora{color:var(--ink)}
+  .rp-passo.ora i{border-color:var(--amber); background:rgba(132,227,211,.14); box-shadow:0 0 0 4px rgba(132,227,211,.10)}
+  .rp-passo.attenzione i{border-color:#ffb703; background:rgba(255,183,3,.15)}
+  .rp-linea{flex:1; height:2px; margin-top:19px; background:var(--surface); border-radius:2px}
+  .rp-linea.fatta{background:rgba(45,198,83,.55)}
+  .rp-stato{font-size:13px; margin-top:10px; padding:9px 12px; border-radius:12px; background:var(--surface); line-height:1.4}
+  .rp-stato.ok{background:rgba(45,198,83,.12); color:#8fe3a8}
+  .rp-stato.giallo{background:rgba(255,183,3,.12); color:#ffd27a}
+  .rp-prossimo{width:100%; margin-top:10px; padding:13px 14px; font-size:15px}
+  .rp-sotto{display:flex; gap:8px; margin-top:8px; align-items:center}
+  .rp-sotto .btn{flex:1; width:auto; background:var(--surface); padding:9px 10px; font-size:13px}
+  .rp-sotto .btn.altro{flex:0 0 auto; padding:9px 14px}
+  .rp-menu{margin-top:8px; background:var(--surface); border-radius:14px; overflow:hidden}
+  .rp-menu button{display:flex; align-items:center; gap:10px; width:100%; border:0; background:none; color:var(--ink); font:inherit; font-size:14px; text-align:left; padding:12px 14px; cursor:pointer; border-bottom:1px solid var(--line)}
+  .rp-menu button:last-child{border-bottom:0}
+  .rp-menu button:hover{background:rgba(255,255,255,.04)}
+  .rp-menu button.rosso{color:var(--err)}
+  .rp-menu button .mi{width:22px; text-align:center; flex:0 0 auto}
   .rp-form input,.rp-form select,.rp-form textarea{background:var(--surface)!important}
   .rp-form .due{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .rp-form .due>div{min-width:0}
@@ -1815,58 +1847,78 @@ async function rpSalva(){
 function rpCard(r){
   const col=strutturaInfo(rpNomeCasa(r.casa)||r.casa).colore;
   const em=r.emittente||rp.emittenti[r.casa]||{};
-  const chi=(r.intestatario&&r.intestatario.nome)||'Dati dell\'ospite in arrivo';
+  const chiFirma=rpPrimoNome(em.nome)||'chi firma';
+  const chi=(r.intestatario&&r.intestatario.nome)||'Ospite (dati in arrivo)';
   const quando=ts=>new Date(ts).toLocaleString('it-IT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
   const senzaMarca=(r.stato==='dati'||r.stato==='firmare')&&rpTot(r)>RP_SOGLIA&&!r.marca;
-  const pill=(senzaMarca?'<span class="rp-pill firmare">🏷️ manca la marca</span>':'')+(r.stato==='dati'?(r.datiOspite?'<span class="rp-pill dati">📥 dati arrivati</span>':'<span class="rp-pill dati">⏳ aspetta i dati</span>')
-    :r.stato==='firmare'?(senzaMarca?'':'<span class="rp-pill firmare">✍️ da firmare</span>')
-    :r.stato==='firmata'?`<span class="rp-pill firmata">${r.scaricata?'📥 aperta':r.mandata?'📤 mandata':'✅ firmata'}</span>`
-    :'<span class="rp-pill">annullata</span>');
-  const info=[`€ ${rpEuro(rpTot(r))}`, rpPeriodo(r.dal,r.al), rpNomeCasa(r.casa), r.data?'del '+rpIt(r.data):''].filter(Boolean).map(escText).join(' · ');
-  const note=[], az=[];
-  const bt=(t,f,cl)=>az.push(`<button class="btn ${cl||'ghost'} sm" onclick="${f}">${t}</button>`);
+  const sotto=[r.numero?'n. '+rpNum(r):'', rpPeriodo(r.dal,r.al), rpNomeCasa(r.casa)].filter(Boolean).map(escText).join(' · ');
+  const testa=`<div class="rp-testa"><span class="pallo" style="background:${col}"></span>
+      <div class="rp-tit"><b>${escText(chi)}</b><span>${sotto}</span></div>
+      <div class="rp-euro">€ ${escText(rpEuro(rpTot(r)))}</div></div>`;
+  const altroBtn=`<button class="btn ghost sm altro" onclick="rpMenu('${r.id}')" aria-expanded="${rp.menu===r.id}">${rp.menu===r.id?'✕':'⋯ Altro'}</button>`;
+  // una voce del menu fa la sua cosa e il menu si chiude (al prossimo ridisegno)
+  const voce=(ic,t,f,cl)=>`<button class="${cl||''}" onclick="rp.menu=null;${f}"><span class="mi">${ic}</span>${t}</button>`;
+  if(r.stato==='annullata'){
+    return `<div class="rp-card spenta" id="rp-${r.id}">${testa}
+      <div class="rp-stato">🚫 Annullata il ${escText(quando(r.annullata||r.modificata))}</div>
+      <div class="rp-sotto"><button class="btn ghost sm" onclick="rpTogli('${r.id}')">🗑 Togli dall'elenco</button></div></div>`;
+  }
+  // a che punto è: 0 dati · 1 firma · 2 mandata all'ospite · 3 aperta dall'ospite · 4 tutto fatto
+  const ora=r.stato==='dati'?0:r.stato==='firmare'?1:!r.mandata&&!r.scaricata?2:!r.scaricata?3:4;
+  const PASSI=[['📝','Dati'],['✍️','Firma'],['📤','Mandata'],['📥','Aperta']];
+  const passi=PASSI.map(([ic,t],i)=>{
+    const cl=i<ora?'fatto':i===ora?(i===1&&senzaMarca?'ora attenzione':'ora'):'';
+    return (i?`<span class="rp-linea${i<=ora?' fatta':''}"></span>`:'')+`<div class="rp-passo ${cl}"><i>${i<ora?'✓':(i===1&&i===ora&&senzaMarca?'🏷️':ic)}</i>${t}</div>`;
+  }).join('');
+  // la riga che dice cosa succede e il pulsante con la cosa da fare ADESSO
+  let stato='', clStato='', prossimo='', secondario='';
+  const btn=(t,f)=>`<button class="btn primary rp-prossimo" onclick="${f}">${t}</button>`;
   if(r.stato==='dati'&&!r.datiOspite){
-    note.push('Manda all\'ospite il link: scrive lui a chi intestarla. Quando l\'ha fatto ti arriva la notifica e la ricevuta passa «da firmare».');
-    bt('📋 Copia il messaggio per l\'ospite',`rpCopiaOspite('${r.id}')`,'primary');
-    bt('✏️ Scrivo io i dati',`rpModifica('${r.id}',true)`);
+    stato='⏳ Aspetto i dati dell\'ospite (a chi intestarla)'; 
+    prossimo=btn('📨 Chiedi i dati all\'ospite',`rpCopiaOspite('${r.id}')`);
+    secondario=`<button class="btn ghost sm" onclick="rpModifica('${r.id}',true)">✏️ Li scrivo io</button>`;
   }else if(r.stato==='dati'){
-    note.push(`L'ospite ha mandato i dati il ${escText(quando(r.datiOspite.ts))}: controllali e prepara la firma.`);
-    bt('✏️ Controlla e prepara la firma',`rpModifica('${r.id}',true)`,'primary');
-  }else if(r.stato==='firmare'&&rpTot(r)>RP_SOGLIA&&!r.marca){
-    note.push('🏷️ <b>Manca la marca da bollo</b>: fotografala (o scrivila) e poi la mandi a firmare. Se la metti nella scorta, la prende da sola.');
-    bt('🏷️ Aggiungi la marca',`rpModifica('${r.id}')`,'primary');
-    bt('👁️ Anteprima',`rpPdf('${r.id}','ospite','vedi',this)`);
+    stato=`📥 L'ospite ha mandato i dati il ${escText(quando(r.datiOspite.ts))}`; clStato='ok';
+    prossimo=btn('✏️ Controlla i dati',`rpModifica('${r.id}',true)`);
+  }else if(r.stato==='firmare'&&senzaMarca){
+    stato='🏷️ Manca la marca da bollo: senza, non si firma'; clStato='giallo';
+    prossimo=btn('🏷️ Aggiungi la marca',`rpModifica('${r.id}')`);
   }else if(r.stato==='firmare'){
-    note.push(`Da far firmare a <b>${escText(em.nome||'?')}</b>: le mandi il link e firma col dito dal telefono. Quando ha firmato ti arriva la notifica.`);
-    bt(`📲 Manda a ${escText(rpPrimoNome(em.nome)||'chi firma')}`,`rpMandaFirma('${r.id}',true)`,'primary');
-    bt('📋 Copia il link per la firma',`rpMandaFirma('${r.id}',false)`);
-    bt('👁️ Anteprima',`rpPdf('${r.id}','ospite','vedi',this)`);
-    bt('✏️ Modifica',`rpModifica('${r.id}')`);
-  }else if(r.stato==='firmata'){
-    note.push(`Firmata da ${escText(em.nome||'')} il ${escText(quando(r.firma&&r.firma.ts||r.modificata))}.`+(r.mandata?` Mandata all'ospite il ${escText(quando(r.mandata))}.`:''));
-    if(r.marca)note.push(`🏷️ Marca n. <b>${escText(r.marca.codice)}</b> del ${escText(rpIt(r.marca.data))}. Stampa «Originale con la marca», attaccala nel riquadro, annullala scrivendo la data a cavallo tra marca e foglio e conservala 3 anni.`);
-    if(r.scaricata)note.push(`📥 L'ospite l'ha aperta il ${escText(quando(r.scaricata))}.`);
-    bt('📋 Copia il messaggio con il link',`rpCopiaLinkPdf('${r.id}')`,r.mandata?'ghost':'primary');
-    bt('⬇️ Scarica il PDF',`rpPdf('${r.id}','ospite','scarica',this)`);
-    if(r.marca)bt('🖨️ Originale con la marca',`rpPdf('${r.id}','archivio','scarica',this)`);
-    bt(r.mandata?'↺ Non ancora mandata':'✓ Segna come mandata',`rpSegnaMandata('${r.id}',${!r.mandata})`);
+    stato=`✍️ La firma ${escText(em.nome||'chi incassa')} col dito, dal telefono`;
+    prossimo=btn(`✍️ Manda a ${escText(chiFirma)} da firmare`,`rpMandaFirma('${r.id}',true)`);
+  }else if(ora===2){
+    stato=`✅ Firmata da ${escText(chiFirma)} il ${escText(quando(r.firma&&r.firma.ts||r.modificata))}`; clStato='ok';
+    prossimo=btn('📤 Manda il link all\'ospite',`rpCopiaLinkPdf('${r.id}')`);
+  }else if(ora===3){
+    stato=`📤 Mandata il ${escText(quando(r.mandata))} · l'ospite non l'ha ancora aperta`;
   }else{
-    note.push(`Annullata il ${escText(quando(r.annullata||r.modificata))}.`);
-    bt('🗑 Togli dall\'elenco',`rpTogli('${r.id}')`);
+    stato=`✅ Fatto · l'ospite l'ha aperta il ${escText(quando(r.scaricata))}`; clStato='ok';
   }
-  if(r.marca&&r.stato!=='annullata'){
-    if(r.stato!=='firmata')note.push(`🏷️ Marca n. <b>${escText(r.marca.codice)}</b> del ${escText(rpIt(r.marca.data))}.`);
-    bt('🏷️ Cambia la marca',`rpApriCambiaMarca('${r.id}')`);
-  }
-  if(r.stato!=='annullata')az.push(`<button class="btn ghost sm" style="color:var(--err);flex:0 1 auto" onclick="rpAnnulla('${r.id}')">🗑 Annulla</button>`);
-  return `<div class="rp-card${r.stato==='annullata'?' spenta':''}" id="rp-${r.id}"${rp.evidenzia===r.id?' style="box-shadow:0 0 0 2px var(--amber)"':''}>
-    <div class="rp-top"><span class="pallo" style="background:${col}"></span>${r.numero?`<b>n. ${escText(rpNum(r))}</b>`:''}<span class="rp-chi">${escText(chi)}</span>${pill}</div>
-    <div class="rp-info">${info}${r.ospiti?'<br>Ospiti: '+escText(r.ospiti):''}</div>
-    ${note.map(n=>`<div class="rp-nota">${n}</div>`).join('')}
-    <div class="rp-az">${az.join('')}</div>${rp.cambiaMarca===r.id?rpFormCambiaMarca(r):''}</div>`;
+  // firmata con la marca: l'originale di carta da tenere (con la marca attaccata) è un obbligo
+  if(r.stato==='firmata'&&r.marca)secondario=`<button class="btn ghost sm" onclick="rpPdf('${r.id}','archivio','scarica',this)" title="Stampalo, attacca la marca nel riquadro, annullala scrivendo la data a cavallo e conservalo 3 anni">🖨️ Originale da tenere</button>`;
+  // tutto il resto, in "⋯ Altro"
+  const m=[];
+  if(r.stato!=='dati'||r.datiOspite)m.push(voce('👁️','Vedi il PDF',`rpPdf('${r.id}','ospite','vedi',this)`));
+  if(r.stato==='firmata')m.push(voce('⬇️','Scarica il PDF',`rpPdf('${r.id}','ospite','scarica',this)`));
+  if(r.stato==='firmata'&&ora>=3)m.push(voce('📋','Ricopia il messaggio per l\'ospite',`rpCopiaLinkPdf('${r.id}')`));
+  if(r.stato==='firmare'&&!senzaMarca)m.push(voce('🔗','Copia il link per la firma',`rpMandaFirma('${r.id}',false)`));
+  if(r.stato==='dati'&&!r.datiOspite)m.push(voce('✏️','Scrivo io i dati',`rpModifica('${r.id}',true)`));
+  if(r.stato==='firmare')m.push(voce('✏️','Modifica',`rpModifica('${r.id}')`));
+  if(r.marca)m.push(voce('🏷️',`Cambia la marca <span class="muted" style="margin-left:auto;font-size:12px">n. …${escText(String(r.marca.codice).slice(-6))}</span>`,`rpApriCambiaMarca('${r.id}')`));
+  if(r.stato==='firmata')m.push(voce(r.mandata?'↺':'✓',r.mandata?'Segna come non mandata':'Segna come mandata',`rpSegnaMandata('${r.id}',${!r.mandata})`));
+  m.push(voce('🗑','Annulla la ricevuta',`rpAnnulla('${r.id}')`,'rosso'));
+  return `<div class="rp-card" id="rp-${r.id}"${rp.evidenzia===r.id?' style="box-shadow:0 0 0 2px var(--amber)"':''}>${testa}
+    <div class="rp-passi">${passi}</div>
+    <div class="rp-stato ${clStato}">${stato}</div>
+    ${prossimo}
+    <div class="rp-sotto">${secondario}${altroBtn}</div>
+    ${rp.menu===r.id?`<div class="rp-menu">${m.join('')}</div>`:''}
+    ${rp.cambiaMarca===r.id?rpFormCambiaMarca(r):''}</div>`;
 }
+// "⋯ Altro": uno aperto alla volta
+function rpMenu(id){ rp.menu=rp.menu===id?null:id; rp.cambiaMarca=null; rpRenderLista(); }
 /* ===== cambio della marca (anche su una ricevuta già firmata) ===== */
-function rpApriCambiaMarca(id){ rp.cambiaMarca=rp.cambiaMarca===id?null:id; rpRenderLista(); const el=$('#rp-cm-'+id); if(el)el.scrollIntoView({block:'center',behavior:'smooth'}); }
+function rpApriCambiaMarca(id){ rp.cambiaMarca=rp.cambiaMarca===id?null:id; rp.menu=null; rpRenderLista(); const el=$('#rp-cm-'+id); if(el)el.scrollIntoView({block:'center',behavior:'smooth'}); }
 // dalla scorta: una marca già usata non si cancella (è nella ricevuta), si sostituisce da lì
 function rpVaiCambiaMarca(id){
   const r=rp.lista.find(x=>x.id===id); if(!r||!r.marca||r.stato==='annullata')return toast('Questa marca è in una ricevuta annullata: resta nell\'elenco');
