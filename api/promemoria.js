@@ -32,7 +32,7 @@ const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
-const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno } = require("./_calendari");
+const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno, azionePrenotazioneManuale } = require("./_calendari");
 const { pulizieProssime, segnaMandato } = require("./_pulizie");
 const { mandaPromemoriaEmail } = require("./_promemoriaEmail");
 const { azioneRicevute, azionePubblica } = require("./_ricevutePagamento");
@@ -539,6 +539,17 @@ module.exports = async (req, res) => {
     if ((req.body || {}).azione === "eventi") {
       try {
         const esito = await azioneEventi(conn, req.body || {});
+        return res.status(esito.ok ? 200 : 400).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
+    // nome e ospiti di una prenotazione scritti dall'host (quando l'email di conferma di Airbnb non
+    // arriva alle caselle delle case): { chiave:"HM…"|"uid:…", nome, ospiti } o { chiave, togli:true }
+    if ((req.body || {}).azione === "prenotazione") {
+      try {
+        const esito = await azionePrenotazioneManuale(conn, req.body || {});
         return res.status(esito.ok ? 200 : 400).json(esito);
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });

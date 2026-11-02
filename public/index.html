@@ -528,6 +528,11 @@
   .ev-sugg button{border:none; background:var(--surface2); color:var(--ink); border-radius:999px; padding:7px 11px; font:inherit; font-size:12.5px; cursor:pointer}
   .ev-date{display:grid; grid-template-columns:1fr 1fr; gap:10px}
   .ev-form .gcal-case{margin:2px 0 0}
+  /* nome e ospiti di una prenotazione scritti a mano (quando l'email di Airbnb non arriva qui) */
+  .no-stepper{display:flex; align-items:center; gap:16px; margin-top:6px}
+  .no-stepper button{width:48px; height:48px; border-radius:16px; border:0; background:var(--surface2); color:var(--ink); font:inherit; font-size:24px; font-weight:800; cursor:pointer}
+  .no-stepper b{font-size:30px; min-width:44px; text-align:center}
+  .no-avviso{margin-top:12px; padding:10px 12px; border-radius:14px; background:rgba(255,183,3,.12); color:#ffd27a; font-size:12.5px; line-height:1.45}
   body.modo-team:not(.team-eventi) .gcal-piu, body.modo-team:not(.team-eventi) .gcal-agg, body.modo-team:not(.team-eventi) .ev-ok{display:none!important}
   .gcal-riga .vai,.agenda-ev .vai{color:var(--muted); font-size:17px; font-weight:700; flex:0 0 auto; line-height:1}
   .agenda-g{display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
@@ -17744,7 +17749,8 @@ function soggiorniHome(){
       nomeCorto:p.nome?calNomeCorto(String(p.nome).trim().split(/\s+/).slice(-1)[0]):'',
       nomeBreve:nomeProprio(p.nome),
       colore:strutturaInfo(casa).colore, registrato:false, esterna:true, fonte:p.fonte||'Airbnb',
-      uid:p.uid, url:p.url||'', telefono4:p.telefono4||'', codice:p.codice||'', strutturaId:p.strutturaId});
+      uid:p.uid, url:p.url||'', telefono4:p.telefono4||'', codice:p.codice||'', strutturaId:p.strutturaId,
+      posta:p.posta||'', manuale:!!p.manuale});
   });
   linkDaArchivio(out);
   return out;
@@ -17894,6 +17900,15 @@ function apriSommario(chiave){
     if(v.modificato)riga('✏️',`Modificato da te il ${gm(v.modificato.ts)}`);
   }else{
     riga('⏳',`<b>Check-in online non ancora fatto</b><br><span class="muted">Prenotazione letta dal calendario di ${escText(s.fonte||'Airbnb')}</span>`);
+    // senza nome o senza ospiti: perché, e come rimediare (2/11/2026, l'utente: "alcune prenotazioni
+    // non vengono lette, nel calendario non ho nomi")
+    if(!s.team&&(!s.nome||!s.ospiti)){
+      const casella=(calendariConfig&&calendariConfig.email&&calendariConfig.email.casella)||'';
+      riga('📭', s.posta==='non_trovata'
+        ?`<b>Email di conferma non arrivata qui</b><br><span class="muted">Non è nelle caselle delle case: Airbnb l'ha mandata a un altro indirizzo.${casella?` Inoltrala a ${escText(casella)}, oppure`:''} scrivi tu nome e ospiti.</span>`
+        :s.posta==='non_letta'?`<b>Email trovata ma non letta</b><br><span class="muted">Scrivi tu nome e ospiti, anche da uno screenshot di Airbnb.</span>`
+        :`<b>Nome e ospiti non ancora arrivati</b><br><span class="muted">Li prendo dall'email di conferma di Airbnb. Se tarda, scrivili tu.</span>`);
+    }else if(!s.team&&s.manuale)riga('✏️','<span class="muted">Nome e ospiti scritti da te</span>');
   }
   if(nomi.length)riga('👥',nomi.map(escText).join('<br>'));
   else if(n)riga('👥',`${n} ospit${n===1?'e':'i'}`);
@@ -17908,6 +17923,10 @@ function apriSommario(chiave){
   if(v&&testoLettura(v))riga('📷',`<span class="muted">${escText(testoLettura(v))}</span>`);
   const pul=infoPulizia(s); if(pul)riga('🧹',pul);   // (al posto delle ultime cifre del telefono: "inutile")
   const az=[];
+  if(s.esterna&&!s.team){
+    const manca=!s.nome||!s.ospiti;
+    az.push(`<button class="btn ${manca?'primary':'ghost'}" data-resta="1" onclick="apriNomeOspiti('${encodeURIComponent(s.uid||'').replace(/'/g,'%27')}')">✏️ ${manca?'Scrivi nome e ospiti':'Nome e ospiti'}</button>`);
+  }
   if(url)az.push(bottonePortale({url,fonte},'padding:11px 14px;font-size:13.5px'));
   if(s.esterna){
     const link=(window.linkCheckinPerStruttura||{})[s.strutturaId];
@@ -17958,6 +17977,79 @@ function infoPulizia(s){
   return righe.join('<br>');
 }
 function chiudiSommario(){ const b=$('#sommarioPren'); if(b)b.classList.remove('open'); }
+/* ✏️ Nome e ospiti di una prenotazione del calendario (2/11/2026). La pagina della prenotazione su
+   Airbnb si apre solo col login dell'host (leggerla da qui è vietato da Airbnb): quando l'email di
+   conferma non arriva alle caselle delle case, l'host li scrive qui o li fa leggere da uno
+   screenshot dell'app di Airbnb. Server: azione "prenotazione" (KV prenotazioni_manuali). */
+let nomBozza=null;
+function apriNomeOspiti(ue){
+  const uid=decodeURIComponent(ue||'');
+  const p=prenotazioniEsterne.find(x=>x.uid===uid); if(!p){ toast('Questa prenotazione non c\'è più'); return; }
+  nomBozza={uid, chiave:p.codice?String(p.codice).toUpperCase():'uid:'+uid, nome:p.nome?maiuscoleIniziali(p.nome):'', ospiti:p.ospiti||0,
+    manuale:!!p.manuale, arrivo:p.arrivo, partenza:p.partenza, codice:p.codice?String(p.codice).toUpperCase():'', casa:nomeCasaDaId(p.strutturaId), avviso:''};
+  renderNomeOspiti();
+}
+function nomLeggi(){ const el=$('#no-nome'); if(el&&nomBozza)nomBozza.nome=el.value; }
+function nomOspiti(d){ nomLeggi(); nomBozza.ospiti=Math.max(1,Math.min(30,(parseInt(nomBozza.ospiti,10)||0)+d)); renderNomeOspiti(); }
+function renderNomeOspiti(){
+  const b=nomBozza, body=$('#sommarioBody'); if(!body||!b)return;
+  const n=parseInt(b.ospiti,10)||0;
+  body.innerHTML=`<div class="ev-form">
+    <h3 class="som-tit" id="sommarioTitolo" style="text-align:left;font-size:21px;padding-right:44px">✏️ Nome e ospiti</h3>
+    <div class="som-casa" style="justify-content:flex-start">${b.casa?`<span class="pallo" style="background:${strutturaInfo(b.casa).colore}"></span>${escText(b.casa)} · `:''}${escText(somPeriodo(parseIt(b.arrivo),parseIt(b.partenza)))}</div>
+    <button class="btn ghost" id="noFotoBtn" style="width:100%;margin-top:14px" onclick="document.getElementById('noFoto').click()">📷 Leggi da uno screenshot di Airbnb</button>
+    <input type="file" id="noFoto" accept="image/*" style="display:none" onchange="nomeDaScreenshot(this.files)">
+    ${b.avviso?`<div class="no-avviso">${b.avviso}</div>`:''}
+    <label for="no-nome">Nome dell'ospite</label>
+    <input type="text" id="no-nome" maxlength="80" value="${escAttr(b.nome)}" placeholder="Es. Mario Rossi" autocomplete="off">
+    <label>Ospiti <span class="muted" style="font-weight:500">(adulti + bambini + neonati, non gli animali)</span></label>
+    <div class="no-stepper"><button onclick="nomOspiti(-1)" aria-label="Uno in meno">−</button><b id="no-n">${n||'–'}</b><button onclick="nomOspiti(1)" aria-label="Uno in più">+</button></div>
+    <div class="som-az">
+      <button class="btn primary" data-resta="1" id="noSalva" onclick="salvaNomeOspiti()">💾 Salva</button>
+      ${b.manuale?`<button class="btn ghost" data-resta="1" style="color:var(--err)" onclick="salvaNomeOspiti(true)">🗑 Togli quelli scritti da me</button>`:''}
+    </div></div>`;
+}
+async function nomeDaScreenshot(files){
+  const f=files&&files[0]; if(!f||!nomBozza)return;
+  nomLeggi();
+  const bt=$('#noFotoBtn'); if(bt){ bt.disabled=true; bt.innerHTML='<span class="spin"></span> Leggo lo screenshot…'; }
+  try{
+    const j=await apiExtract([await fileToDataURL(f)],'pren_ospite');
+    const b=nomBozza; if(!b)return;
+    const cod=String(j.codice||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(cod&&b.codice&&cod!==b.codice){ b.avviso=`⚠️ Lo screenshot è di un'altra prenotazione (codice ${escText(cod)}, questa è ${escText(b.codice)}): non l'ho usato.`; renderNomeOspiti(); return; }
+    if(j.nome)b.nome=maiuscoleIniziali(String(j.nome));
+    const o=parseInt(j.ospiti,10)||((parseInt(j.adulti,10)||0)+(parseInt(j.bambini,10)||0)+(parseInt(j.neonati,10)||0));
+    if(o>=1&&o<=30)b.ospiti=o;
+    b.avviso=(j.data_arrivo&&b.arrivo&&j.data_arrivo!==b.arrivo&&!cod)
+      ?`⚠️ Nello screenshot l'arrivo è il ${escText(j.data_arrivo)}, qui il ${escText(b.arrivo)}: controlla che sia la prenotazione giusta.`
+      :(!j.nome&&!(o>=1))?'Non ho trovato nome e ospiti nello screenshot: scrivili qui sotto.':'';
+    renderNomeOspiti();
+    if(j.nome||o>=1)toast('📷 Letto: controlla e salva');
+  }catch(e){ toast('Screenshot non letto: '+(e.message||'riprova')); renderNomeOspiti(); }
+}
+async function salvaNomeOspiti(togli){
+  nomLeggi(); const b=nomBozza; if(!b)return;
+  const nome=String(b.nome||'').trim(), ospiti=parseInt(b.ospiti,10)||0;
+  if(!togli&&!nome&&!ospiti){ toast('Scrivi il nome o quanti sono'); return; }
+  const bt=$('#noSalva'); if(bt){ bt.disabled=true; bt.textContent='Salvo…'; }
+  try{
+    const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),
+      body:JSON.stringify(togli?{azione:'prenotazione', chiave:b.chiave, togli:true}:{azione:'prenotazione', chiave:b.chiave, nome, ospiti:ospiti||''})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.ok)throw new Error(d.error||('errore '+r.status));
+    if(togli){ await caricaCalendariEsterni(); }   // tornano nome e ospiti dell'email (se c'era)
+    else{
+      prenotazioniEsterne.forEach(p=>{ if(p.uid===b.uid||(b.codice&&String(p.codice||'').toUpperCase()===b.codice)){ p.nome=nome||p.nome||''; p.ospiti=ospiti||p.ospiti||null; p.manuale=true; delete p.posta; } });
+      try{ const c=JSON.parse(localStorage.getItem('calendari_cache')||'{}'); c.prenotazioni=prenotazioniEsterne; localStorage.setItem('calendari_cache',JSON.stringify(c)); }catch(e){}
+      aggiornaOggi();
+    }
+    if(typeof caricaPulizie==='function')caricaPulizie();   // il messaggio delle pulizie prende il numero nuovo
+    nomBozza=null;
+    toast(togli?'🗑 Tolti':'✏️ Salvato: '+[nome,ospiti?ospiti+' ospit'+(ospiti===1?'e':'i'):''].filter(Boolean).join(' · '));
+    apriSommario('e:'+encodeURIComponent(b.uid));
+  }catch(e){ toast('Non salvato: '+(e.message||'connessione assente')); if(bt){ bt.disabled=false; bt.textContent='💾 Salva'; } }
+}
 // un pulsante del sommario fa la sua cosa e chiude il sommario (tranne "Copia", che resta lì per dire "Copiato")
 document.addEventListener('click',e=>{
   const b=e.target.closest&&e.target.closest('#sommarioPren .som-az button');

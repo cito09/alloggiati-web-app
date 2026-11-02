@@ -21,6 +21,15 @@ function promptBooking(oggi) {
   return `Oggi è ${oggi}. Dallo screenshot di una prenotazione estrai le date di un soggiorno futuro o recente (vicino a oggi). Rispondi SOLO con JSON: {"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"numero_notti":number|null}. Se vedi check-in e check-out calcola le notti come differenza. Se l'anno non è scritto esplicitamente nello screenshot, usa l'anno più vicino a oggi (oggi o il prossimo) che renda coerenti le date del soggiorno: NON usare mai un anno passato a caso, e non confondere l'anno con quello di altre cifre presenti nello screenshot.`;
 }
 
+// Screenshot della prenotazione nell'app di Airbnb (o Booking) dell'host: nome dell'ospite e quanti
+// sono (2/11/2026: quando l'email di conferma non arriva alle caselle delle case, l'host fa uno
+// screenshot e KeyFlow scrive nome e ospiti nel calendario).
+function promptPrenOspite(oggi) {
+  return `Oggi è ${oggi}. L'immagine è uno screenshot (o una foto) di una prenotazione vista dall'HOST nell'app o nel sito di Airbnb, Booking o simili. Estrai il nome dell'ospite che ha prenotato (nome e cognome come scritti), quanti adulti, bambini e neonati (gli animali domestici NON sono ospiti: non contarli), le date di check-in e check-out e il codice di conferma (es. HMABC12345). Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
+{"nome":string|null,"adulti":number|null,"bambini":number|null,"neonati":number|null,"ospiti":number|null,"data_arrivo":"gg/mm/aaaa"|null,"data_partenza":"gg/mm/aaaa"|null,"codice":string|null}
+"ospiti" = adulti + bambini + neonati (se c'è solo il totale, mettilo lì). Se l'anno non è scritto usa quello più vicino a oggi (oggi o il prossimo) che renda coerenti le date. Dato non leggibile = null.`;
+}
+
 // 'auto': riceve immagini MISTE (screenshot prenotazione + foto documenti) e/o un messaggio di testo, e li separa da solo.
 function promptAuto(oggi, haTesto) {
   return `Oggi è ${oggi}. Ricevi una o più immagini che possono essere di due tipi: (a) screenshot di una prenotazione (Airbnb, Booking, ecc.) oppure (b) foto di documenti d'identità (passaporto, carta d'identità, patente)${haTesto ? `, ed inoltre un MESSAGGIO DI TESTO scritto dall'ospite (es. copiato da una chat Airbnb/Booking) con i dati anagrafici di uno o più ospiti, da usare come fonte al pari dei documenti` : ""}. Classifica ogni immagine ed estrai i dati. Rispondi SOLO con JSON valido, nessun altro testo, nessun backtick:
@@ -90,7 +99,8 @@ module.exports = async (req, res) => {
       });
     }
     const oggi = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
-    const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi, !!testo) : kind === "marca" ? PROMPT_MARCA : PROMPT_DOC;
+    const prompt = kind === "prenotazione" ? promptBooking(oggi) : kind === "auto" ? promptAuto(oggi, !!testo) : kind === "marca" ? PROMPT_MARCA
+      : kind === "pren_ospite" ? promptPrenOspite(oggi) : PROMPT_DOC;
     content.push({ type: "text", text: prompt });
 
     const chiedi = async (model) => {

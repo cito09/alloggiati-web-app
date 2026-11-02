@@ -167,14 +167,60 @@ function spiegaErrore(e) {
 }
 
 async function leggiCalendari(conn) {
+  const manuali = await leggiManuali(conn);
   try {
     const raw = await redisCmd(conn, ["GET", KEY]);
     const s = raw ? JSON.parse(raw) : {};
-    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], blocchi: s.blocchi || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {}, prohost: s.prohost || {}, archivio: s.archivio || {} };
-  } catch { return { link: {}, prenotazioni: [], blocchi: [], esiti: {}, aggiornato: 0, email: {}, prohost: {}, archivio: {} }; }
+    return { link: s.link || {}, prenotazioni: s.prenotazioni || [], blocchi: s.blocchi || [], esiti: s.esiti || {}, aggiornato: s.aggiornato || 0, email: s.email || {}, prohost: s.prohost || {}, archivio: s.archivio || {}, manuali };
+  } catch { return { link: {}, prenotazioni: [], blocchi: [], esiti: {}, aggiornato: 0, email: {}, prohost: {}, archivio: {}, manuali }; }
 }
 async function salvaCalendari(conn, stato) {
-  await redisCmd(conn, ["SET", KEY, JSON.stringify(stato)]);
+  // i nomi scritti a mano stanno nella loro chiave (prenotazioni_manuali): qui non si copiano, così
+  // una lettura dei calendari in corso non può cancellare un nome appena scritto
+  const { manuali, ...resto } = stato || {};
+  await redisCmd(conn, ["SET", KEY, JSON.stringify(resto)]);
+}
+
+/* Nome e ospiti scritti dall'host (2/11/2026, l'utente: "alcune prenotazioni non vengono ancora
+   lette, nel calendario non ho nomi… riusciamo a leggere il link della prenotazione?"). La pagina
+   della prenotazione su Airbnb si apre solo col login dell'host: leggerla da qui è vietato da
+   Airbnb. Quando l'email di conferma non arriva alle caselle delle case, l'host scrive nome e
+   ospiti (o li fa leggere da uno screenshot) dal riepilogo della prenotazione. KV
+   "prenotazioni_manuali" = { "HM…" | "uid:…": { nome, ospiti, ts, da } }: vincono sull'email,
+   tranne una modifica accettata DOPO (numero di ospiti). */
+const KEY_MANUALI = "prenotazioni_manuali";
+async function leggiManuali(conn) {
+  try { const raw = await redisCmd(conn, ["GET", KEY_MANUALI]); const d = raw ? JSON.parse(raw) : {}; return d && typeof d === "object" && !Array.isArray(d) ? d : {}; }
+  catch { return {}; }
+}
+const chiaveManuale = (p) => (p && p.codice ? String(p.codice).toUpperCase() : p && p.uid ? "uid:" + String(p.uid).slice(0, 200) : "");
+function conManuali(prenotazioni, manuali, modifiche) {
+  if (!manuali || !Object.keys(manuali).length) return prenotazioni;
+  return (prenotazioni || []).map((p) => {
+    const m = manuali[chiaveManuale(p)];
+    if (!m) return p;
+    const mod = p.codice && modifiche && modifiche[String(p.codice).toUpperCase()];
+    const ospiti = mod && mod.ospiti && (mod.ts || 0) > (m.ts || 0) ? mod.ospiti : (m.ospiti || p.ospiti || null);
+    return { ...p, nome: m.nome || p.nome || "", ospiti, manuale: true };
+  });
+}
+async function azionePrenotazioneManuale(conn, { chiave, nome, ospiti, togli } = {}, da = "") {
+  let k = String(chiave || "").trim();
+  if (/^HM[A-Z0-9]{6,12}$/i.test(k)) k = k.toUpperCase();
+  else if (!/^uid:.{1,200}$/.test(k)) return { ok: false, error: "Prenotazione non riconosciuta" };
+  const d = await leggiManuali(conn);
+  if (togli) delete d[k];
+  else {
+    const n = String(nome || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const vuoto = ospiti === undefined || ospiti === null || ospiti === "";
+    const o = vuoto ? null : parseInt(ospiti, 10);
+    if (!vuoto && !(o >= 1 && o <= 30)) return { ok: false, error: "Ospiti: da 1 a 30" };
+    if (!n && !o) return { ok: false, error: "Scrivi il nome o il numero di ospiti" };
+    d[k] = { nome: n, ospiti: o || null, ts: Date.now(), da: String(da || "").slice(0, 30) };
+  }
+  for (const [x, v] of Object.entries(d)) if (!v || (v.ts || 0) < Date.now() - 400 * 86400000) delete d[x];
+  await redisCmd(conn, ["SET", KEY_MANUALI, JSON.stringify(d)]);
+  return { ok: true, manuali: d };
 }
 
 const gmailConfigurato = () => !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD);
@@ -212,7 +258,7 @@ async function opzioniCartelle(conn, c, em) {
 
 // le conferme di Airbnb lette da tutte le caselle, aggiunte a quelle già lette le volte prima
 // (è l'archivio di KeyFlow: se poi l'email si cancella, nome e ospiti restano)
-async function aggiornaEmail(email, conn) {
+async function aggiornaEmail(email, conn, prenotazioni) {
   const e = { ...(email || {}) };
   if (!emailAccesa(e)) return e;
   const caselle = caselleEmail(e);
@@ -232,10 +278,22 @@ async function aggiornaEmail(email, conn) {
   const modifiche = { ...(e.modifiche || {}) };
   let richieste = [...(e.richiesteModifica || [])];
   const accettate = [];
+  // Prenotazioni future del calendario ancora SENZA email di conferma: il loro codice si cerca in
+  // tutta la posta di ogni casella (al massimo una volta ogni 20 ore per codice). Esito in
+  // e.cercati = { HM…: { ts, letta, oggetti, caselle } }: il gestionale dice "email non arrivata qui".
+  const cercati = { ...(e.cercati || {}) };
+  const oggi0 = Date.now() - 86400000;
+  const msIt = (x) => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(x || ""); return m ? Date.UTC(+m[3], +m[2] - 1, +m[1]) : 0; };
+  const daCercare = [...new Set((prenotazioni || [])
+    .filter((p) => p && p.codice && /^HM[A-Z0-9]{6,12}$/i.test(p.codice) && p.sorgente !== "prohost" && !p.nome && msIt(p.partenza) >= oggi0)
+    .sort((a, b) => msIt(a.arrivo) - msIt(b.arrivo))
+    .map((p) => String(p.codice).toUpperCase()))]
+    .filter((k) => !conferme[k] && !cancellate[k] && !(cercati[k] && Date.now() - (cercati[k].ts || 0) < 20 * 3600000))
+    .slice(0, 8);
   const risultati = await Promise.all(caselle.map(async (c) => {
     try {
       const r = await leggiConfermeAirbnb({ utente: c.utente, password: c.password, stato: (stati[c.utente] || {}).stato || {},
-        cartelle: await opzioniCartelle(conn, c, e) });
+        cartelle: await opzioniCartelle(conn, c, e), cerca: daCercare });
       return { c, ok: true, r };
     } catch (err) { return { c, ok: false, errore: spiegaErroreGmail(err) }; }
   }));
@@ -267,6 +325,16 @@ async function aggiornaEmail(email, conn) {
       stati[x.c.utente] = { ...prima, esito: { ok: false, ts: Date.now(), errore: x.errore } };
     }
   }
+  // com'è andata la ricerca per codice, unendo le caselle (una ricerca fallita si riprova la volta dopo)
+  for (const k of daCercare) {
+    const r = risultati.filter((x) => x.ok && x.r.cercati && x.r.cercati[k]);
+    if (!r.length || r.some((x) => x.r.cercati[k].errore)) continue;
+    const letta = r.some((x) => x.r.cercati[k].letta) || !!conferme[k];
+    const oggetti = [...new Set(r.flatMap((x) => x.r.cercati[k].oggetti || []))].slice(0, 4);
+    cercati[k] = { ts: Date.now(), letta, oggetti, caselle: r.filter((x) => (x.r.cercati[k].oggetti || []).length).map((x) => x.c.utente) };
+  }
+  for (const [k, v] of Object.entries(cercati)) if (!v || Date.now() - (v.ts || 0) > 60 * 86400000) delete cercati[k];
+  e.cercati = cercati;
   // via le caselle tolte
   for (const k of Object.keys(stati)) if (!caselle.some((c) => c.utente === k)) delete stati[k];
   // modifiche: ogni "Prenotazione aggiornata" prende la richiesta dello stesso ospite arrivata prima
@@ -349,7 +417,7 @@ const haFonti = (stato) => Object.values(stato.link || {}).some((l) => (l || [])
 // quel link restano (un portale giù per un'ora non deve svuotare il calendario).
 async function sincronizzaCalendari(conn, stato) {
   stato = stato || (await leggiCalendari(conn));
-  const emailInArrivo = aggiornaEmail(stato.email, conn);   // in parallelo ai calendari
+  const emailInArrivo = aggiornaEmail(stato.email, conn, stato.prenotazioni);   // in parallelo ai calendari
   const prohostInArrivo = aggiornaProhost(stato.prohost);
   const lavori = [];
   for (const [strutturaId, links] of Object.entries(stato.link || {})) {
@@ -383,7 +451,7 @@ async function sincronizzaCalendari(conn, stato) {
   // ProhostAI non ha risposto: restano le sue prenotazioni lette l'ultima volta
   prenotazioni.push(...(ph.pren || (stato.prenotazioni || []).filter((p) => p.sorgente === "prohost")));
   archivia(archivio, ph.pren || []);
-  const nuovo = { link: stato.link || {}, prenotazioni, blocchi, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost, archivio };
+  const nuovo = { link: stato.link || {}, prenotazioni, blocchi, esiti, aggiornato: Date.now(), email: await emailInArrivo, prohost: ph.prohost, archivio, manuali: stato.manuali };
   await salvaCalendari(conn, nuovo);
   await avvisaCancellazioni(stato, nuovo);
   return nuovo;
@@ -437,7 +505,14 @@ function vistaCalendari(stato) {
   // non si è ancora aggiornato
   const canc = emailAccesa(em) ? (em.cancellate || {}) : {};
   const attive = (stato.prenotazioni || []).filter((p) => !(p.codice && canc[String(p.codice).toUpperCase()]));
-  const prenotazioni = emailAccesa(em) ? conNomi(attive, em.conferme, em.modifiche) : attive;
+  const conEmail = emailAccesa(em) ? conNomi(attive, em.conferme, em.modifiche) : attive;
+  // perché una prenotazione è ancora senza nome: "non_trovata" = il suo codice non c'è in nessuna
+  // casella collegata (l'email è arrivata altrove), "non_letta" = c'è un'email ma non si è letta
+  const cerc = emailAccesa(em) ? (em.cercati || {}) : {};
+  const prenotazioni = conManuali(conEmail, stato.manuali, em.modifiche).map((p) => {
+    const c = !p.nome && p.codice && cerc[String(p.codice).toUpperCase()];
+    return c && !c.letta ? { ...p, posta: (c.oggetti || []).length ? "non_letta" : "non_trovata" } : p;
+  });
   // date bloccate dall'host (chiusure): k = casa|aaaa-mm-gg, la chiave del motivo scritto in KeyFlow
   const blocchi = unisciBlocchi(stato.blocchi).map((b) => ({ k: `${b.strutturaId}|${aaaammgg(b.dal).replace(/(\d{4})(\d{2})(\d{2})/, "$1-$2-$3")}`,
     s: b.strutturaId, dal: b.dal, fino: b.fino, notti: b.notti, f: b.fonte }));
@@ -653,4 +728,4 @@ function ospitiPrenotazione(stato, casa, arrivo, partenza) {
   return n >= 1 && n <= 30 ? n : null;
 }
 
-module.exports = { leggiIcal, prenotazioniDaEventi, blocchiDaEventi, unisciBlocchi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, vistaCalendari, azioneCalendari, conNomi, haFonti, conTurno, ospitiPrenotazione };
+module.exports = { leggiIcal, prenotazioniDaEventi, blocchiDaEventi, unisciBlocchi, pulisciLink, fonteDi, sincronizzaCalendari, leggiCalendari, salvaCalendari, vistaCalendari, azioneCalendari, conNomi, conManuali, azionePrenotazioneManuale, haFonti, conTurno, ospitiPrenotazione };

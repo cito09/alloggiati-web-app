@@ -10,15 +10,24 @@
 const MESI = { gen: 1, feb: 2, mar: 3, apr: 4, mag: 5, giu: 6, lug: 7, ago: 8, set: 9, ott: 10, nov: 11, dic: 12,
   jan: 1, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, dec: 12 };
 const ATTESA_MS = 28000;
-const VERSIONE_LETTURA = 5;   // 2 = si leggono anche le email di cancellazione; 3 = si ripassano le conferme vecchie per l'archivio dei link ad Airbnb; 4 = anche le modifiche (numero di ospiti); 5 = numero di ospiti senza gli animali (si rileggono le conferme per correggerlo)
+const VERSIONE_LETTURA = 6;   // 2 = si leggono anche le email di cancellazione; 3 = si ripassano le conferme vecchie per l'archivio dei link ad Airbnb; 4 = anche le modifiche (numero di ospiti); 5 = numero di ospiti senza gli animali (si rileggono le conferme per correggerlo); 6 = conferme con oggetti diversi ("Nuova prenotazione confermata! …", "…immediata confermata")
 
 // solo le conferme che arrivano a chi OSPITA ("Prenotazione confermata - Anna Rossi arriverà
 // il …"); non quelle dei viaggi fatti come ospite ("La tua prenotazione … è confermata"),
 // né richieste, pre-approvazioni o cancellazioni
 function eConfermaHost(oggetto) {
   const s = String(oggetto || "");
-  return /(prenotazione confermata|reservation confirmed|booking confirmed)\s*[-–—:]/i.test(s)
+  // anche "Nuova prenotazione confermata! Anna arriva il…" e "Prenotazione immediata confermata - …"
+  // (2/11/2026: alcune prenotazioni restavano senza nome anche rileggendo le email)
+  return /(prenotazione(?:\s+immediata)?\s+confermata|reservation\s+confirmed|booking\s+confirmed)\s*[-–—:!.]/i.test(s)
     && !/cancell|annull|richiesta|request|pre-?approv/i.test(s);
+}
+// Più largo, solo per le email trovate cercando il CODICE di una prenotazione rimasta senza nome
+// (il codice è già la garanzia che parla di quella prenotazione). Fuori i viaggi fatti DA ospite.
+function eConfermaLarga(oggetto) {
+  const s = String(oggetto || "");
+  return /confermat|confirmed/i.test(s) && /prenotazion|reservation|booking/i.test(s)
+    && !/cancell|annull|richiesta|request|pre-?approv|la tua prenotazione|your reservation is|your trip|tuo viaggio/i.test(s);
 }
 
 // Cancellazioni (ottobre 2026, l'utente: "se arriva una cancellazione si aggiorna in automatico il
@@ -109,13 +118,15 @@ function dateCheckin(riga, dataEmail) {
 }
 
 // dal testo dell'email ai dati che servono; null se non è una conferma riconoscibile
-function datiDaEmailAirbnb({ subject, text, date }) {
-  if (!eConfermaHost(subject)) return null;
+function datiDaEmailAirbnb({ subject, text, date }, { codiceAtteso } = {}) {
+  // codiceAtteso: email trovata cercando quel codice → basta un oggetto "da conferma" più largo
+  if (codiceAtteso ? !eConfermaLarga(subject) : !eConfermaHost(subject)) return null;
   const t = String(text || "").replace(/\r/g, "");
-  const codice = ((/(?:codice di conferma|confirmation code)\s*:?\s*([A-Z0-9]{6,14})\b/i.exec(t))
+  let codice = ((/(?:codice di conferma|confirmation code)\s*:?\s*([A-Z0-9]{6,14})\b/i.exec(t))
     || (/reservations\/details\/([A-Z0-9]{6,14})/i.exec(t)) || [])[1];
+  if (!codice && codiceAtteso && t.toUpperCase().includes(String(codiceAtteso).toUpperCase())) codice = codiceAtteso;
   if (!codice) return null;
-  let nome = ((/(?:confermata|confirmed)\s*[-–—:]\s*(.+?)\s+(?:arriverà|arriva|arrives|will arrive|is arriving)(?=[\s.,!]|$)/i.exec(subject || "")) || [])[1];
+  let nome = ((/(?:confermata|confirmed)[!.]?\s*[-–—:]?\s*(.+?)\s+(?:arriverà|arriva|arrives|will arrive|is arriving)(?=[\s.,!]|$)/i.exec(subject || "")) || [])[1];
   if (!nome) nome = ((/reservations\/details\/[A-Z0-9]+\S*\s+([^\n[\]]{2,80})/i.exec(t)) || [])[1];
   const rigaOspiti = ((/(?:^|\n)\s*(?:ospiti|guests)\s*\n+\s*([^\n]+)/i.exec(t)) || [])[1] || "";
   const ospiti = contaOspitiRiga(rigaOspiti) || null;
@@ -123,7 +134,8 @@ function datiDaEmailAirbnb({ subject, text, date }) {
   const date_ = rigaDate ? dateCheckin(rigaDate, date) : null;
   return {
     codice: codice.toUpperCase(),
-    nome: nome ? String(nome).trim().replace(/\s+/g, " ").slice(0, 80) : "",
+    // via simboli ed emoji attaccati al nome ("✔ Mario Bianchi" → "Mario Bianchi")
+    nome: nome ? String(nome).replace(/^[^\p{L}]+|[^\p{L}.]+$/gu, "").trim().replace(/\s+/g, " ").slice(0, 80) : "",
     ospiti: ospiti && ospiti <= 30 ? ospiti : null,
     arrivo: date_ ? date_.arrivo : "", partenza: date_ ? date_.partenza : "",
     ts: date instanceof Date && !isNaN(date) ? date.getTime() : Date.now(),
@@ -140,7 +152,7 @@ function conTempoMassimo(promessa, ms, messaggio) {
 // stato = { cartelle: { "<cartella>": { uidValidity, ultimoUid } } }
 // Guarda in "Tutti i messaggi" (anche le email archiviate o spostate da un filtro) e nel
 // Cestino (le email cancellate restano lì 30 giorni). La prima volta, 13 mesi indietro.
-async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, ImapFlow, simpleParser }) {
+async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, cerca = [], ImapFlow, simpleParser }) {
   ImapFlow = ImapFlow || require("imapflow").ImapFlow;
   simpleParser = simpleParser || require("mailparser").simpleParser;
   // stato salvato dalla versione di prima: una cartella sola
@@ -160,6 +172,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
       const etichetteGmail = etichetteUtente(caselle);
       const dest = cartelle ? destinazioni(etichetteGmail, cartelle.scelte) : null;
       const nuove = [], cancellate = [], richieste = [], modifiche = [];
+      const cercati = {};   // codice HM… cercato → { oggetti, letta }
       const nuovoStato = { cartelle: {}, etichette: (stato && stato.etichette) || {} };
       let lette = 0;
       let archiviate = null, erroreCartelle = null, fuoriInbox = null;
@@ -215,6 +228,32 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
           }
           lette += daLeggere.length;
           nuovoStato.cartelle[cartella] = { uidValidity, ultimoUid: Math.max(ultimoUid, minimo), v: VERSIONE_LETTURA };
+          // Prenotazioni del calendario rimaste SENZA nome (2/11/2026): si cerca il loro codice HM…
+          // in tutta la posta (ricerca di Gmail). Se c'è una conferma scritta diversa la si legge;
+          // se non c'è niente, il gestionale dice che l'email non è arrivata in questa casella.
+          // (non durante una rilettura da capo: quella ripassa già tutte le conferme, e il tempo è poco)
+          for (const codice of daCapo ? [] : (cerca || []).slice(0, 8)) {
+            const esito = cercati[codice] || (cercati[codice] = { oggetti: [], letta: false });
+            if (esito.letta) continue;
+            try {
+              const trovati = ((await client.search({ gmraw: codice }, { uid: true })) || []).slice(-8);
+              const daProvare = [];
+              if (trovati.length) {
+                for await (const m of client.fetch(trovati, { envelope: true, uid: true }, { uid: true })) {
+                  const ogg = String((m.envelope && m.envelope.subject) || "").slice(0, 120);
+                  if (ogg && esito.oggetti.length < 4 && !esito.oggetti.includes(ogg)) esito.oggetti.push(ogg);
+                  if (eConfermaLarga(ogg)) daProvare.push(m.uid);
+                }
+              }
+              for (const uid of daProvare.slice(-3)) {
+                const m = await client.fetchOne(String(uid), { source: true }, { uid: true });
+                if (!m || !m.source) continue;
+                const p = await simpleParser(m.source);
+                const d = datiDaEmailAirbnb({ subject: p.subject, text: p.text || "", date: p.date }, { codiceAtteso: codice });
+                if (d && d.codice === codice) { nuove.push(d); esito.letta = true; break; }
+              }
+            } catch (e) { esito.errore = String((e && (e.responseText || e.message)) || e).slice(0, 120); }
+          }
           // cartelle di archivio: solo in "Tutti i messaggi" (il Cestino non si etichetta)
           if (cartelle && cartella === tutta) {
             try {
@@ -231,7 +270,7 @@ async function leggiConfermeAirbnb({ utente, password, stato = {}, cartelle, Ima
         try { spostate = await traslocaCartelleKeyFlow(client, caselle.map((c) => c.path), dest); }
         catch (e) { erroreCartelle = String((e && (e.responseText || e.message)) || e).slice(0, 160); }
       }
-      return { stato: nuovoStato, nuove, cancellate, richieste, modifiche, lette, archiviate, fuoriInbox, erroreCartelle, etichetteGmail, destinazioni: dest, spostate };
+      return { stato: nuovoStato, nuove, cancellate, richieste, modifiche, cercati, lette, archiviate, fuoriInbox, erroreCartelle, etichetteGmail, destinazioni: dest, spostate };
     } finally { await client.logout().catch(() => {}); }
   })();
   try {
@@ -478,6 +517,6 @@ function spiegaErroreGmail(e) {
   return s.slice(0, 160) || "errore sconosciuto";
 }
 
-module.exports = { eConfermaHost, datiDaEmailAirbnb, eCancellazione, datiCancellazione, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail,
+module.exports = { eConfermaHost, eConfermaLarga, datiDaEmailAirbnb, eCancellazione, datiCancellazione, dateCheckin, leggiConfermeAirbnb, provaCasella, spiegaErroreGmail,
   eRichiestaModifica, eModificaAccettata, datiRichiestaModifica, datiModificaAccettata,
   archiviaInCartelle, traslocaCartelleKeyFlow, destinazioni, filtriGmailXml, cartellaEsistente, etichetteUtente, CARTELLE, VERSIONE_ARCHIVIO };
