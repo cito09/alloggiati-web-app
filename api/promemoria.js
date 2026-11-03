@@ -651,14 +651,10 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 3) scadenza Ross1000: promemoria il giorno 3 del mese (file del mese scorso entro il 5)
-  try {
-    const ross = JSON.parse(process.env.ROSS_STRUTTURE || "[]");
-    const giornoRoma = Number(new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "numeric" }).format(new Date()));
-    if (ross.length && giornoRoma === 3) {
-      avvisi.push("Ross1000: ricordati di caricare il file dei flussi del mese scorso entro il giorno 5 (dal gestionale: Scarica .xml, poi importalo sul portale).");
-    }
-  } catch (e) { /* ROSS_STRUTTURE assente o malformata */ }
+  // 3) Ross1000: il vecchio promemoria del giorno 3 ("carica il file dei flussi entro il 5") è
+  //    TOLTO (3/11/2026, l'utente: "questa non serve più"): i dati partono da soli con "Invia tutto"
+  //    e quelli rimasti indietro si rimandano da soli (rimandaRossInSospeso, con il suo avviso
+  //    "⚠️ ancora in coda" solo se qualcosa è davvero rimasto indietro).
 
   // 3-bis) imposta di soggiorno di Bologna (GEIS): la comunicazione è TRIMESTRALE e scade
   //        il 15 del mese dopo la fine del trimestre (15 aprile, 15 luglio, 15 ottobre,
