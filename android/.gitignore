@@ -1,0 +1,8 @@
+# la chiave per firmare l'app NON va mai nel repository (è pubblico)
+*.jks
+*.keystore
+keystore.properties
+local.properties
+.gradle/
+build/
+app/build/

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.KeyFlow" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/sfondo</item>
+        <item name="android:statusBarColor">@color/sfondo</item>
+        <item name="android:navigationBarColor">@color/sfondo</item>
+    </style>
+    <!-- fin dal primo istante: sfondo scuro con la chiave al centro, mai uno schermo bianco -->
+    <style name="Theme.KeyFlow.Avvio">
+        <item name="android:windowBackground">@drawable/avvio_finestra</item>
+    </style>
+</resources>

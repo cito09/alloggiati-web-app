@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: la schermata d'avvio del telefono ritaglia l'icona in un cerchio; così la chiave ci sta intera -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/avvio" android:inset="30%" />

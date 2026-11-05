@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">KeyFlow</string>
+    <string name="launchUrl">https://keyflowcheckin.vercel.app/index.html</string>
+    <string name="providerAuthority">app.keyflow.gestionale.fileprovider</string>
+    <string name="assetStatements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://keyflowcheckin.vercel.app\"}}]</string>
+</resources>

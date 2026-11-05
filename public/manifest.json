@@ -4,8 +4,8 @@
   "description": "Registrazione ospiti: schedine Alloggiati Web e flussi Ross1000",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#0d1b2a",
-  "theme_color": "#0d1b2a",
+  "background_color": "#0a0a0c",
+  "theme_color": "#0a0a0c",
   "icons": [
     {
       "src": "/icon-192.png",

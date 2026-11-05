@@ -1,0 +1,45 @@
+// App Android di KeyFlow: una "cornice" (Trusted Web Activity) che apre il gestionale
+// https://keyflowcheckin.vercel.app a schermo intero, con Chrome, senza la barra del browser.
+// Il contenuto è tutto sul sito: l'app non va aggiornata quando cambia KeyFlow.
+// Firma: keystore.properties (storeFile, storePassword, keyAlias, keyPassword) FUORI dal repository.
+plugins { id 'com.android.application' }
+
+def props = new Properties()
+def f = rootProject.file('keystore.properties')
+if (f.exists()) f.withInputStream { props.load(it) }
+
+android {
+    namespace 'app.keyflow.gestionale'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'app.keyflow.gestionale'
+        minSdk 21
+        targetSdk 35
+        versionCode 20
+        versionName '2.0'
+    }
+    signingConfigs {
+        release {
+            if (props['storeFile']) {
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}
