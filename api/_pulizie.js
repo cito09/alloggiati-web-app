@@ -199,16 +199,50 @@ async function leggiMandate(conn) {
   try { const raw = await redisCmd(conn, ["GET", KEY_MANDATE]); const d = raw ? JSON.parse(raw) : {}; return d && typeof d === "object" ? d : {}; }
   catch { return {}; }
 }
-async function segnaMandato(conn, { chiave, h, annulla } = {}, da = "") {
+async function segnaMandato(conn, { chiave, h, annulla, voci } = {}, da = "", oggiIso = "") {
   const k = String(chiave || "");
   if (!/^(o\|\d{4}-\d{2}-\d{2}|s)\|[\w-]{1,40}$/.test(k)) return { ok: false, error: "Messaggio non riconosciuto" };
   const d = await leggiMandate(conn);
   if (annulla) delete d[k];
-  else d[k] = { ts: Date.now(), h: String(h || "").slice(0, 40), da: String(da || "").slice(0, 30) };
+  else {
+    d[k] = { ts: Date.now(), h: String(h || "").slice(0, 40), da: String(da || "").slice(0, 30) };
+    // riepilogo delle settimane: si tengono anche i giorni mandati (v) e fin dove arrivava il messaggio
+    // (fino), così poi si sa se è cambiato davvero qualcosa o se sono solo arrivate pulizie nuove oltre
+    // le 3 settimane (8/11/2026, l'utente: "non è cambiato niente, se ne sono aggiunte perché siamo
+    // andati avanti di una settimana")
+    const v = vociMandate(voci);
+    if (k.startsWith("s|") && v && msDaIso(oggiIso)) { d[k].v = v; d[k].fino = isoDa(msDaIso(oggiIso) + (GIORNI_RIEPILOGO - 1) * GIORNO); }
+  }
   const limite = Date.now() - 30 * 864e5;
   for (const [kk, v] of Object.entries(d)) if (kk.startsWith("o|") && (!v || v.ts < limite)) delete d[kk];
   await redisCmd(conn, ["SET", KEY_MANDATE, JSON.stringify(d)]);
   return { ok: true, mandate: d };
+}
+// [[aaaa-mm-gg, ospiti|0], …] dal telefono, controllati
+function vociMandate(voci) {
+  if (!Array.isArray(voci) || voci.length > 60) return null;
+  const out = [];
+  for (const x of voci) {
+    const g = Array.isArray(x) ? x[0] : x && x.giorno, n = Array.isArray(x) ? x[1] : x && x.ospiti;
+    if (!msDaIso(g)) return null;
+    out.push([g, Math.max(0, Math.min(99, parseInt(n, 10) || 0))]);
+  }
+  return out;
+}
+// la stessa impronta del gestionale (index.html → impronta): se il testo cambia, cambia
+function impronta(t) { let h = 5381; t = String(t || ""); for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + "." + t.length; }
+const isoRoma = (ms) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+// riepiloghi mandati prima che si tenessero i giorni (solo l'impronta): si rifà il messaggio come
+// sarebbe stato il giorno dell'invio, coi dati di adesso; se l'impronta è la stessa, quei giorni
+// sono proprio quelli mandati e si tengono (una volta sola, poi restano salvati)
+function completaMandato(rec, c, lista) {
+  if (!rec || rec.v || !rec.h || !rec.ts) return false;
+  const dal = msDaIso(isoRoma(rec.ts)), al = dal + (GIORNI_RIEPILOGO - 1) * GIORNO;
+  const voci = pulizieCasa(lista, dal, al);
+  if (!voci.length || impronta(testoSettimane(c, voci)) !== rec.h) return false;
+  rec.v = voci.map((x) => [isoDa(x.giorno), x.ospiti || 0]);
+  rec.fino = isoDa(al);
+  return true;
 }
 
 // le pulizie di oggi e quelle delle prossime 3 settimane, casa per casa, coi messaggi pronti:
@@ -224,8 +258,10 @@ async function pulizieProssime(conn, oggiIso) {
   const ordine = strutture.map((c) => c.id);
   const case_ = Object.keys(perCasa).sort((a, b) => (ordine.indexOf(a) + 1 || 99) - (ordine.indexOf(b) + 1 || 99));
   const oggi = [], settimane = [];
+  let mandateCompletate = false;
   for (const casa of case_) {
     const c = datiCasa(casa, strutture, orari);
+    if (completaMandato(mandate[`s|${casa}`], c, perCasa[casa])) mandateCompletate = true;
     const voci = pulizieCasa(perCasa[casa], oggiMs, oggiMs + (GIORNI_RIEPILOGO - 1) * GIORNO);
     if (!voci.length) continue;
     const vociIso = voci.map((v) => ({ giorno: isoDa(v.giorno), ospiti: v.ospiti,
@@ -237,7 +273,8 @@ async function pulizieProssime(conn, oggiIso) {
       oggi.push({ ...c, ospiti: voci[0].ospiti, prossimo: vociIso[0].prossimo, stato: vociIso[0].stato, fonte: vociIso[0].fonte, testo: tO, whatsapp: linkWhatsApp(tO) });
     }
   }
+  if (mandateCompletate) { try { await redisCmd(conn, ["SET", KEY_MANDATE, JSON.stringify(mandate)]); } catch { /* resta solo in questa risposta */ } }
   return { giorno: oggiIso, lunedi: new Date(oggiMs).getUTCDay() === 1, oggi, settimane, mandate };
 }
 
-module.exports = { pulizieProssime, segnaMandato, soggiorniPerCasa, personeGiaFatte, contaPersone, msDa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };
+module.exports = { pulizieProssime, segnaMandato, impronta, completaMandato, soggiorniPerCasa, personeGiaFatte, contaPersone, msDa, pulizieCasa, testoOggi, testoSettimane, linkWhatsApp, idCasa, PULIZIE_PREDEFINITE };

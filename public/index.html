@@ -269,6 +269,7 @@
   .pul-ok{display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; color:var(--ok); font-size:12.5px; font-weight:700; margin:8px 2px 0}
   .pul-annulla{background:none; border:none; color:var(--muted); text-decoration:underline; font:inherit; font-size:11.5px; font-weight:500; cursor:pointer; padding:0}
   .pul-cambiato{color:#ffb703; font-size:12.5px; font-weight:700; margin:8px 2px 0}
+  .pul-nuove{color:var(--amber); font-size:12px; font-weight:600; line-height:1.45; margin:6px 2px 0}
   .pul-casa.mandato .pul-testo{opacity:.6}
   /* ===== collaboratori (api/_team.js): chi entra col SUO codice (es. Sofia) vede solo quello che l'host
      ha spuntato in Impostazioni → Collaboratori; niente menu, niente impostazioni ===== */
@@ -17031,7 +17032,9 @@ async function caricaPulizie(){
 function pulBlocco(m,k){
   // "✓ Mandato": tocco su Manda o Copia, salvato online (come le recensioni); se poi il testo cambia
   // (es. una prenotazione nuova nel riepilogo) si vede che va rimandato
-  const key=pulChiave(m,k), st=((pulizie&&pulizie.mandate)||{})[key], fatto=!!(st&&st.h===impronta(m.testo)), cambiato=!!(st&&!fatto);
+  const key=pulChiave(m,k), st=((pulizie&&pulizie.mandate)||{})[key];
+  const conf=k[0]==='s'?pulConfronto(m,st):(st?{ok:st.h===impronta(m.testo),diff:[],nuove:[]}:null);
+  const fatto=!!(conf&&conf.ok), cambiato=!!(conf&&!conf.ok);
   const chi=escText(m.chi||'WhatsApp');
   const quando=st?new Date(st.ts).toLocaleString('it-IT',k[0]==='o'?{hour:'2-digit',minute:'2-digit'}:{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   const daChi=st&&st.da&&!(window.TEAM&&TEAM.nome===st.da)?` da ${escText(st.da)}`:'';
@@ -17040,9 +17043,37 @@ function pulBlocco(m,k){
     <div class="pul-testo">${escText(m.testo)}</div>
     ${pulPercheManca(k[0]==='o'?[{giorno:pulizie&&pulizie.giorno, ospiti:m.ospiti, prossimo:m.prossimo, stato:m.stato, fonte:m.fonte}]:(m.voci||[]))}
     ${fatto?`<div class="pul-ok">✓ Mandato a ${chi}${daChi} ${k[0]==='o'?'alle':'·'} ${escText(quando)} <button class="pul-annulla" onclick="pulSegna('${k}',true)">annulla</button></div>`
-      :cambiato?`<div class="pul-cambiato">✏️ Cambiato da quando ${st.da&&!(window.TEAM&&TEAM.nome===st.da)?escText(st.da)+' l\'ha mandato':'l\'hai mandato'} (${escText(quando)}): rimandalo</div>`:''}
+        +(conf.nuove.length?`<div class="pul-nuove">➕ ${conf.nuove.length===1?'Nuova':'Nuove'}: ${escText(pulElenco(conf.nuove.map(x=>pulGiorno(x.g))))} (le 3 settimane sono andate avanti). Quelle già mandate non sono cambiate.</div>`:'')
+      :cambiato?`<div class="pul-cambiato">✏️ Cambiato da quando ${st.da&&!(window.TEAM&&TEAM.nome===st.da)?escText(st.da)+' l\'ha mandato':'l\'hai mandato'} (${escText(quando)})${conf.diff.length?': '+escText(conf.diff.map(pulDiffTesto).join(' · ')):''}. Rimandalo</div>`:''}
     <div class="pul-az"><button class="btn ${fatto?'ghost':'primary'} sm" onclick="pulManda('${k}')">📲 ${fatto?'Rimanda':'Manda a '+chi}</button>
       <button class="btn ghost sm" onclick="copiaPulizie('${k}')">📋 Copia</button></div></div>`;
+}
+// riepilogo delle settimane già mandato: è cambiato DAVVERO qualcosa nei giorni di quel messaggio?
+// (8/11/2026, l'utente: "non è cambiato niente, se ne sono aggiunte perché siamo andati avanti di una
+// settimana"). Col segno "mandato" il server tiene i giorni mandati (v) e fin dove arrivava (fino):
+// - cambiato = una pulizia di quel messaggio (da oggi in poi) tolta o con un altro numero di ospiti,
+//   o una nuova DENTRO quel periodo;
+// - nuove = arrivate dopo "fino" solo perché il periodo è andato avanti: non è un cambiamento;
+// - i giorni già passati non contano.
+function pulConfronto(m,st){
+  if(!st)return null;
+  if(st.h===impronta(m.testo))return {ok:true,diff:[],nuove:[]};
+  if(!Array.isArray(st.v)||!st.fino)return {ok:false,diff:[],nuove:[]};   // segni vecchi: solo l'impronta
+  const oggi=(pulizie&&pulizie.giorno)||dataKey(new Date());
+  const prima=new Map(st.v.filter(x=>x&&x[0]>=oggi).map(x=>[x[0],+x[1]||0]));
+  const ora=new Map((m.voci||[]).map(v=>[v.giorno,+v.ospiti||0]));
+  const diff=[], nuove=[];
+  for(const [g,n] of prima){ if(!ora.has(g))diff.push({g,tipo:'tolta'}); else if(ora.get(g)!==n)diff.push({g,tipo:'ospiti',prima:n,ora:ora.get(g)}); }
+  for(const [g,n] of ora){ if(prima.has(g)||g<oggi)continue; if(g>st.fino)nuove.push({g,n}); else diff.push({g,tipo:'nuova',ora:n}); }
+  diff.sort((a,b)=>a.g<b.g?-1:1); nuove.sort((a,b)=>a.g<b.g?-1:1);
+  return {ok:!diff.length,diff,nuove};
+}
+// "mer 25/11", come nel messaggio
+function pulGiorno(iso){ const [a,m,d]=String(iso||'').split('-').map(Number); if(!a)return ''; return ['dom','lun','mar','mer','gio','ven','sab'][new Date(a,m-1,d).getDay()]+' '+d+'/'+m; }
+function pulElenco(a){ return a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' e '+a[a.length-1]; }
+function pulDiffTesto(x){
+  const g=pulGiorno(x.g), n=v=>v?v+' ospit'+(v===1?'e':'i'):'senza numero';
+  return x.tipo==='tolta'?`tolta la pulizia di ${g}`:x.tipo==='nuova'?`nuova pulizia ${g}${x.ora?' × '+n(x.ora):''}`:`${g} ora ${n(x.ora)} (prima ${x.prima||'senza numero'})`;
 }
 // impronta del testo: se il messaggio cambia dopo l'invio, non è più "mandato"
 function impronta(t){ let h=5381; t=String(t||''); for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0; return (h>>>0).toString(36)+'.'+t.length; }
@@ -17055,13 +17086,16 @@ async function pulSegna(k,annulla){
   const key=pulChiave(m,k), h=impronta(m.testo);
   pulizie.mandate=pulizie.mandate||{};
   const prima=pulizie.mandate[key];
-  if(annulla)delete pulizie.mandate[key]; else pulizie.mandate[key]={ts:Date.now(), h, da:window.TEAM?TEAM.nome:''};
+  // riepilogo delle settimane: anche i giorni mandati, per capire poi cosa è cambiato davvero
+  const voci=k[0]==='s'?(m.voci||[]).map(v=>[v.giorno,+v.ospiti||0]):null;
+  const fino=voci&&pulizie.giorno?(()=>{ const [a,mm,d]=pulizie.giorno.split('-').map(Number); return dataKey(new Date(a,mm-1,d+20)); })():null;
+  if(annulla)delete pulizie.mandate[key]; else pulizie.mandate[key]={ts:Date.now(), h, da:window.TEAM?TEAM.nome:'', ...(voci&&fino?{v:voci,fino}:{})};
   renderPulizie();
   try{
     // keepalive: su iPhone, appena si apre WhatsApp la pagina si ferma e una richiesta normale
     // verrebbe interrotta (il segno si vedrebbe solo su questo telefono)
     const r=await fetch('/api/promemoria',{method:'POST',keepalive:true,headers:adminHeaders({'Content-Type':'application/json'}),
-      body:JSON.stringify({azione:'pulizieMandato', chiave:key, h, annulla:!!annulla})});
+      body:JSON.stringify({azione:'pulizieMandato', chiave:key, h, annulla:!!annulla, ...(voci?{voci}:{})})});
     if(r.status===401&&window.TEAM){ if(teamRistretto())caricaTeam(); return; }
     const d=await r.json(); if(!r.ok||!d.ok)throw new Error(d.error||'');
     pulizie.mandate=d.mandate||{};

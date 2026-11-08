@@ -372,7 +372,7 @@ module.exports = async (req, res) => {
         const team = req.headers["x-team-code"] && !req.headers["x-admin-code"] ? await trovaCollaboratore(conn, req.headers["x-team-code"]) : null;
         if (team) { if (!(team.permessi.pulizie || team.permessi.completo)) return res.status(401).json({ error: "Codice non più valido" }); da = team.nome; }
         else if (!(await checkAdmin(req))) return res.status(401).json({ error: "Accesso non autorizzato" });
-        const esito = await segnaMandato(conn, req.body || {}, da);
+        const esito = await segnaMandato(conn, req.body || {}, da, oggiIsoRoma());
         return res.status(esito.ok ? 200 : 400).json(esito);
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
