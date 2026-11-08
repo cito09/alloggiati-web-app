@@ -269,6 +269,7 @@
   .pul-ok{display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; color:var(--ok); font-size:12.5px; font-weight:700; margin:8px 2px 0}
   .pul-annulla{background:none; border:none; color:var(--muted); text-decoration:underline; font:inherit; font-size:11.5px; font-weight:500; cursor:pointer; padding:0}
   .pul-cambiato{color:#ffb703; font-size:12.5px; font-weight:700; margin:8px 2px 0}
+  .pul-dovuto{color:var(--amber); font-size:12.5px; font-weight:700; margin:8px 2px 0}
   .pul-nuove{color:var(--amber); font-size:12px; font-weight:600; line-height:1.45; margin:6px 2px 0}
   .pul-casa.mandato .pul-testo{opacity:.6}
   /* ===== collaboratori (api/_team.js): chi entra col SUO codice (es. Sofia) vede solo quello che l'host
@@ -17034,7 +17035,10 @@ function pulBlocco(m,k){
   // (es. una prenotazione nuova nel riepilogo) si vede che va rimandato
   const key=pulChiave(m,k), st=((pulizie&&pulizie.mandate)||{})[key];
   const conf=k[0]==='s'?pulConfronto(m,st):(st?{ok:st.h===impronta(m.testo),diff:[],nuove:[]}:null);
-  const fatto=!!(conf&&conf.ok), cambiato=!!(conf&&!conf.ok);
+  // il riepilogo si manda una volta a settimana (l'utente, 8/11/2026): mandato in una settimana di
+  // prima (da lunedì a domenica) = quello di questa settimana è da mandare, anche se non è cambiato niente
+  const dovuto=k[0]==='s'&&!!st&&!!(pulizie&&pulizie.giorno)&&pulLunedi(dataKey(new Date(st.ts)))<pulLunedi(pulizie.giorno);
+  const fatto=!!(conf&&conf.ok)&&!dovuto, cambiato=!!(conf&&!conf.ok);
   const chi=escText(m.chi||'WhatsApp');
   const quando=st?new Date(st.ts).toLocaleString('it-IT',k[0]==='o'?{hour:'2-digit',minute:'2-digit'}:{weekday:'short',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'}):'';
   const daChi=st&&st.da&&!(window.TEAM&&TEAM.nome===st.da)?` da ${escText(st.da)}`:'';
@@ -17043,7 +17047,9 @@ function pulBlocco(m,k){
     <div class="pul-testo">${escText(m.testo)}</div>
     ${pulPercheManca(k[0]==='o'?[{giorno:pulizie&&pulizie.giorno, ospiti:m.ospiti, prossimo:m.prossimo, stato:m.stato, fonte:m.fonte}]:(m.voci||[]))}
     ${fatto?`<div class="pul-ok">✓ Mandato a ${chi}${daChi} ${k[0]==='o'?'alle':'·'} ${escText(quando)} <button class="pul-annulla" onclick="pulSegna('${k}',true)">annulla</button></div>`
-        +(conf.nuove.length?`<div class="pul-nuove">➕ ${conf.nuove.length===1?'Nuova':'Nuove'}: ${escText(pulElenco(conf.nuove.map(x=>pulGiorno(x.g))))} (le 3 settimane sono andate avanti). Quelle già mandate non sono cambiate.</div>`:'')
+        +(conf.nuove.length?`<div class="pul-nuove">➕ ${conf.nuove.length===1?'Nuova':'Nuove'}: ${escText(pulElenco(conf.nuove.map(x=>pulGiorno(x.g))))}, da mandare col riepilogo di lunedì. Quelle già mandate non sono cambiate.</div>`:'')
+      :dovuto&&!cambiato?`<div class="pul-dovuto">📅 Riepilogo della settimana da mandare · l'ultimo ${st.da&&!(window.TEAM&&TEAM.nome===st.da)?'l\'ha mandato '+escText(st.da):'l\'hai mandato'} ${escText(quando)}</div>`
+        +(conf.nuove.length?`<div class="pul-nuove">➕ ${conf.nuove.length===1?'Nuova':'Nuove'} rispetto all'ultimo: ${escText(pulElenco(conf.nuove.map(x=>pulGiorno(x.g))))}</div>`:'')
       :cambiato?`<div class="pul-cambiato">✏️ Cambiato da quando ${st.da&&!(window.TEAM&&TEAM.nome===st.da)?escText(st.da)+' l\'ha mandato':'l\'hai mandato'} (${escText(quando)})${conf.diff.length?': '+escText(conf.diff.map(pulDiffTesto).join(' · ')):''}. Rimandalo</div>`:''}
     <div class="pul-az"><button class="btn ${fatto?'ghost':'primary'} sm" onclick="pulManda('${k}')">📲 ${fatto?'Rimanda':'Manda a '+chi}</button>
       <button class="btn ghost sm" onclick="copiaPulizie('${k}')">📋 Copia</button></div></div>`;
@@ -17068,6 +17074,8 @@ function pulConfronto(m,st){
   diff.sort((a,b)=>a.g<b.g?-1:1); nuove.sort((a,b)=>a.g<b.g?-1:1);
   return {ok:!diff.length,diff,nuove};
 }
+// il lunedì della settimana di un giorno (aaaa-mm-gg), per sapere se il riepilogo è di questa settimana
+function pulLunedi(iso){ const [a,m,d]=String(iso||'').split('-').map(Number); if(!a)return ''; const dt=new Date(a,m-1,d); dt.setDate(dt.getDate()-((dt.getDay()+6)%7)); return dataKey(dt); }
 // "mer 25/11", come nel messaggio
 function pulGiorno(iso){ const [a,m,d]=String(iso||'').split('-').map(Number); if(!a)return ''; return ['dom','lun','mar','mer','gio','ven','sab'][new Date(a,m-1,d).getDay()]+' '+d+'/'+m; }
 function pulElenco(a){ return a.length<2?(a[0]||''):a.slice(0,-1).join(', ')+' e '+a[a.length-1]; }
