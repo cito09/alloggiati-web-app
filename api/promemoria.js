@@ -34,7 +34,7 @@ const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
 const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno, azionePrenotazioneManuale } = require("./_calendari");
 const { pulizieProssime, segnaMandato } = require("./_pulizie");
-const { mandaPromemoriaEmail } = require("./_promemoriaEmail");
+const { mandaPromemoriaEmail, azioneDestinatario } = require("./_promemoriaEmail");
 const { azioneRicevute, azionePubblica } = require("./_ricevutePagamento");
 const { getStrutture } = require("./_alloggiati");
 
@@ -478,6 +478,20 @@ module.exports = async (req, res) => {
           await redisCmd(conn, ["SET", KEY_RECENSIONI, JSON.stringify(stato)]);
         }
         return res.status(200).json({ ok: true, stato });
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
+
+    // Impostazioni → "📧 Promemoria via email": a quale indirizzo mandare l'email "ospiti da registrare"
+    // (8/11/2026, l'utente: alla sua mail personale, non alle caselle delle case). Cambiarlo: solo il
+    // titolare (sono nomi di ospiti: un collaboratore non può dirottarli altrove).
+    if ((req.body || {}).azione === "emailPromemoria") {
+      try {
+        const op = (req.body || {}).op;
+        if ((op === "salva" || op === "togli") && !(await checkTitolare(req))) return res.status(403).json({ error: "Solo il titolare può cambiarlo" });
+        const esito = await azioneDestinatario(conn, req.body || {});
+        return res.status(esito.ok ? 200 : 400).json(esito);
       } catch (e) {
         return res.status(500).json({ error: String(e.message || e) });
       }

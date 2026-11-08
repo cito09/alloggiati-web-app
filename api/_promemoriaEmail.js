@@ -9,10 +9,38 @@
 // mattina finché non è fatto. Una email per casella: ogni casa la riceve nella sua (l'indirizzo
 // "email" di CONTRATTI_STRUTTURE, dove arrivano già i contratti firmati), sennò FASCICOLO_EMAIL
 // o GMAIL_USER. Mai due volte nello stesso giorno alla stessa casella (KV promemoria_email).
+// 8/11/2026, l'utente: "non mandarle a Canazei e Falegnami, mandale alla mia mail personale, la apro
+// tutti i giorni" → Impostazioni → "📧 Promemoria via email": se c'è un indirizzo scelto (KV
+// promemoria_email_dest = {email, ts}) TUTTE le case vanno lì, in una sola email. L'indirizzo non sta
+// nel codice (il repository è pubblico): lo scrive l'host nell'app.
 const { inviaEmailConAllegato } = require("./_email");
 const { redisCmd } = require("./_kv");
 
 const KEY = "promemoria_email";
+const KEY_DEST = "promemoria_email_dest";
+const emailValida = (e) => /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(String(e || "").trim());
+async function leggiDestinatario(conn) {
+  try { const raw = conn ? await redisCmd(conn, ["GET", KEY_DEST]) : null; const d = raw ? JSON.parse(raw) : null; return d && emailValida(d.email) ? d : null; }
+  catch { return null; }
+}
+// Impostazioni → "📧 Promemoria via email": leggi / salva (manda una email di conferma al nuovo
+// indirizzo, così si vede subito che arriva) / togli (si torna alle caselle delle case)
+async function azioneDestinatario(conn, { op, email } = {}) {
+  if (op === "salva") {
+    const e = String(email || "").trim().toLowerCase();
+    if (!emailValida(e)) return { ok: false, error: "Indirizzo email non valido" };
+    const r = await inviaEmailConAllegato({ to: e, mittente: "KeyFlow 🚨",
+      subject: "✅ KeyFlow: i promemoria del check-in arriveranno qui",
+      testo: "Ciao! Da adesso le email di KeyFlow «🚨 ospiti da registrare in Questura» (di tutte e due le case) arrivano a questo indirizzo.\n\nSe un ospite è arrivato ieri o prima e non è ancora registrato, ti scrivo ogni mattina finché non è fatto.\n\n" + APP() });
+    if (!r.ok) return { ok: false, error: "Non sono riuscito a mandare l'email di prova: " + (r.error || "errore") };
+    const d = { email: e, ts: Date.now() };
+    await redisCmd(conn, ["SET", KEY_DEST, JSON.stringify(d)]);
+    return { ok: true, email: e, ts: d.ts, provaMandata: true };
+  }
+  if (op === "togli") { await redisCmd(conn, ["DEL", KEY_DEST]); return { ok: true, email: "" }; }
+  const d = await leggiDestinatario(conn);
+  return { ok: true, email: d ? d.email : "", ts: d ? d.ts : null };
+}
 const APP = () => process.env.APP_URL || "https://keyflowcheckin.vercel.app";
 const GIORNI_MAX = 30;   // oltre un mese non è più un promemoria utile (il check-in non si fa più)
 
@@ -126,8 +154,9 @@ async function mandaPromemoriaEmail(conn, daRegistrare, oggiIso) {
   try { const raw = conn ? await redisCmd(conn, ["GET", KEY]) : null; gia = raw ? JSON.parse(raw) : {}; } catch { gia = {}; }
   const inviatiOggi = new Set(gia.giorno === oggiIso ? gia.caselle || [] : []);
   const perCasella = new Map();
+  const scelto = await leggiDestinatario(conn);   // indirizzo scelto nell'app: vale per tutte le case
   for (const v of voci) {
-    const to = casellaDi(v);
+    const to = scelto ? scelto.email : casellaDi(v);
     if (!to) continue;
     if (!perCasella.has(to)) perCasella.set(to, []);
     perCasella.get(to).push(v);
@@ -144,4 +173,4 @@ async function mandaPromemoriaEmail(conn, daRegistrare, oggiIso) {
   return { inviate: esiti.filter((e) => e.ok).length, esiti };
 }
 
-module.exports = { costruisciEmailDaRegistrare, mandaPromemoriaEmail, casellaDi, quandoArrivato };
+module.exports = { costruisciEmailDaRegistrare, mandaPromemoriaEmail, casellaDi, quandoArrivato, azioneDestinatario, leggiDestinatario, emailValida };

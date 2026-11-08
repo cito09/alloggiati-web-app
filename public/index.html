@@ -866,6 +866,7 @@
     <div class="menu-gruppo">Comunicazioni obbligatorie</div>
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga solo-titolare" onclick="apriEmailProm()"><span class="mi">📧</span><span style="flex:1;text-align:left">Promemoria via email · check-in da registrare</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriIstat()"><span class="mi">📮</span><span style="flex:1;text-align:left">Modulo ISTAT via email</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriGeis()"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · imposta di soggiorno</span><span id="geisBadgeMenu" class="pill err" style="display:none;margin-right:6px">da mandare</span><span class="freccia">›</span></button>
     <div class="menu-gruppo">Sicurezza e sistema</div>
@@ -967,6 +968,22 @@
         </form>
         <button class="btn ghost sm" style="width:100%;margin-top:14px" onclick="uscitaGestionale()">🚪 Esci dal gestionale</button>
         </div>
+</div>
+
+<div class="pagina-piena" id="emailPromOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('emailPromOverlay')" style="width:auto">← Indietro</button>
+    <h2>📧 Promemoria via email</h2>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Se un ospite è arrivato <b>ieri o prima</b> e non è ancora registrato in Questura, KeyFlow ti manda un'email 🚨 ogni mattina finché non è fatto.</div>
+    <div id="emailPromStato" style="margin-top:14px;font-size:13px;line-height:1.5"></div>
+    <label for="emailPromInput">A quale indirizzo</label>
+    <input type="email" id="emailPromInput" placeholder="nome@gmail.com" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
+    <button class="btn primary" id="emailPromSalva" style="margin-top:12px" onclick="salvaEmailProm()">💾 Salva e mandami una prova</button>
+    <div id="emailPromMsg" style="font-size:12.5px;margin-top:8px"></div>
+    <button class="btn ghost sm" id="emailPromTogli" style="display:none;margin-top:14px" onclick="togliEmailProm()">↩︎ Torna a mandarle alle caselle delle case</button>
+  </div>
 </div>
 
 <div class="pagina-piena" id="geisOverlay">
@@ -17019,6 +17036,47 @@ let pulizie=(()=>{ try{ const c=JSON.parse(localStorage.getItem('pulizie_cache')
 // "Prossime 3 settimane" già aperto quando si apre la scheda (l'utente: "il menu del messaggio rendilo
 // già aperto"); se lo si chiude resta chiuso finché l'app è aperta
 var pulSettAperto=true;
+/* ===== Impostazioni → 📧 Promemoria via email (8/11/2026, l'utente: "le mail che ricordano di fare il
+   check-in non mandarle a Canazei e Falegnami, mandale alla mia mail: la apro tutti i giorni").
+   L'indirizzo sta in KV (azione emailPromemoria), non nel codice: il repository è pubblico. Salvando
+   arriva subito un'email di prova al nuovo indirizzo. Solo il titolare. ===== */
+async function chiamaEmailProm(corpo){
+  const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'emailPromemoria',...corpo})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.ok)throw new Error(d.error||'Non riuscito');
+  return d;
+}
+function renderEmailProm(email){
+  const st=$('#emailPromStato'); if(!st)return;
+  st.innerHTML=email?`✅ Arrivano a <b>${escText(email)}</b>, per tutte e due le case insieme.`
+    :'Adesso arrivano alle caselle delle case (Alba Loft e Falegnami). Scrivi qui sotto l\'indirizzo che apri tutti i giorni.';
+  $('#emailPromTogli').style.display=email?'':'none';
+  if(email&&!$('#emailPromInput').value)$('#emailPromInput').value=email;
+  $('#emailPromSalva').textContent=email?'💾 Cambia e mandami una prova':'💾 Salva e mandami una prova';
+}
+async function apriEmailProm(){
+  apriPagina('emailPromOverlay');
+  $('#emailPromMsg').textContent=''; $('#emailPromInput').value='';
+  $('#emailPromStato').textContent='…';
+  try{ const d=await chiamaEmailProm({op:'leggi'}); renderEmailProm(d.email||''); }
+  catch(e){ $('#emailPromStato').textContent='⚠️ Non riesco a leggere l\'impostazione: '+e.message; }
+}
+async function salvaEmailProm(){
+  const email=$('#emailPromInput').value.trim(), msg=$('#emailPromMsg'), b=$('#emailPromSalva');
+  if(!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(email)){ msg.innerHTML='<span style="color:var(--err)">⚠️ Scrivi un indirizzo email completo (es. nome@gmail.com)</span>'; return; }
+  b.disabled=true; msg.textContent='Invio la prova…';
+  try{
+    const d=await chiamaEmailProm({op:'salva',email});
+    renderEmailProm(d.email);
+    msg.innerHTML=`<span style="color:var(--ok)">✓ Salvato. Ti ho mandato un'email di prova a ${escText(d.email)}: controlla che sia arrivata (guarda anche in Spam).</span>`;
+  }catch(e){ msg.innerHTML=`<span style="color:var(--err)">⚠️ ${escText(e.message)}</span>`; }
+  b.disabled=false;
+}
+async function togliEmailProm(){
+  const msg=$('#emailPromMsg');
+  try{ await chiamaEmailProm({op:'togli'}); $('#emailPromInput').value=''; renderEmailProm(''); msg.textContent='Fatto: tornano alle caselle delle case.'; }
+  catch(e){ msg.innerHTML=`<span style="color:var(--err)">⚠️ ${escText(e.message)}</span>`; }
+}
 async function caricaPulizie(){
   renderPulizie();
   try{
