@@ -14625,6 +14625,9 @@ function applyAI(g,j){
     luogoRilascio:correggiLuogoRilascio(j.luogo_rilascio||g.luogoRilascio, j.cittadinanza||g.cittadinanza),_touched:true});
   g.comuneNascitaCode=g.statoNascitaCode=g.cittadinanzaCode=g.tipoDocCode=g.luogoRilascioCode=null;
   g._warn=(j.incertezze||[]).map(k=>CAMPO_AI_TO_G[k]).filter(Boolean);
+  // il luogo scritto come ente nazionale (passaporto "Ministro Affari Esteri", patente "MIT-UCO" senza
+  // sigla) diventa ROMA con una regola sicura: non c'è niente da controllare a mano
+  if(g.luogoRilascio==='ROMA'&&(luogoDaMinistero(j.luogo_rilascio)||/^\s*MIT\s*-?\s*UCO\s*$/i.test(j.luogo_rilascio||'')))g._warn=g._warn.filter(k=>k!=='luogoRilascio');
 }
 async function extractGuest(bid,gid){
   const g=getG(bid,gid); if(!g.imgs||!g.imgs.length){toast('Aggiungi prima una foto');return;}
