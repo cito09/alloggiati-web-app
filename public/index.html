@@ -269,6 +269,9 @@
   .pul-ok{display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; color:var(--ok); font-size:12.5px; font-weight:700; margin:8px 2px 0}
   .pul-annulla{background:none; border:none; color:var(--muted); text-decoration:underline; font:inherit; font-size:11.5px; font-weight:500; cursor:pointer; padding:0}
   .pul-cambiato{color:#ffb703; font-size:12.5px; font-weight:700; margin:8px 2px 0}
+  .tg-passo{display:flex; gap:10px; align-items:flex-start; font-size:13px; line-height:1.5}
+  .tg-n{flex:none; width:24px; height:24px; border-radius:50%; background:var(--amber); color:#0a0a0c; font-weight:800; font-size:12.5px; display:flex; align-items:center; justify-content:center; margin-top:1px}
+  .tg-ok{font-size:13.5px; line-height:1.5; padding:12px 14px; border-radius:16px; background:rgba(45,198,83,.12); color:var(--ok)}
   .pul-dovuto{color:var(--amber); font-size:12.5px; font-weight:700; margin:8px 2px 0}
   .pul-nuove{color:var(--amber); font-size:12px; font-weight:600; line-height:1.45; margin:6px 2px 0}
   .pul-casa.mandato .pul-testo{opacity:.6}
@@ -867,6 +870,7 @@
     <button class="link-row menu-riga" onclick="apriRicevute()"><span class="mi">🧾</span><span style="flex:1;text-align:left">Ricevute Questura</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" id="rowRoss" style="display:none" onclick="apriPagina('rossOverlay')"><span class="mi">📊</span><span style="flex:1;text-align:left">Ross1000 · file e arretrati</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga solo-titolare" onclick="apriEmailProm()"><span class="mi">📧</span><span style="flex:1;text-align:left">Promemoria via email · check-in da registrare</span><span class="freccia">›</span></button>
+    <button class="link-row menu-riga solo-titolare" onclick="apriTelegram()"><span class="mi">📲</span><span style="flex:1;text-align:left">Promemoria su Telegram · ogni 3 ore</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriIstat()"><span class="mi">📮</span><span style="flex:1;text-align:left">Modulo ISTAT via email</span><span class="freccia">›</span></button>
     <button class="link-row menu-riga" onclick="apriGeis()"><span class="mi">🏛️</span><span style="flex:1;text-align:left">GEIS · imposta di soggiorno</span><span id="geisBadgeMenu" class="pill err" style="display:none;margin-right:6px">da mandare</span><span class="freccia">›</span></button>
     <div class="menu-gruppo">Sicurezza e sistema</div>
@@ -983,6 +987,18 @@
     <button class="btn primary" id="emailPromSalva" style="margin-top:12px" onclick="salvaEmailProm()">💾 Salva e mandami una prova</button>
     <div id="emailPromMsg" style="font-size:12.5px;margin-top:8px"></div>
     <button class="btn ghost sm" id="emailPromTogli" style="display:none;margin-top:14px" onclick="togliEmailProm()">↩︎ Torna a mandarle alle caselle delle case</button>
+  </div>
+</div>
+
+<div class="pagina-piena" id="telegramOverlay">
+  <div class="pp-head">
+    <button class="btn ghost sm" onclick="chiudiPagina('telegramOverlay')" style="width:auto">← Indietro</button>
+    <h2>📲 Promemoria su Telegram</h2>
+  </div>
+  <div class="pp-body">
+    <div class="muted" style="font-size:12.5px;line-height:1.5">Il giorno dell'arrivo, <b>dalle 16:00</b>, KeyFlow ti scrive su Telegram chi è da registrare in Questura, poi <b>ogni 3 ore</b> (16 · 19 · 22) finché non lo fai. Se resta indietro, il giorno dopo dalle 10 alle 22. Di notte niente.</div>
+    <div id="tgCorpo" style="margin-top:14px"></div>
+    <div id="tgMsg" style="font-size:12.5px;margin-top:10px"></div>
   </div>
 </div>
 
@@ -17039,6 +17055,73 @@ let pulizie=(()=>{ try{ const c=JSON.parse(localStorage.getItem('pulizie_cache')
 // "Prossime 3 settimane" già aperto quando si apre la scheda (l'utente: "il menu del messaggio rendilo
 // già aperto"); se lo si chiude resta chiuso finché l'app è aperta
 var pulSettAperto=true;
+/* ===== Impostazioni → 📲 Promemoria su Telegram (17/11/2026, l'utente: "dalle 16 del giorno
+   d'entrata, ogni 3 ore finché non l'ho fatto, su Telegram perché WhatsApp non si poteva").
+   Bot dell'host (BotFather) → token in KV (azione telegram, solo titolare) → link "Avvia" col codice
+   → "Ho premuto Avvia" (il server trova la chat) → collegato. I promemoria li manda il server
+   (api/_telegram.js), chiamato ogni ora da GitHub. ===== */
+let tgStato=null;
+async function chiamaTelegram(corpo){
+  const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'telegram',...corpo})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.ok){ const e=new Error(d.error||'Non riuscito'); e.dati=d; throw e; }
+  return d;
+}
+function tgMsg(t,tipo){ const m=$('#tgMsg'); if(!m)return; m.innerHTML=t?`<span style="color:${tipo==='ok'?'var(--ok)':tipo==='err'?'var(--err)':'var(--muted)'}">${t}</span>`:''; }
+function renderTelegram(){
+  const c=$('#tgCorpo'); if(!c)return; const d=tgStato||{};
+  if(d.collegato){
+    c.innerHTML=`<div class="tg-ok">✅ <b>Collegato</b> · il bot <b>@${escText(d.bot&&d.bot.username||'')}</b> scrive${d.chi?` a <b>${escText(d.chi)}</b>`:''}</div>
+      <button class="btn primary" style="margin-top:12px" onclick="provaTelegram(this)">🔔 Mandami una prova</button>
+      <button class="btn ghost sm" style="margin-top:14px" onclick="scollegaTelegram()">Scollega Telegram</button>`;
+    return;
+  }
+  if(d.attesa&&d.link){
+    c.innerHTML=`<div class="tg-passo"><span class="tg-n">3</span><div>Apri il tuo bot e premi <b>AVVIA</b> (in basso, in Telegram):</div></div>
+      <a class="btn primary" style="margin-top:8px;display:block;text-align:center;text-decoration:none" href="${escText(d.link)}" target="_blank" rel="noopener">📲 Apri @${escText(d.bot.username)} in Telegram</a>
+      <div class="tg-passo" style="margin-top:14px"><span class="tg-n">4</span><div>Poi torna qui e tocca:</div></div>
+      <button class="btn primary" style="margin-top:8px" onclick="verificaTelegram(this)">✓ Ho premuto Avvia</button>
+      <button class="btn ghost sm" style="margin-top:14px" onclick="tgStato=null;renderTelegram()">↩︎ Ho sbagliato bot, ricomincio</button>`;
+    return;
+  }
+  c.innerHTML=`<div class="tg-passo"><span class="tg-n">1</span><div>Crea il tuo bot (2 minuti, gratis): apri <b>@BotFather</b> in Telegram, scrivi <b>/newbot</b>, dagli un nome (es. «KeyFlow promemoria») e un nome utente che finisce con <b>bot</b> (es. «keyflow_dani_bot»).</div></div>
+    <a class="btn ghost" style="margin-top:8px;display:block;text-align:center;text-decoration:none" href="https://t.me/BotFather" target="_blank" rel="noopener">Apri @BotFather</a>
+    <div class="tg-passo" style="margin-top:14px"><span class="tg-n">2</span><div>BotFather ti risponde con un codice lungo (il «token», tipo <span class="muted">123456789:AAH…</span>): copialo e incollalo qui.</div></div>
+    <input type="text" id="tgToken" placeholder="incolla qui il codice di BotFather" autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-top:8px">
+    <button class="btn primary" style="margin-top:10px" onclick="salvaTokenTelegram(this)">Collega</button>`;
+}
+async function apriTelegram(){
+  apriPagina('telegramOverlay'); tgMsg('');
+  $('#tgCorpo').innerHTML='<div class="muted">…</div>';
+  try{ tgStato=await chiamaTelegram({op:'stato'}); renderTelegram(); }
+  catch(e){ tgStato=null; renderTelegram(); tgMsg('⚠️ '+escText(e.message),'err'); }
+}
+async function salvaTokenTelegram(b){
+  const t=($('#tgToken').value||'').trim();
+  if(!t){ tgMsg('⚠️ Incolla prima il codice di BotFather','err'); return; }
+  b.disabled=true; tgMsg('Controllo il codice…');
+  try{ tgStato=await chiamaTelegram({op:'token',token:t}); renderTelegram(); tgMsg(''); }
+  catch(e){ tgMsg('⚠️ '+escText(e.message),'err'); }
+  b.disabled=false;
+}
+async function verificaTelegram(b){
+  b.disabled=true; tgMsg('Cerco il tuo «Avvia»…');
+  try{ tgStato=await chiamaTelegram({op:'verifica'}); renderTelegram(); tgMsg('✓ Fatto! Ti ho scritto su Telegram: controlla che sia arrivato.','ok'); }
+  catch(e){ if(e.dati&&e.dati.link)tgStato=e.dati; tgMsg('⚠️ '+escText(e.message),'err'); }
+  b.disabled=false;
+}
+async function provaTelegram(b){
+  b.disabled=true; tgMsg('Invio…');
+  try{ await chiamaTelegram({op:'prova'}); tgMsg('✓ Mandato: guarda Telegram.','ok'); }
+  catch(e){ tgMsg('⚠️ '+escText(e.message),'err'); }
+  b.disabled=false;
+}
+async function scollegaTelegram(){
+  if(!confirm('Scollegare Telegram? I promemoria ogni 3 ore si fermano.'))return;
+  try{ tgStato=await chiamaTelegram({op:'togli'}); renderTelegram(); tgMsg('Scollegato.'); }
+  catch(e){ tgMsg('⚠️ '+escText(e.message),'err'); }
+}
+
 /* ===== Impostazioni → 📧 Promemoria via email (8/11/2026, l'utente: "le mail che ricordano di fare il
    check-in non mandarle a Canazei e Falegnami, mandale alla mia mail: la apro tutti i giorni").
    L'indirizzo sta in KV (azione emailPromemoria), non nel codice: il repository è pubblico. Salvando

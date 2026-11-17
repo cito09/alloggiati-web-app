@@ -32,8 +32,9 @@ const { inviaEmailConAllegato } = require("./_email");
 const { costruisciModuloIstat, nomeFileIstat, struttureConModulo, dataIt } = require("./_istat");
 const { elencoTrimestri, avvisiGeis } = require("./_geis");
 const { rimandaRossInSospeso } = require("./_ross");
-const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno, azionePrenotazioneManuale } = require("./_calendari");
-const { pulizieProssime, segnaMandato } = require("./_pulizie");
+const { azioneCalendari, sincronizzaCalendari, leggiCalendari, haFonti, conTurno, azionePrenotazioneManuale, vistaCalendari } = require("./_calendari");
+const { pulizieProssime, segnaMandato, soggiorniPerCasa } = require("./_pulizie");
+const { azioneTelegram, promemoriaOgniTreOre } = require("./_telegram");
 const { mandaPromemoriaEmail, azioneDestinatario } = require("./_promemoriaEmail");
 const { azioneRicevute, azionePubblica } = require("./_ricevutePagamento");
 const { getStrutture } = require("./_alloggiati");
@@ -192,6 +193,42 @@ function nomiBrevi(ospiti) {
   const l = (ospiti || []).filter(Boolean);
   if (!l.length) return "ospiti senza nome";
   return l.length === 1 ? l[0] : `${l[0]} e altr${l.length === 2 ? "o 1" : "i " + (l.length - 1)}`;
+}
+// Telegram (api/_telegram.js): i soggiorni da ricordare ogni 3 ore. Sono quelli del promemoria del
+// mattino (check-in arrivati e prenotazioni a metà nel gestionale, non ancora registrati) più le
+// prenotazioni del calendario di Airbnb arrivate oggi o ieri senza nessun check-in: anche quelle
+// vanno registrate in Questura.
+const nomeBello = (s) => String(s || "").toLowerCase().replace(/(^|[\s'-])\S/g, (c) => c.toUpperCase()).trim();
+async function elencoPromemoriaOre(conn) {
+  let strutture = [];
+  try { strutture = getStrutture() || []; } catch { strutture = []; }
+  const idDi = (nome, id) => id || ((strutture.find((x) => String(x.nome || "").toLowerCase() === String(nome || "").toLowerCase()) || {}).id) || "";
+  const nomeDi = (id, nome) => nome || ((strutture.find((x) => x.id === id) || {}).nome) || id || "casa";
+  const ddmmyyyy = (ms) => { const d = new Date(ms); return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`; };
+  const voci = [];
+  for (const r of (await elencoDaRegistrare(conn)).filter((x) => x.g <= 30)) {
+    const casa = nomeDi(r.strutturaId, r.strutturaNome);
+    voci.push({ chiave: `r|${idDi(r.strutturaNome, r.strutturaId) || casa}|${r.arrivo}`, casaId: idDi(r.strutturaNome, r.strutturaId), arrivo: r.arrivo,
+      casa, emoji: emojiStruttura(r.strutturaNome, r.strutturaId), nomi: nomiBrevi(r.nomi.map(nomeBello)), g: r.g, senzaCheckin: false });
+  }
+  // prenotazioni di Airbnb arrivate oggi o ieri senza check-in (né registrate, né a metà nel gestionale)
+  try {
+    const leggiJ = async (k) => { try { const raw = await redisCmd(conn, ["GET", k]); return raw ? JSON.parse(raw) : []; } catch { return []; } };
+    const [storico, pending, cal] = await Promise.all([leggiJ("storico_schedine"), leggiJ("checkin_pending"), leggiCalendari(conn)]);
+    const perCasa = soggiorniPerCasa({ storico, pending, esterne: vistaCalendari(cal).prenotazioni || [], strutture });
+    const p = oggiIsoRoma().split("-").map(Number), oggi = Date.UTC(p[0], p[1] - 1, p[2]);
+    for (const [casaId, lista] of Object.entries(perCasa)) for (const s of lista) {
+      if (s.stato !== "airbnb") continue;
+      const g = Math.round((oggi - s.arrivo) / 86400000);
+      if (g < 0 || g > 1) continue;
+      const arrivo = ddmmyyyy(s.arrivo);
+      if (voci.some((v) => v.casaId === casaId && v.arrivo === arrivo)) continue;   // già nell'elenco (a metà nel gestionale)
+      const casa = nomeDi(casaId);
+      voci.push({ chiave: `c|${casaId}|${arrivo}`, casaId, arrivo, casa, emoji: emojiStruttura(casa, casaId),
+        nomi: s.nome ? nomeBello(s.nome) + (s.ospiti > 1 ? ` (${s.ospiti} ospiti)` : "") : `Ospite ${s.fonte || "Airbnb"}`, g, senzaCheckin: true });
+    }
+  } catch (e) { /* calendari non leggibili: restano i check-in */ }
+  return voci;
 }
 // Messaggi del rinvio automatico Ross1000: sempre quando un invio rimasto indietro è
 // finalmente arrivato alla Regione (così si sa che è a posto); quando invece è ancora in
@@ -486,6 +523,17 @@ module.exports = async (req, res) => {
     // Impostazioni → "📧 Promemoria via email": a quale indirizzo mandare l'email "ospiti da registrare"
     // (8/11/2026, l'utente: alla sua mail personale, non alle caselle delle case). Cambiarlo: solo il
     // titolare (sono nomi di ospiti: un collaboratore non può dirottarli altrove).
+    // Impostazioni → "📲 Promemoria su Telegram" (17/11/2026): bot dell'host, token solo in KV.
+    // Solo il titolare (i messaggi hanno i nomi degli ospiti).
+    if ((req.body || {}).azione === "telegram") {
+      try {
+        if (!(await checkTitolare(req))) return res.status(403).json({ error: "Solo il titolare può gestire Telegram" });
+        const esito = await azioneTelegram(conn, req.body || {}, () => elencoPromemoriaOre(conn));
+        return res.status(esito.ok ? 200 : 400).json(esito);
+      } catch (e) {
+        return res.status(500).json({ error: String(e.message || e) });
+      }
+    }
     if ((req.body || {}).azione === "emailPromemoria") {
       try {
         const op = (req.body || {}).op;
@@ -602,6 +650,20 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, configurato: true });
     } catch (e) {
       return res.status(500).json({ error: String(e.message || e) });
+    }
+  }
+
+  // GET ?ogni3ore=1: promemoria su Telegram dei check-in da registrare. Lo chiama ogni ora GitHub
+  // (.github/workflows/promemoria-ore.yml): Vercel Hobby fa partire il cron solo una volta al giorno.
+  // Senza codice: risponde solo sì/no e non manda mai due promemoria a meno di 3 ore (api/_telegram.js).
+  if (req.method === "GET" && req.query && req.query.ogni3ore) {
+    if (!conn) return res.status(200).json({ ok: true, configurato: false });
+    try {
+      const r = await promemoriaOgniTreOre(conn, () => elencoPromemoriaOre(conn));
+      return res.status(200).json({ ok: !!r.ok, mandato: !!r.mandato });
+    } catch (e) {
+      console.log("telegram ogni3ore non riuscito", String((e && e.message) || e));
+      return res.status(200).json({ ok: false });
     }
   }
 
