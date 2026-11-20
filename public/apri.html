@@ -37,6 +37,14 @@
   <a class="btn pri" id="apri" href="/index.html">📲 Apri nell'app KeyFlow</a>
   <a class="btn sec" href="/index.html">Continua qui nel browser</a>
 </div>
+<div class="box nasc" id="noapp">
+  <div class="ico">📲</div>
+  <h1>L'app non si è aperta</h1>
+  <p>Sul telefono c'è la versione vecchia dell'app KeyFlow (o non c'è l'app). Installa quella nuova: si mette sopra la vecchia, non perdi niente.</p>
+  <a class="btn pri" href="/app/KeyFlow.apk">⬇️ Scarica l'app nuova</a>
+  <p style="font-size:13px">Poi tocca il file scaricato → «Aggiorna», e riprova il pulsante «Apri KeyFlow» su Telegram.</p>
+  <a class="btn sec" href="/index.html">Continua qui nel browser</a>
+</div>
 <script>
 (function(){
   var q = location.search || "";
@@ -45,14 +53,18 @@
     || /^android-app:\/\/app\.keyflow\.gestionale/.test(document.referrer || "");
   var android = /Android/i.test(navigator.userAgent || "");
   if (nellApp || !android) { location.replace("/index.html"); return; }
+  // l'app non ha risposto (vecchia, 2.0, senza i link /apri; o non installata): lo si dice e si
+  // offre l'aggiornamento, senza riprovare da soli (20/11/2026, video dell'utente: con la 2.0 il
+  // browser passava subito al gestionale e "non faccio in tempo ad aprire")
+  if (/[?&]noapp=1\b/.test(q)) { document.getElementById("noapp").classList.remove("nasc"); return; }
   // intent col nome del pacchetto: apre l'app anche se Android non ha ancora verificato il link;
-  // ?app=1 = arrivato dall'app (niente giri a vuoto); senza app installata resta nel browser
-  var dove = "https://" + location.host + "/index.html";
+  // ?app=1 = arrivato dall'app (niente giri a vuoto); se nessuna app risponde → ?noapp=1
+  var noapp = "https://" + location.host + "/apri?noapp=1";
   var intent = "intent://" + location.host + "/apri?app=1#Intent;scheme=https;package=app.keyflow.gestionale;"
-    + "S.browser_fallback_url=" + encodeURIComponent(dove) + ";end";
+    + "S.browser_fallback_url=" + encodeURIComponent(noapp) + ";end";
   document.getElementById("apri").setAttribute("href", intent);
   document.getElementById("box").classList.remove("nasc");
-  try { location.href = intent; } catch (e) { /* resta il pulsante */ }
+  setTimeout(function () { try { location.href = intent; } catch (e) { /* resta il pulsante */ } }, 300);
 })();
 </script>
 </body>
