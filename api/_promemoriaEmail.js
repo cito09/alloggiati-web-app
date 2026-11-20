@@ -88,7 +88,7 @@ function costruisciEmailDaRegistrare(voci) {
     ...righeTesto,
     "",
     "⏱️ La Questura va avvisata entro 24 ore dall'arrivo.",
-    `👉 Apri KeyFlow e registrali adesso: ${APP()}`,
+    `👉 Apri KeyFlow e registrali adesso: ${APP()}/apri`,
     "",
     "Ti riscrivo ogni mattina finché non sono registrati. 🔔",
     "— KeyFlow",
@@ -120,7 +120,7 @@ function costruisciEmailDaRegistrare(voci) {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${lista.map(card).join("")}</table>
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#333;margin:4px 4px 14px">⏱️ La Questura va avvisata <b>entro 24 ore dall'arrivo</b>.</div>
         <div style="text-align:center;margin:0 0 16px">
-          <a href="${esc(APP())}" style="display:inline-block;background:#111;color:#84e3d3;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;padding:14px 26px;border-radius:999px">👉 Apri KeyFlow e registra</a>
+          <a href="${esc(APP() + "/apri")}" style="display:inline-block;background:#111;color:#84e3d3;text-decoration:none;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;padding:14px 26px;border-radius:999px">👉 Apri KeyFlow e registra</a>
         </div>
         <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#777;text-align:center;margin-bottom:14px">🔔 Ti riscrivo ogni mattina finché non sono registrati.</div>
       </td></tr>

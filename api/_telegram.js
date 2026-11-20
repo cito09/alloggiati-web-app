@@ -45,7 +45,7 @@ const tokenValido = (t) => /^\d{5,15}:[A-Za-z0-9_-]{30,60}$/.test(String(t || ""
 async function manda(d, testo) {
   return chiama(d.token, "sendMessage", {
     chat_id: d.chatId, text: testo, disable_web_page_preview: true,
-    reply_markup: { inline_keyboard: [[{ text: "👉 Apri KeyFlow", url: APP() }]] },
+    reply_markup: { inline_keyboard: [[{ text: "👉 Apri KeyFlow", url: APP() + "/apri" }]] },   // /apri = si apre l'app, non il browser
   });
 }
 

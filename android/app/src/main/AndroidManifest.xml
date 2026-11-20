@@ -48,6 +48,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- i pulsanti "Apri KeyFlow" di Telegram, delle notifiche e dell'email puntano a /apri:
+                 questi link (e SOLO questi) si aprono nell'app invece che nel browser -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="keyflowcheckin.vercel.app" android:pathPrefix="/apri" />
+            </intent-filter>
         </activity>
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />

@@ -778,7 +778,7 @@ async function avvisaSenzaDati(conn, stato) {
   ].join("\n");
   try {
     await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, { method: "POST",
-      headers: { Title: "Prenotazioni da completare", Tags: "mailbox_with_no_mail", Click: process.env.APP_URL || "https://keyflowcheckin.vercel.app" }, body: testo });
+      headers: { Title: "Prenotazioni da completare", Tags: "mailbox_with_no_mail", Click: (process.env.APP_URL || "https://keyflowcheckin.vercel.app") + "/apri" }, body: testo });
   } catch { /* si vede comunque in KeyFlow */ }
   return lista;
 }

@@ -34,5 +34,12 @@
       "source": "/r/:codice",
       "destination": "/ricevuta.html"
     }
+  ],
+  "redirects": [
+    {
+      "source": "/apri",
+      "destination": "/index.html",
+      "permanent": false
+    }
   ]
 }
