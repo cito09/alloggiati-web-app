@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0c">
+<meta name="robots" content="noindex">
+<title>KeyFlow</title>
+<!--
+  /apri (rewrite in vercel.json): il link dei pulsanti "👉 Apri KeyFlow" (Telegram, email, notifiche).
+  20/11/2026, l'utente: "mi apre browser non app". L'app Android 2.1 prende questo link da sola
+  (intent-filter /apri) quando Android l'ha verificato; se invece si apre nel browser (verifica non
+  ancora fatta, browser interno di Telegram, app vecchia) questa pagina:
+  - dentro l'app (schermo intero / ?app=1) → va subito al gestionale;
+  - su Android nel browser → prova ad aprire l'app (intent col pacchetto, non serve la verifica) e
+    mostra il pulsante grande "Apri nell'app"; senza app installata si resta nel browser;
+  - altrove (iPhone, computer) → va subito al gestionale.
+-->
+<style>
+  :root{color-scheme:dark}
+  html,body{margin:0;background:#0a0a0c;color:#f2f2f4;font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+  .box{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;text-align:center;gap:14px}
+  .ico{width:84px;height:84px;border-radius:24px;background:linear-gradient(135deg,#ffcd5a,#ffba0e);display:flex;align-items:center;justify-content:center;font-size:44px}
+  h1{font-size:22px;margin:6px 0 0}
+  p{margin:0;color:#a9a9b2;font-size:14.5px;line-height:1.5;max-width:320px}
+  .btn{display:block;width:100%;max-width:320px;box-sizing:border-box;padding:16px 18px;border-radius:18px;font-weight:800;font-size:17px;text-decoration:none}
+  .pri{background:#84e3d3;color:#0a0a0c;margin-top:10px}
+  .sec{color:#f2f2f4;background:#1c1c21;font-weight:600;font-size:15px}
+  .nasc{display:none}
+</style>
+</head>
+<body>
+<div class="box nasc" id="box">
+  <div class="ico">🔑</div>
+  <h1>KeyFlow</h1>
+  <p>Tocca qui sotto per aprire KeyFlow nell'app.</p>
+  <a class="btn pri" id="apri" href="/index.html">📲 Apri nell'app KeyFlow</a>
+  <a class="btn sec" href="/index.html">Continua qui nel browser</a>
+</div>
+<script>
+(function(){
+  var q = location.search || "";
+  var nellApp = /[?&]app=1\b/.test(q)
+    || (window.matchMedia && matchMedia("(display-mode: standalone)").matches)
+    || /^android-app:\/\/app\.keyflow\.gestionale/.test(document.referrer || "");
+  var android = /Android/i.test(navigator.userAgent || "");
+  if (nellApp || !android) { location.replace("/index.html"); return; }
+  // intent col nome del pacchetto: apre l'app anche se Android non ha ancora verificato il link;
+  // ?app=1 = arrivato dall'app (niente giri a vuoto); senza app installata resta nel browser
+  var dove = "https://" + location.host + "/index.html";
+  var intent = "intent://" + location.host + "/apri?app=1#Intent;scheme=https;package=app.keyflow.gestionale;"
+    + "S.browser_fallback_url=" + encodeURIComponent(dove) + ";end";
+  document.getElementById("apri").setAttribute("href", intent);
+  document.getElementById("box").classList.remove("nasc");
+  try { location.href = intent; } catch (e) { /* resta il pulsante */ }
+})();
+</script>
+</body>
+</html>
