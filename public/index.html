@@ -463,6 +463,13 @@
   .og-seg.in .og-num{color:var(--amber)} .og-seg.out .og-num{color:#ffb36b}
   .og-seg.zero .og-num{color:var(--muted)}
   .og-chi{font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%}
+  /* casa per casa: pallino col colore della casa (verde Alba Loft, rosso Falegnami) */
+  .og-case{display:flex; flex-direction:column; gap:2px; min-width:0; width:100%; max-width:210px}
+  .og-c{display:flex; align-items:center; gap:5px; font-size:11.5px; line-height:1.3; color:var(--muted); min-width:0}
+  .og-c i{width:7px; height:7px; border-radius:50%; flex:0 0 auto}
+  .og-cn{flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .og-c b{flex:0 0 auto; font-size:13px; font-weight:800; color:var(--ink)}
+  .og-c.zero{opacity:.6} .og-c.zero b{color:var(--muted)}
   @keyframes urgenzaPulsa{0%,100%{box-shadow:inset 0 0 0 2px rgba(239,71,111,.95)}50%{box-shadow:inset 0 0 0 2px rgba(239,71,111,.25)}}
   .gcal-head{display:flex; align-items:center; gap:7px; margin-bottom:10px}
   .gcal-head .mese{flex:1; font-size:15.5px; font-weight:800; text-transform:capitalize; letter-spacing:-.01em}
@@ -14780,7 +14787,14 @@ function copiaLinkCheckin(link,btnId){
     document.body.removeChild(ta);
   }
 }
-let checkinPending=[];
+// copia sul telefono dei check-in in attesa (26/11/2026, l'utente: "quando entro cambia i numeri,
+// vorrei che siano già a posto"): la Home parte con quelli dell'ultima volta, poi arrivano quelli
+// del server. Come lo storico, resta solo su questo telefono e si cancella uscendo dal gestionale.
+let checkinPending=(()=>{ try{ const l=JSON.parse(localStorage.getItem('checkin_coda_cache')||'null'); return Array.isArray(l)?l:[]; }catch(e){ return []; } })();
+function salvaCodaLocale(){
+  if(typeof teamRistretto==='function'&&teamRistretto())return;
+  try{ const t=JSON.stringify(checkinPending); if(t.length<1500000)localStorage.setItem('checkin_coda_cache',t); else localStorage.removeItem('checkin_coda_cache'); }catch(e){}
+}
 async function loadCheckinPending(){
   try{
     const r=await fetch('/api/checkin-pending',{headers:adminHeaders()}); const data=await r.json();
@@ -14887,6 +14901,7 @@ async function segnaIdentita(dove,chiave,modo){
   }catch(err){ e.identita=prima; salvaStorico(); renderStorico(); toast('⚠️ Non salvato: '+err.message); }
 }
 function renderCheckinPending(soloLista){
+  salvaCodaLocale();
   const w=$('#checkinList'); const badge=$('#checkinBadge'); if(!w)return;
   if(badge){ if(checkinPending.length){badge.textContent=checkinPending.length;badge.style.display='';} else badge.style.display='none'; }
   const tb=$('#tabBadgeOspiti'); if(tb){ if(checkinPending.length){tb.textContent=checkinPending.length;tb.style.display='flex';} else tb.style.display='none'; }
@@ -15667,7 +15682,10 @@ function copiaDriveScript(){
   try{ navigator.clipboard.writeText(ta.value).then(()=>toast('Codice copiato ✓')); }
   catch(e){ document.execCommand('copy'); toast('Codice copiato ✓'); }
 }
-let struttureList=[];
+// copia sul telefono dell'elenco delle case (26/11/2026): senza, al primo disegno della Home le
+// prenotazioni di Airbnb non si riconoscevano come la stessa casa dei check-in e si contavano due
+// volte ("In casa 12" che dopo un attimo diventava 9, recensioni da fare che poi sparivano)
+let struttureList=(()=>{ try{ const l=JSON.parse(localStorage.getItem('strutture_cache')||'null'); return Array.isArray(l)?l:[]; }catch(e){ return []; } })();
 /* ===== colore per struttura: per riconoscerla a colpo d'occhio (Ospiti in attesa, Storico).
    Canazei/Alba = verde, Bologna/Falegnami = rosso (stessi colori già usati nelle notifiche
    push); altre eventuali strutture prendono un colore stabile da una piccola tavolozza,
@@ -15686,6 +15704,7 @@ async function loadStrutture(){
   try{const r=await fetch('/api/strutture');const data=await r.json();
     const list=(data.strutture||[]);
     struttureList=list;
+    try{ localStorage.setItem('strutture_cache',JSON.stringify(list.map(x=>({id:x.id, nome:x.nome, ross:x.ross})))); }catch(e){}
     if(list.length>1){
       const preferita=localStorage.getItem('strutturaPreferita')||'canazei';
       const opts=list.map(s=>`<option value="${s.id}" ${s.id===preferita?'selected':''}>${s.nome}</option>`).join('');
@@ -16360,9 +16379,10 @@ document.addEventListener('visibilitychange',()=>{
   riprovaRossAutomatica();                  // Ross1000 in coda: al rientro si riprova (al massimo ogni 10 minuti)
   if(via<RIPRESA_MS)return;                 // uscita breve (foto, copia di un codice): resta dov'era
   allarmeGiaVisto=false;                    // check-in in scadenza: l'avviso si rivede al rientro
-  try{ syncStoricoFromServer(); loadCheckinPending(); geisCarica(); caricaCalendariEsterni(); caricaPulizie(); caricaEventi(); }catch(e){}
-  if(registrazioneAMeta()){ aggiornaOggi(); return; }
-  tornaAllaHome();
+  // subito la Home coi dati che ci sono (anche se nel frattempo è cambiato il giorno), poi quelli
+  // nuovi dal server tutti insieme: i numeri cambiano al massimo una volta, non a scatti
+  if(registrazioneAMeta())aggiornaOggi(); else tornaAllaHome();
+  aspettaDatiHome(()=>[syncStoricoFromServer(), loadCheckinPending(), geisCarica(), caricaCalendariEsterni(), caricaPulizie(), caricaEventi()]);
 });
 
 /* ===== tasto Indietro di Android/browser: naviga DENTRO l'app invece di uscire =====
@@ -17366,6 +17386,7 @@ function riquadriSezioni(){
 }
 function renderSezioniHome(){
   const w=$('#homeSezioni'); if(!w)return;
+  if(w.innerHTML&&homeInAttesa())return;   // all'apertura: si ridisegna una volta sola, a dati arrivati
   const tiles=riquadriSezioni();
   const daGuardare=tiles.filter(t=>t.st==='att'||t.st==='urg').length, urg=tiles.some(t=>t.st==='urg');
   w.innerHTML=`<div class="zona-tit"><b>Da gestire</b><span${urg?' class="urg"':''}>${daGuardare?`${urg?'🚨 ':''}${daGuardare} da guardare`:'✓ tutto a posto'}</span></div>
@@ -18075,25 +18096,62 @@ function eventiCalendario(){
 // (frecce ➡️/⬅️ e mai pallini rossi/verdi: si confondevano coi colori delle case)
 function renderSintesi(){
   const w=$('#dashSintesi'); if(!w)return;
+  if(w.innerHTML&&homeInAttesa())return;   // all'apertura: si ridisegna una volta sola, a dati arrivati
   const oggi=new Date(); const mezzogiorno=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate(),12);
   const sogg=soggiorniHome();
   const delGiorno=(eventiCalendario()[dataKey(oggi)]||[]);
   const nomeDi=e=>e.nomeBreve||(e.esterna?'Ospite Airbnb':calNomeCorto(e.nome));
-  const elenco=l=>!l.length?'nessuno':l.slice(0,2).map(nomeDi).join(', ')+(l.length>2?` +${l.length-2}`:'');
+  const elenco=l=>l.slice(0,2).map(nomeDi).join(', ')+(l.length>2?` +${l.length-2}`:'');
   const arr=delGiorno.filter(e=>e.tipo==='a'), par=delGiorno.filter(e=>e.tipo==='p');
   const dentro=sogg.filter(s=>s.arrivo<=mezzogiorno&&(!s.partenza||s.partenza>mezzogiorno));
-  const inCasa=dentro.reduce((a,s)=>a+(s.esterna?(s.ospiti||0):(s.ospiti||1)),0);   // da Airbnb solo se l'email lo dice
-  const case_=[...new Set(dentro.map(casaDelSoggiorno))];
+  const persone=s=>s.esterna?(s.ospiti||0):(s.ospiti||1);   // da Airbnb solo se l'email lo dice
+  const inCasa=dentro.reduce((a,s)=>a+persone(s),0);
+  // casa per casa (26/11/2026, l'utente: "in casa vorrei la distinzione tra i due appartamenti,
+  // così faccio fatica a capire"): le case nell'ordine del calendario, col loro colore
+  const case_=[...struttureList.map(x=>x.nome).filter(Boolean)];
+  [...dentro,...arr,...par].forEach(e=>{ const c=casaDelSoggiorno(e); if(!case_.includes(c))case_.push(c); });
+  const dellaCasa=(l,c)=>l.filter(e=>casaDelSoggiorno(e)===c);
+  const pallino=c=>`<i style="background:${strutturaInfo(c).colore}"></i>`;
+  // Check-in / Check-out: una riga per ogni casa che ha qualcuno, col pallino della casa
+  const nomiPerCasa=l=>{
+    const righe=case_.map(c=>({c, l:dellaCasa(l,c)})).filter(x=>x.l.length);
+    return righe.length?`<span class="og-case">${righe.map(x=>`<span class="og-c" title="${escAttr(x.c)}">${pallino(x.c)}<span class="og-cn">${escText(elenco(x.l))}</span></span>`).join('')}</span>`
+      :'<span class="og-chi">nessuno</span>';
+  };
+  // In casa: tutte le case, ognuna col suo numero (0 = libera; ? = prenotazione Airbnb senza il numero)
+  const perCasa=`<span class="og-case">${case_.filter(c=>c!=='Casa non indicata'||dellaCasa(dentro,c).length).map(c=>{
+      const l=dellaCasa(dentro,c), n=l.reduce((a,s)=>a+persone(s),0), ignoto=l.some(s=>!persone(s));
+      return `<span class="og-c${l.length?'':' zero'}" title="${escAttr(c)}">${pallino(c)}<span class="og-cn">${escText(casaBreve(c))}</span><b>${n?n+(ignoto?'+':''):(ignoto?'?':'0')}</b></span>`;
+    }).join('')}</span>`;
   const data=oggi.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
   const seg=(cls,ico,et,num,sotto)=>`<button class="og-seg ${cls}${num?'':' zero'}" onclick="calVaiOggi()">
-      <span class="og-top"><span class="og-ico">${ico}</span>${et}</span><b class="og-num">${num}</b>
-      <span class="og-chi">${escText(sotto)}</span></button>`;
+      <span class="og-top"><span class="og-ico">${ico}</span>${et}</span><b class="og-num">${num}</b>${sotto}</button>`;
   w.innerHTML=`<div class="zona-tit"><b>Oggi</b><span>${escText(maiuscola(data))}</span></div>
     <div class="oggi-pan">
-      ${seg('in','➡️','Check-in',arr.length,elenco(arr))}
-      ${seg('out','⬅️','Check-out',par.length,elenco(par))}
-      ${seg('casa','🛏️','In casa',inCasa,case_.length?case_.map(casaBreve).join(', '):'case libere')}
+      ${seg('in','➡️','Check-in',arr.length,nomiPerCasa(arr))}
+      ${seg('out','⬅️','Check-out',par.length,nomiPerCasa(par))}
+      ${seg('casa','🛏️','In casa',inCasa,perCasa)}
     </div>`;
+}
+/* ===== i numeri della Home non "ballano" all'apertura (26/11/2026, l'utente: "quando entro
+   nell'app cambia i numeri, vorrei che quando entro siano già a posto"). Prima ogni risposta del
+   server (case, archivio, check-in, calendari, recensioni…) ridisegnava "Oggi" e "Da gestire" per
+   conto suo: i numeri cambiavano 3-4 volte di fila. Ora la Home parte dalla copia sul telefono
+   (giusta quasi sempre: è quella dell'ultima apertura, contata per oggi) e, mentre arrivano i dati,
+   i due riquadri restano fermi; poi si ridisegnano UNA volta sola (al massimo dopo 5 secondi). ===== */
+var homeFerma=0, homeDaRifare=false, homeTurno=0;   // var: niente "non ancora definita" se qualcuno disegna prima
+function homeInAttesa(){ if(homeFerma){ homeDaRifare=true; return true; } return false; }
+function aspettaDatiHome(avvia,maxMs){
+  const turno=++homeTurno; homeFerma=turno; homeDaRifare=false;
+  const fine=()=>{
+    if(homeFerma!==turno)return;
+    homeFerma=0;
+    if(homeDaRifare){ homeDaRifare=false; renderSintesi(); renderSezioniHome(); }
+  };
+  let promesse=[];
+  try{ promesse=(avvia()||[]).filter(Boolean); }catch(e){}
+  Promise.allSettled(promesse).then(fine);
+  setTimeout(fine,maxMs||5000);
 }
 function vaiDaFare(){ vaiSezione('oggiTodoCard'); }
 function calVaiOggi(){
@@ -19167,6 +19225,7 @@ function uscitaGestionale(){
   if(!confirm(window.TEAM?'Uscire da KeyFlow? Dovrai reinserire il tuo codice d\'accesso.':'Uscire dal gestionale? Dovrai reinserire il codice d\'accesso.'))return;
   localStorage.removeItem('adminCode'); localStorage.removeItem('teamCode');
   sessionStorage.removeItem('adminCode');
+  localStorage.removeItem('checkin_coda_cache');
   location.reload();
 }
 async function recuperaCheckinPersi(){
@@ -19338,29 +19397,34 @@ function apriCard(id){
   if(teamRistretto()){ avviaTeam(); return; }   // collaboratore: solo quello che gli è permesso
   initCardToggles();
   document.body.classList.add('ready');
+  try{ geisDati=JSON.parse(localStorage.getItem('geis_cache')||'null'); }catch(e){}
+  renderStorico();
+  renderCheckinPending(true);   // la copia sul telefono: elenco e pallini giusti subito (la Home la disegna mostraTab)
   mostraTab('oggi');   // si riparte sempre dalla Home, non dall'ultima scheda usata
-  const strutturePronte=loadStrutture();
   wireDropzone();
   wireChangeCodeForm();
-  renderStorico();
-  const storicoPronto=syncStoricoFromServer();
-  // Ross1000 rimasti indietro (la Regione non rispondeva): appena si sa quali sono, li rimando
-  Promise.all([strutturePronte,storicoPronto]).then(()=>riprovaRossAutomatica()).catch(()=>{});
-  strutturePronte.then(()=>caricaCalendariEsterni()).catch(()=>{});   // prenotazioni di Airbnb in anticipo
+  // i dati veri dal server: "Oggi" e "Da gestire" si ridisegnano una volta sola, quando ci sono tutti
+  aspettaDatiHome(()=>{
+    const strutturePronte=loadStrutture();
+    const storicoPronto=syncStoricoFromServer();
+    // Ross1000 rimasti indietro (la Regione non rispondeva): appena si sa quali sono, li rimando
+    Promise.all([strutturePronte,storicoPronto]).then(()=>riprovaRossAutomatica()).catch(()=>{});
+    const calendariPronti=strutturePronte.then(()=>caricaCalendariEsterni()).catch(()=>{});   // prenotazioni di Airbnb in anticipo
+    return [strutturePronte, storicoPronto, calendariPronti,
+      caricaRecensioniStato(),   // Home → Recensioni: cosa è già copiato/fatto (uguale su tutti i dispositivi)
+      caricaPulizie(),           // Home → 🧹 Pulizie di oggi e domani, col messaggio per il gruppo WhatsApp
+      caricaEventi(),            // calendario → promemoria e chiusure scritti a mano, motivo delle date bloccate
+      geisCarica(),
+      loadCheckinPending()];
+  });
   caricaRicevuteFatte();
-  caricaRecensioniStato();   // Home → Recensioni: cosa è già copiato/fatto (uguale su tutti i dispositivi)
   caricaOrariCase();         // orari di check-in/check-out delle case, per il riepilogo della prenotazione
-  caricaPulizie();           // Home → 🧹 Pulizie di oggi e domani, col messaggio per il gruppo WhatsApp
-  caricaEventi();            // calendario → promemoria e chiusure scritti a mano, motivo delle date bloccate
   misuraIntestazione();      // per le scorciatoie fisse della Home e il menu a sinistra sul computer
   caricaIstatConfig();
   isRenderStorico();
   isWireDrop();
-  try{ geisDati=JSON.parse(localStorage.getItem('geis_cache')||'null'); }catch(e){}
-  geisCarica();
   osservaBlobProtetti();
   loadCheckinLink();
-  loadCheckinPending();
   addBooking();
 })();
 </script>
