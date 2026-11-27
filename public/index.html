@@ -17079,8 +17079,24 @@ var pulSettAperto=true;
    d'entrata, ogni 3 ore finché non l'ho fatto, su Telegram perché WhatsApp non si poteva").
    Bot dell'host (BotFather) → token in KV (azione telegram, solo titolare) → link "Avvia" col codice
    → "Ho premuto Avvia" (il server trova la chat) → collegato. I promemoria li manda il server
-   (api/_telegram.js), chiamato ogni ora da GitHub. ===== */
+   (api/_telegram.js), chiamato ogni ora dalle 10 alle 22 dallo Schedules di Vercel (prima solo da
+   GitHub, che partiva 2-3 volte al giorno: 27/11/2026, "perché non mi arrivano le notifiche").
+   Sotto "Collegato" la riga dell'ultimo controllo (tgControllo): se si ferma si vede subito. ===== */
 let tgStato=null;
+function tgQuando(ts){
+  const d=new Date(ts), oggi=new Date(); const g0=new Date(oggi.getFullYear(),oggi.getMonth(),oggi.getDate()).getTime();
+  const ora=d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  const diff=Math.floor((g0-new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime())/86400000);
+  return (diff===0?'oggi':diff===1?'ieri':d.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'numeric'}))+' alle '+ora;
+}
+function tgControllo(c){
+  const st='font-size:12.5px;line-height:1.5;margin-top:10px';
+  if(!c||!c.ts)return `<div class="muted" style="${st}">🕐 Il controllo automatico non è ancora partito: il primo arriva entro un'ora (dalle 10 alle 22).</div>`;
+  const h=new Date().getHours(), fermo=Date.now()-c.ts>3*3600000&&h>=11&&h<=23;
+  const riga=`🕐 Ultimo controllo automatico: <b>${tgQuando(c.ts)}</b>${c.mandato?` · ultimo promemoria ${tgQuando(c.mandato)}`:''}`;
+  return fermo?`<div style="${st};color:var(--err)">⚠️ Il controllo automatico è fermo: l'ultimo è di ${tgQuando(c.ts)}. Di giorno dovrebbe passare ogni ora.</div>`
+    :`<div class="muted" style="${st}">${riga}<br>Controllo ogni ora dalle 10 alle 22: se c'è qualcuno da registrare, ti scrivo ogni 3 ore.</div>`;
+}
 async function chiamaTelegram(corpo){
   const r=await fetch('/api/promemoria',{method:'POST',headers:adminHeaders({'Content-Type':'application/json'}),body:JSON.stringify({azione:'telegram',...corpo})});
   const d=await r.json().catch(()=>({}));
@@ -17092,6 +17108,7 @@ function renderTelegram(){
   const c=$('#tgCorpo'); if(!c)return; const d=tgStato||{};
   if(d.collegato){
     c.innerHTML=`<div class="tg-ok">✅ <b>Collegato</b> · il bot <b>@${escText(d.bot&&d.bot.username||'')}</b> scrive${d.chi?` a <b>${escText(d.chi)}</b>`:''}</div>
+      ${tgControllo(d.controllo)}
       <button class="btn primary" style="margin-top:12px" onclick="provaTelegram(this)">🔔 Mandami una prova</button>
       <button class="btn ghost sm" style="margin-top:14px" onclick="scollegaTelegram()">Scollega Telegram</button>`;
     return;

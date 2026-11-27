@@ -1,7 +1,9 @@
 # Promemoria su Telegram dei check-in da registrare (api/_telegram.js).
-# Vercel (piano gratuito) fa partire il cron solo una volta al giorno: questo lo chiama ogni ora.
+# RISERVA: dal 27/11/2026 il controllo ogni ora lo fa lo "Schedules" di Vercel (vercel.json →
+# schedules.promemoria-telegram). Questo di GitHub, pur chiedendo "ogni ora", partiva solo 2-3 volte
+# al giorno a orari a caso; resta solo come seconda chiamata nel caso Vercel si fermi.
 # Il server decide da solo se è il momento (dalle 16 il giorno dell'arrivo, poi ogni 3 ore fino
-# alle 22) e non manda mai due promemoria a meno di 3 ore: chiamarlo più spesso non cambia niente.
+# alle 22) e non manda mai due promemoria a meno di 2h30: chiamarlo in più non cambia niente.
 name: Promemoria check-in (Telegram)
 on:
   schedule:

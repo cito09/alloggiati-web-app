@@ -10,6 +10,14 @@
       "schedule": "0 8 * * *"
     }
   ],
+  "schedules": {
+    "promemoria-telegram": {
+      "schedule": "5 10-22 * * *",
+      "timezone": "Europe/Rome",
+      "path": "/api/promemoria-ore",
+      "requestMethod": "GET"
+    }
+  },
   "headers": [
     {
       "source": "/.well-known/assetlinks.json",
@@ -37,6 +45,10 @@
     {
       "source": "/apri",
       "destination": "/apri.html"
+    },
+    {
+      "source": "/api/promemoria-ore",
+      "destination": "/api/promemoria?ogni3ore=1"
     }
   ]
 }

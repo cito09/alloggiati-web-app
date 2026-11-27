@@ -9,16 +9,22 @@
 // - Orari: il giorno dell'arrivo dalle 16:00 (16, 19, 22); se resta indietro, dal giorno dopo
 //   dalle 10:00 alle 22:00 (10, 13, 16, 19, 22); di notte niente. Ogni promemoria a 3 ore dal
 //   precedente, finché il soggiorno non è registrato (o finché il check-in non sparisce).
-// - Chi lo fa partire: Vercel Hobby permette il cron solo una volta al giorno, quindi lo chiama
-//   ogni ora GitHub (.github/workflows/promemoria-ore.yml) con GET /api/promemoria?ogni3ore=1.
-//   Senza codice: non mostra dati, e il server non manda mai due promemoria a meno di 3 ore
-//   (chiamarlo più spesso non cambia niente).
+// - Chi lo fa partire: lo "Schedules" di Vercel (vercel.json → schedules.promemoria-telegram, ogni ora
+//   dalle 10 alle 22 ora italiana, path /api/promemoria-ore = /api/promemoria?ogni3ore=1). Prima lo
+//   chiamava SOLO GitHub ogni ora, ma GitHub lo faceva partire 2-3 volte al giorno a orari a caso,
+//   spesso di notte (27/11/2026, l'utente: "perché non mi arrivano le notifiche"; dal 20 al 27/11
+//   28 partenze invece di ~240): GitHub resta come riserva. Senza codice: non mostra dati, e il
+//   server non manda mai due promemoria a meno di 2h30 (chiamarlo più spesso non cambia niente).
+//   Ogni controllo resta scritto in KV "telegram_controllo" e si vede nella pagina delle Impostazioni.
 const { redisCmd } = require("./_kv");
 
 const KEY = "telegram";                 // { token, bot:{username, nome}, chatId, chi, codice, collegato }
 const KEY_ULTIMI = "telegram_promemoria"; // { chiave: ts dell'ultimo promemoria }
+const KEY_CONTROLLO = "telegram_controllo"; // { ts, da:"vercel"|"github"|…, n, mandato } dell'ultimo controllo automatico
 const API = "https://api.telegram.org";
-const TRE_ORE = 3 * 3600000 - 10 * 60000;   // 2h50: le chiamate di GitHub possono arrivare qualche minuto prima o dopo
+// 2h30: Vercel chiama ogni ora ma con un ritardo a caso fino a 15 minuti (piano gratuito). Con 2h50
+// un promemoria delle 16:15 bloccava quello delle 19:05 e il successivo arrivava alle 20 (4 ore dopo).
+const TRE_ORE = 2.5 * 3600000;
 const APP = () => process.env.APP_URL || "https://keyflowcheckin.vercel.app";
 
 async function leggi(conn) {
@@ -52,8 +58,11 @@ async function manda(d, testo) {
 // Impostazioni → 📲 Promemoria su Telegram. op: stato | token | verifica | prova | togli
 async function azioneTelegram(conn, { op, token } = {}, elencoPromemoria) {
   const d = await leggi(conn);
+  let controllo = null;
+  try { const raw = await redisCmd(conn, ["GET", KEY_CONTROLLO]); controllo = raw ? JSON.parse(raw) : null; } catch { controllo = null; }
   const vista = () => ({ ok: true, collegato: !!(d.token && d.chatId), bot: d.bot || null, chi: d.chi || "",
-    attesa: !!(d.token && !d.chatId), link: d.token && !d.chatId && d.bot ? `https://t.me/${d.bot.username}?start=${d.codice}` : "" });
+    attesa: !!(d.token && !d.chatId), link: d.token && !d.chatId && d.bot ? `https://t.me/${d.bot.username}?start=${d.codice}` : "",
+    controllo: controllo && controllo.ts ? { ts: controllo.ts, da: controllo.da || "", mandato: controllo.mandatoTs || 0 } : null });
   if (op === "token") {
     const t = String(token || "").trim();
     if (!tokenValido(t)) return { ok: false, error: "Non sembra il codice giusto: copialo intero dal messaggio di BotFather (numeri, due punti, lettere)" };
@@ -91,7 +100,7 @@ async function azioneTelegram(conn, { op, token } = {}, elencoPromemoria) {
     try { await manda(d, testo); } catch (e) { return { ok: false, error: "Non sono riuscito a mandarlo: " + e.message }; }
     return { ...vista(), provaMandata: true };
   }
-  if (op === "togli") { await redisCmd(conn, ["DEL", KEY]); await redisCmd(conn, ["DEL", KEY_ULTIMI]); return { ok: true, collegato: false, bot: null }; }
+  if (op === "togli") { await redisCmd(conn, ["DEL", KEY]); await redisCmd(conn, ["DEL", KEY_ULTIMI]); await redisCmd(conn, ["DEL", KEY_CONTROLLO]); return { ok: true, collegato: false, bot: null }; }
   return vista();
 }
 
@@ -119,12 +128,24 @@ function dovuti(voci, ora) {
   return voci.filter((v) => (v.g === 0 ? ora >= 16 : true));
 }
 
-// chiamata ogni ora: manda il promemoria se c'è qualcosa da registrare e sono passate 3 ore
-// dall'ultimo per almeno uno dei soggiorni. elencoPromemoria() = [{chiave, casa, emoji, nomi, g, senzaCheckin}]
-async function promemoriaOgniTreOre(conn, elencoPromemoria, adesso = new Date()) {
+// chiamata ogni ora: manda il promemoria se c'è qualcosa da registrare e sono passate almeno 2h30
+// (in pratica 3 ore, con le chiamate ogni ora) dall'ultimo per almeno uno dei soggiorni. elencoPromemoria() = [{chiave, casa, emoji, nomi, g, senzaCheckin}]
+async function promemoriaOgniTreOre(conn, elencoPromemoria, adesso = new Date(), da = "") {
   const d = await leggi(conn);
   if (!(d.token && d.chatId)) return { ok: true, configurato: false };
   const voci = dovuti(await elencoPromemoria(), oraRoma(adesso));
+  const r = await mandaSeServe(conn, d, voci, adesso);
+  // resta scritto quando è passato l'ultimo controllo (e da chi), per vederlo nelle Impostazioni
+  try {
+    let prima = {};
+    try { const raw = await redisCmd(conn, ["GET", KEY_CONTROLLO]); prima = raw ? JSON.parse(raw) || {} : {}; } catch { prima = {}; }
+    await redisCmd(conn, ["SET", KEY_CONTROLLO, JSON.stringify({ ts: adesso.getTime(), da, n: voci.length,
+      mandatoTs: r.mandato ? adesso.getTime() : (prima.mandatoTs || 0) })]);
+  } catch { /* solo informativo */ }
+  console.log("telegram controllo", JSON.stringify({ da, ora: oraRoma(adesso), soggiorni: voci.length, mandato: !!r.mandato }));
+  return r;
+}
+async function mandaSeServe(conn, d, voci, adesso) {
   let ultimi = {};
   try { const raw = await redisCmd(conn, ["GET", KEY_ULTIMI]); ultimi = raw ? JSON.parse(raw) || {} : {}; } catch { ultimi = {}; }
   // via i soggiorni che non sono più da registrare

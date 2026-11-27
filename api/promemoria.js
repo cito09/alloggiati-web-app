@@ -653,13 +653,19 @@ module.exports = async (req, res) => {
     }
   }
 
-  // GET ?ogni3ore=1: promemoria su Telegram dei check-in da registrare. Lo chiama ogni ora GitHub
-  // (.github/workflows/promemoria-ore.yml): Vercel Hobby fa partire il cron solo una volta al giorno.
-  // Senza codice: risponde solo sì/no e non manda mai due promemoria a meno di 3 ore (api/_telegram.js).
-  if (req.method === "GET" && req.query && req.query.ogni3ore) {
+  // GET ?ogni3ore=1: promemoria su Telegram dei check-in da registrare. Lo chiama ogni ora lo
+  // "Schedules" di Vercel (vercel.json → schedules.promemoria-telegram, path /api/promemoria-ore
+  // riscritto qui con ?ogni3ore=1) e, come riserva, GitHub (.github/workflows/promemoria-ore.yml).
+  // ⚠️ Una chiamata dello schedule "promemoria-telegram" non deve MAI finire nel cron del mattino qui
+  // sotto (Vercel manda anche a lei il CRON_SECRET): si riconosce anche dal nome nell'intestazione.
+  // Senza codice: risponde solo sì/no e non manda mai due promemoria a meno di 2h30 (api/_telegram.js).
+  const daSchedule = String(req.headers["ce-vssschedulename"] || "") === "promemoria-telegram";
+  if (req.method === "GET" && ((req.query && req.query.ogni3ore) || daSchedule || /promemoria-ore/.test(String(req.url || "")))) {
     if (!conn) return res.status(200).json({ ok: true, configurato: false });
     try {
-      const r = await promemoriaOgniTreOre(conn, () => elencoPromemoriaOre(conn));
+      const ua = String(req.headers["user-agent"] || "");
+      const da = daSchedule || /vercel-cron/i.test(ua) ? "vercel" : /curl/i.test(ua) ? "github" : "altro";
+      const r = await promemoriaOgniTreOre(conn, () => elencoPromemoriaOre(conn), new Date(), da);
       return res.status(200).json({ ok: !!r.ok, mandato: !!r.mandato });
     } catch (e) {
       console.log("telegram ogni3ore non riuscito", String((e && e.message) || e));
